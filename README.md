@@ -1,4 +1,1 @@
-EmulationStation
-================
-
-A simple front-end for the RetroArch emulator, designed for controller navigation.
+This repository is only for building Windows Releases for Retrobat ( https://www.retrobat.ovh )
