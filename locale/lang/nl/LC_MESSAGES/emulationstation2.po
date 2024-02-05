@@ -3,7 +3,7 @@ msgstr ""
 "Project-Id-Version: emulationstation\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2021-12-15 23:48+0100\n"
-"PO-Revision-Date: 2024-01-11 12:23+0000\n"
+"PO-Revision-Date: 2024-02-04 13:20+0000\n"
 "Last-Translator: THa MuSHeR\n"
 "Language-Team: Dutch (Netherlands)\n"
 "Language: nl-NL\n"
@@ -1051,6 +1051,15 @@ msgstr "GEEN ONTBREKENDE BIOS BESTANDEN"
 msgid "MISSING BIOS CHECK"
 msgstr "CHECK ONTBREKENDE BIOS"
 
+msgid "Installed systems"
+msgstr "Geïnstalleerde systemen"
+
+msgid "All"
+msgstr "Alle"
+
+msgid "refresh"
+msgstr "vernieuw"
+
 msgid "NO MISSING BIOS"
 msgstr "GEEN ONTBREKENDE BIOS"
 
@@ -1370,9 +1379,6 @@ msgstr "THEMA DOWNLOADER"
 
 msgid "SELECT THEMES TO INSTALL/REMOVE"
 msgstr "SELECTEER THEMA'S OM TE INSTALLEREN/VERWIJDEREN"
-
-msgid "All"
-msgstr "Alle"
 
 msgid "Installed"
 msgstr "Geïnstalleerd"
@@ -1852,6 +1858,24 @@ msgstr "IMAGE CACHE OPBOUWEN"
 msgid "Building image cache"
 msgstr "Image cache opbouwen"
 
+msgid "DISPLAY SETTINGS"
+msgstr "BEELDSCHERMINSTELLINGEN"
+
+msgid "MENU FONT SCALE"
+msgstr "MENU LETTERTYPESCHAAL"
+
+msgid "FONT SCALE"
+msgstr "LETTERTYPESCHAAL"
+
+msgid "THEME FONT SCALE"
+msgstr "THEMA LETTERTYPESCHAAL"
+
+msgid "FULL SCREEN MENUS"
+msgstr "MENU'S OP VOLLEDIG SCHERM"
+
+msgid "FORCE SMALL SCREEN THEMING"
+msgstr "FORCEER KLEIN SCHERM THEMA"
+
 msgid "DATA MANAGEMENT"
 msgstr "DATA BEHEER"
 
@@ -1970,6 +1994,9 @@ msgstr "OPTIMALISEER GEBRUIK VRAM GEBRUIK AFBEELDINGEN"
 
 msgid "OPTIMIZE VIDEO VRAM USAGE"
 msgstr "OPTIMALISEER GEBRUIK VIDEO VRAM"
+
+msgid "REBOOT REQUIRED TO APPLY THE NEW CONFIGURATION"
+msgstr "HERSTART BENODIGD OM DE NIEUWE CONFIGURATIE TOE TE PASSEN"
 
 msgid "DOWNLOADS"
 msgstr "DOWNLOADS"
@@ -2184,9 +2211,6 @@ msgstr "Een wachtwoord vereisen voor toegang tot de netwerk share."
 
 msgid "ROOT PASSWORD"
 msgstr "ROOT WACHTWOORD"
-
-msgid "REBOOT REQUIRED TO APPLY THE NEW CONFIGURATION"
-msgstr "HERSTART BENODIGD OM DE NIEUWE CONFIGURATIE TOE TE PASSEN"
 
 msgid "LATENCY REDUCTION"
 msgstr "LATENCY REDUCTIE"
