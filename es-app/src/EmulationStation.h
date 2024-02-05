@@ -18,8 +18,8 @@
 
 #if BATOCERA
 #define SCREENSCRAPER_SOFTNAME			"Batocera-Emulationstation"
-#elif RETROBAT
-#define SCREENSCRAPER_SOFTNAME			"Retrobat-Emulationstation"
+#elif LUMACA
+#define SCREENSCRAPER_SOFTNAME			"Lumaca-Emulationstation"
 #else
 #define SCREENSCRAPER_SOFTNAME			"Emulationstation"
 #endif
