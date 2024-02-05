@@ -60,4 +60,4 @@ deploy:
   tag: continuous
   release: continuous
   auth_token:
-    secure: 
+    secure: j2wYgDHRlxXaLB8MjsM3l2T+KlBA441m1r9g5cdo6nNh36f7w+iRlUv6eDtNB332
