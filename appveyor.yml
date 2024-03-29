@@ -26,7 +26,7 @@ build_script:
   - git submodule update --init --recursive
   - mkdir build
   - cd build
-  - cmake -G "Visual Studio 16 2019" -T v142 .. -DCMAKE_GENERATOR_PLATFORM=Win32 
+  - cmake -G "Visual Studio 16 2019" -T v142 .. -DCMAKE_GENERATOR_PLATFORM=Win32
   - cd c:\src\EmulationStation
   - IF EXIST locale\lang ( xcopy locale\lang resources\locale /S /Y /I )
   - ps: |
