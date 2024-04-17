@@ -1754,45 +1754,78 @@ msgid "SERVICES"
 msgstr "SERVIZI"
 
 msgid "DMD"
-msgstr ""
+msgstr "DMD"
 
 msgid "SERVER"
-msgstr ""
+msgstr "SERVER"
 
 msgid "DMDSERVER (for real dmd)"
-msgstr ""
+msgstr "DMDSERVER (per dmd reali)"
 
 msgid "SIMULATOR (for web dmd)"
-msgstr ""
+msgstr "SIMULATORE (per dmd web)"
 
 msgid "dmd server"
-msgstr ""
+msgstr "server dmd"
 
 msgid "FORMAT"
-msgstr ""
+msgstr "FORMATO"
 
 msgid "dmd matrix size"
-msgstr ""
+msgstr "dimensioni matrice dmd"
 
 msgid "MATRIX"
-msgstr ""
+msgstr "MATRICE"
 
 msgid "rgb dmd order"
-msgstr ""
+msgstr "ordine rgb dmd"
 
 msgid "BRIGHTNESS"
 msgstr "LUMINOSITÀ"
 
-msgid "-10 for auto"
-msgstr ""
-
 msgid "DMDSERVER stopped"
-msgstr ""
+msgstr "DMDSERVER fermato"
 
 msgid "DMDSERVER restarted"
-msgstr ""
+msgstr "DMDSERVER riavviato"
 
 msgid "DMDSERVER started"
+msgstr "DMDSERVER avviato"
+
+msgid "MULTISCREENS"
+msgstr ""
+
+msgid "BACKGLASS / INFORMATION SCREEN"
+msgstr ""
+
+msgid "VIDEO OUTPUT"
+msgstr "USCITA VIDEO"
+
+msgid "VIDEO MODE"
+msgstr "MODALITÀ VIDEO"
+
+msgid "Sets the display's resolution."
+msgstr ""
+
+msgid "ROTATION"
+msgstr ""
+
+msgid "0 DEGREES"
+msgstr "0 GRADI"
+
+msgid "90 DEGREES"
+msgstr "90 GRADI"
+
+msgid "180 DEGREES"
+msgstr "180 GRADI"
+
+msgid "270 DEGREES"
+msgstr "270 GRADI"
+
+msgid "SCREEN ROTATION"
+msgstr "ROTAZIONE SCHERMO"
+
+msgid "DMD SCREEN"
 msgstr ""
 
 msgid "FRONTEND DEVELOPER OPTIONS"
@@ -1815,9 +1848,6 @@ msgstr "VSYNC"
 
 msgid "OVERSCAN"
 msgstr "OVERSCAN"
-
-msgid "VIDEO MODE"
-msgstr "MODALITÀ VIDEO"
 
 msgid "Sets the display's resolution for emulationstation."
 msgstr "Imposta la risuluzione schermo per emulationstation."
@@ -2127,9 +2157,6 @@ msgstr "KODI ALL’AVVIO"
 msgid "HARDWARE"
 msgstr "HARDWARE"
 
-msgid "VIDEO OUTPUT"
-msgstr "USCITA VIDEO"
-
 msgid "AUDIO OUTPUT"
 msgstr "USCITA AUDIO"
 
@@ -2139,21 +2166,6 @@ msgstr "PROFILO AUDIO"
 msgid "Available options can change depending on current audio output."
 msgstr ""
 "Le opzioni disponibili possino cambiare a seconda dell'attuale uscita audio"
-
-msgid "SCREEN ROTATION"
-msgstr "ROTAZIONE SCHERMO"
-
-msgid "0 DEGREES"
-msgstr "0 GRADI"
-
-msgid "90 DEGREES"
-msgstr "90 GRADI"
-
-msgid "180 DEGREES"
-msgstr "180 GRADI"
-
-msgid "270 DEGREES"
-msgstr "270 GRADI"
 
 msgid "BOOT SPLASH"
 msgstr "SCHERMATA DI AVVIO"
@@ -3420,6 +3432,9 @@ msgstr "SINTESI VOCALE ATTIVATA"
 
 msgid "SCREEN READER DISABLED"
 msgstr "SINTESI VOCALE DISATTIVATA"
+
+#~ msgid "-10 for auto"
+#~ msgstr "-10 per automatico"
 
 #~ msgid "Achievements won"
 #~ msgstr "Trofei vinti"
