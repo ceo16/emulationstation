@@ -536,9 +536,13 @@ std::vector<std::string> ApiSystem::getAvailableStorageDevices()
 	return executeEnumerationScript("batocera-config storage list");
 }
 
-std::vector<std::string> ApiSystem::getVideoModes() 
+std::vector<std::string> ApiSystem::getVideoModes(const std::string output)
 {
-	return executeEnumerationScript("batocera-resolution listModes");
+  if(output == "") {
+    return executeEnumerationScript("batocera-resolution listModes");
+  } else {
+    return executeEnumerationScript("batocera-resolution --screen \"" + output + "\" listModes");
+  }
 }
 
 std::vector<std::string> ApiSystem::getCustomRunners() 
@@ -1683,6 +1687,9 @@ bool ApiSystem::isScriptingSupported(ScriptId script)
 	case ApiSystem::SERVICES:
 		executables.push_back("batocera-services");
 		break;
+	case ApiSystem::BACKGLASS:
+		executables.push_back("batocera-backglass");
+		break;
 	}
 
 	if (executables.size() == 0)
@@ -2250,6 +2257,25 @@ std::vector<Service> ApiSystem::getServices()
 		}
 	}
 	return services;
+}
+
+std::vector<std::string> ApiSystem::backglassThemes() {
+  std::vector<std::string> themes;
+
+  LOG(LogDebug) << "ApiSystem::backglassThemes";
+
+  auto slines = executeEnumerationScript("batocera-backglass list-themes");
+
+  for (auto sline : slines) 
+    {
+      themes.push_back(sline);
+    }
+  return themes;
+}
+
+void ApiSystem::restartBackglass() {
+  LOG(LogDebug) << "ApiSystem::restartBackglass";
+  executeScript("/usr/bin/batocera-backglass restart");
 }
 
 bool ApiSystem::enableService(std::string name, bool enable) 
