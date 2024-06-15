@@ -559,8 +559,10 @@ void GuiMenu::openMultiScreensSettings()
 				vfound = true;
 		}
 
-		if (!vfound)
+		if (!vfound && currentDevice2 != "none")
 			optionsVideo2->add(currentDevice2, currentDevice2, true);
+		// add the none value
+		optionsVideo2->add(_("NONE"), "none", currentDevice2 == "none");
 
 		s->addWithLabel(_("VIDEO OUTPUT"), optionsVideo2);
 		s->addSaveFunc([this, optionsVideo2, currentDevice2, s] 
@@ -2160,28 +2162,34 @@ void GuiMenu::addFeatureItem(Window* window, GuiSettings* settings, const Custom
 	if (feat.preset == "switchon")
 	{
 		auto switchComponent = std::make_shared<SwitchComponent>(window);
-		switchComponent->setState(storedValue != "0");
+		if (storedValue == "off")
+		    switchComponent->setState(false);
+		else
+		    switchComponent->setState(true);
 
 		if (!feat.description.empty())
 			settings->addWithDescription(pgettext("game_options", feat.name.c_str()), pgettext("game_options", feat.description.c_str()), switchComponent);
 		else
 			settings->addWithLabel(pgettext("game_options", feat.name.c_str()), switchComponent);
 
-		settings->addSaveFunc([storageName, switchComponent] { SystemConf::getInstance()->set(storageName, switchComponent->getState() ? "" : "0"); });
+		settings->addSaveFunc([storageName, switchComponent] { SystemConf::getInstance()->set(storageName, switchComponent->getState() ? "" : "off"); });
 		return;
 	}
 
 	if (feat.preset == "switchoff")
 	{
 		auto switchComponent = std::make_shared<SwitchComponent>(window);
-		switchComponent->setState(storedValue != "1");
+		if (storedValue == "on")
+		    switchComponent->setState(true);
+		else
+		    switchComponent->setState(false);
 
 		if (!feat.description.empty())
 			settings->addWithDescription(pgettext("game_options", feat.name.c_str()), pgettext("game_options", feat.description.c_str()), switchComponent);
 		else
 			settings->addWithLabel(pgettext("game_options", feat.name.c_str()), switchComponent);
 
-		settings->addSaveFunc([storageName, switchComponent] { SystemConf::getInstance()->set(storageName, switchComponent->getState() ? "" : "1"); });
+		settings->addSaveFunc([storageName, switchComponent] { SystemConf::getInstance()->set(storageName, switchComponent->getState() ? "on" : ""); });
 		return;
 	}
 
