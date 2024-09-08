@@ -30,7 +30,7 @@ msgid "Formatting"
 msgstr "Formatowanie"
 
 msgid "A REBOOT IS REQUIRED TO COMPLETE THE OPERATION"
-msgstr "DO UKOŃCZENIA OPERACJI WYMAGANE JEST PONOWNE URUCHOMIENIE SYSTEMU"
+msgstr "DO UKOŃCZENIA OPERACJI WYMAGANE JEST PONOWNE URUCHOMIENIE "
 
 msgid "A DRIVE IS ALREADY BEING FORMATTED."
 msgstr "DYSK JEST JUŻ FORMATOWANY."
@@ -407,6 +407,36 @@ msgstr "NIE ZNALEZIONO SIECI WIFI"
 msgid "SEARCHING WI-FI NETWORKS"
 msgstr "WYSZUKIWANIE SIECI WIFI"
 
+msgid "DEVICE OPTIONS"
+msgstr "OPCJE URZĄDZEŃ"
+
+msgid "DISCONNECT"
+msgstr "ROZŁĄCZ"
+
+msgid "CONNECT"
+msgstr "POŁĄCZ"
+
+msgid "FORGET"
+msgstr "ZAPOMNIJ"
+
+#, c-format
+msgid "ARE YOU SURE YOU WANT TO FORGET '%s' ?"
+msgstr "CZY NA PEWNO ZAPOMNIEĆ '%s'?"
+
+msgid "YES"
+msgstr "TAK"
+
+msgid "NO"
+msgstr "NIE"
+
+#, c-format
+msgid "ARE YOU SURE YOU WANT TO CONNECT TO '%s' ?"
+msgstr "CZY NA PEWNO POŁĄCZYĆ '%s'?"
+
+#, c-format
+msgid "ARE YOU SURE YOU WANT TO DISCONNECT '%s' ?"
+msgstr "CZY NA PEWNO ROZŁĄCZYĆ '%s'?"
+
 msgid "PAD TO KEYBOARD CONFIGURATION"
 msgstr "KONFIGURACJA KLAWIATURY NA KONTROLERZE"
 
@@ -440,9 +470,6 @@ msgstr "KURSOR MYSZY"
 msgid "EMULATE MOUSE CURSOR"
 msgstr "EMULACJA KURSORA MYSZY"
 
-msgid "NO"
-msgstr "NIE"
-
 msgid "LEFT ANALOG STICK"
 msgstr "LEWY DRĄŻEK ANALOGOWY"
 
@@ -454,9 +481,6 @@ msgstr "EDYTUJ OPIS"
 
 msgid "ARE YOU SURE YOU WANT TO DELETE THIS ITEM?"
 msgstr "CZY NA PEWNO CHCESZ USUNĄĆ TEN ELEMENT?"
-
-msgid "YES"
-msgstr "TAK"
 
 msgid "DELETE MAPPING"
 msgstr "USUŃ MAPOWANIE"
@@ -520,6 +544,12 @@ msgstr "MONTREAL"
 
 msgid "SAO PAULO"
 msgstr "SAN PAULO"
+
+msgid "CUSTOM"
+msgstr ""
+
+msgid "CUSTOM RELAY SERVER"
+msgstr ""
 
 msgid "SHOW UNAVAILABLE GAMES"
 msgstr "POKAŻ NIEDOSTĘPNE GRY"
@@ -644,6 +674,25 @@ msgstr ""
 
 msgid "UNABLE TO ACTIVATE RETROACHIEVEMENTS:"
 msgstr "NIE MOŻNA AKTYWOWAĆ RETROOSIĄGNIĘĆ:"
+
+msgid "BLUETOOTH DEVICE LIST"
+msgstr "LISTA URZĄDZEŃ BLUETOOTH"
+
+msgid "REMOVE ALL"
+msgstr "USUŃ WSZYSTKO"
+
+msgid "NO BLUETOOTH DEVICES FOUND"
+msgstr "NIE ZNALEZIONO ŻADNEGO URZĄDZENIA"
+
+msgid " (Connected)"
+msgstr "(Połączone)"
+
+msgid "BLUETOOTH DEVICES HAVE BEEN DELETED."
+msgstr "URZĄDZENIA BLUETOOTH ZOSTAŁY USUNIĘTE."
+
+#, c-format
+msgid "ARE YOU SURE YOU WANT TO REMOVE '%s' ?"
+msgstr "CZY NA PEWNO USUNĄĆ '%s'?"
 
 msgid "THE BEZEL PROJECT"
 msgstr "PROJEKT RAMEK"
@@ -828,6 +877,39 @@ msgstr "Maks. częstotliwość procesora"
 
 msgid "Cpu feature"
 msgstr "Funkcje procesora"
+
+msgid "Available Memory"
+msgstr ""
+
+msgid "Display Resolution"
+msgstr ""
+
+msgid "Display Refresh Rate"
+msgstr ""
+
+msgid "OpenGL Driver Version"
+msgstr ""
+
+msgid "Vulkan Driver Name"
+msgstr ""
+
+msgid "Vulkan Driver Version"
+msgstr ""
+
+msgid "Data Partition Format"
+msgstr ""
+
+msgid "Data Partition Available Space"
+msgstr ""
+
+msgid "Network IP Address"
+msgstr ""
+
+msgid "UEFI Boot"
+msgstr ""
+
+msgid "Secure Boot"
+msgstr ""
 
 msgctxt "game_options"
 msgid "SHARP-BILINEAR-SIMPLE"
@@ -1043,9 +1125,6 @@ msgstr "VSYNC"
 
 msgid "OVERSCAN"
 msgstr "PRZESKALOWANIE"
-
-msgid "Sets the display's resolution for emulationstation."
-msgstr "Ustawia rozdzielczość ekranu dla EmulationStation."
 
 msgid "USE OMX PLAYER (HARDWARE ACCELERATED)"
 msgstr "UŻYWAJ ODTWARZACZA OMX (WSPOMAGANY SPRZĘTOWO)"
@@ -1363,6 +1442,9 @@ msgstr "KODI PRZY STARCIE"
 
 msgid "HARDWARE"
 msgstr "SPRZĘT"
+
+msgid "Sets the display's resolution for emulationstation."
+msgstr "Ustawia rozdzielczość ekranu dla EmulationStation."
 
 msgid "AUDIO OUTPUT"
 msgstr "WYJŚCIE AUDIO"
@@ -1914,7 +1996,7 @@ msgid "NOW PLAYING"
 msgstr "ODTWARZANE OBECNIE"
 
 msgid "LAUNCH SCREENSAVER"
-msgstr "URUCHOM WYGASZACZ EKRANU"
+msgstr "URUCHOM WYGASZACZ"
 
 msgid "VIEW USER MANUAL"
 msgstr "ZOBACZ PODRĘCZNIK"
@@ -2431,22 +2513,6 @@ msgstr "odśwież"
 
 msgid "NO MISSING BIOS"
 msgstr "BIOS'Y NA MIEJSCU"
-
-msgid "FORGET A BLUETOOTH DEVICE"
-msgstr "USUŃ URZĄDZENIE BLUETOOTH"
-
-msgid "REMOVE ALL"
-msgstr "USUŃ WSZYSTKO"
-
-msgid "NO BLUETOOTH DEVICES FOUND"
-msgstr "NIE ZNALEZIONO ŻADNEGO URZĄDZENIA"
-
-msgid "BLUETOOTH DEVICES HAVE BEEN DELETED."
-msgstr "URZĄDZENIA BLUETOOTH ZOSTAŁY USUNIĘTE."
-
-#, c-format
-msgid "ARE YOU SURE YOU WANT TO REMOVE '%s' ?"
-msgstr "CZY NA PEWNO USUNĄĆ '%s'?"
 
 msgid "ZOOM OUT"
 msgstr "POMNIEJSZENIE"
@@ -3464,6 +3530,9 @@ msgid ""
 msgstr ""
 "KALIBRACJA PISTOLETU\n"
 "Strzelanie do celów w celu kalibracji"
+
+#~ msgid "FORGET A BLUETOOTH DEVICE"
+#~ msgstr "USUŃ URZĄDZENIE BLUETOOTH"
 
 #~ msgid "-10 for auto"
 #~ msgstr "-10 dla auto"

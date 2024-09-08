@@ -3,7 +3,7 @@ msgstr ""
 "Project-Id-Version: emulationstation\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2021-12-15 23:48+0100\n"
-"PO-Revision-Date: 2024-06-10 15:09+0000\n"
+"PO-Revision-Date: 2024-09-01 10:33+0000\n"
 "Last-Translator: \n"
 "Language-Team: German\n"
 "Language: de\n"
@@ -407,6 +407,36 @@ msgstr "KEINE WIFI-NETZWERKE GEFUNDEN"
 msgid "SEARCHING WI-FI NETWORKS"
 msgstr "SUCHE NACH WIFI-NETZWERKEN"
 
+msgid "DEVICE OPTIONS"
+msgstr "GERÄTEOPTIONEN"
+
+msgid "DISCONNECT"
+msgstr "VERBINDUNG TRENNEN"
+
+msgid "CONNECT"
+msgstr "VERBINDEN"
+
+msgid "FORGET"
+msgstr "VERGESSEN"
+
+#, c-format
+msgid "ARE YOU SURE YOU WANT TO FORGET '%s' ?"
+msgstr "SIND SIE SICHER, DASS SIE '%s' VERGESSEN WOLLEN?"
+
+msgid "YES"
+msgstr "JA"
+
+msgid "NO"
+msgstr "NEIN"
+
+#, c-format
+msgid "ARE YOU SURE YOU WANT TO CONNECT TO '%s' ?"
+msgstr "EINE VERBINDUNG ZU '%s' HERSTELLEN?"
+
+#, c-format
+msgid "ARE YOU SURE YOU WANT TO DISCONNECT '%s' ?"
+msgstr "DIE VERBINDUNG ZU '%s' TRENNEN?"
+
 msgid "PAD TO KEYBOARD CONFIGURATION"
 msgstr "PAD TO KEYBOARD KONFIGURATION"
 
@@ -440,9 +470,6 @@ msgstr "MAUSZEIGER"
 msgid "EMULATE MOUSE CURSOR"
 msgstr "MAUSZEIGER EMULIEREN"
 
-msgid "NO"
-msgstr "NEIN"
-
 msgid "LEFT ANALOG STICK"
 msgstr "LINKER ANALOG-STICK"
 
@@ -454,9 +481,6 @@ msgstr "BESCHREIBUNG ANPASSEN"
 
 msgid "ARE YOU SURE YOU WANT TO DELETE THIS ITEM?"
 msgstr "SIND SIE SICHER, DASS SIE DIESES ELEMENT ENTFERNEN MÖCHTEN?"
-
-msgid "YES"
-msgstr "JA"
 
 msgid "DELETE MAPPING"
 msgstr "ZUORDNUNG LÖSCHEN"
@@ -521,6 +545,12 @@ msgstr "MONTREAL"
 msgid "SAO PAULO"
 msgstr "SAO PAULO"
 
+msgid "CUSTOM"
+msgstr "BENUTZERDEFINIERT"
+
+msgid "CUSTOM RELAY SERVER"
+msgstr "BENUTZERDEFINIERTER RELAY-SERVER"
+
 msgid "SHOW UNAVAILABLE GAMES"
 msgstr "NICHT VERFÜGBARE SPIELE ANZEIGEN"
 
@@ -529,7 +559,7 @@ msgstr ""
 "Räume für Spiele anzeigen, die auf dieser Maschine nicht vorhanden sind."
 
 msgid "GAME INDEXES"
-msgstr "SPIEL-INDIZES"
+msgstr "SPIEL-INDEXE"
 
 msgid "INDEX NEW GAMES AT STARTUP"
 msgstr "BEIM START NEUE SPIELE INDEXIEREN"
@@ -646,6 +676,25 @@ msgstr ""
 msgid "UNABLE TO ACTIVATE RETROACHIEVEMENTS:"
 msgstr "RETROACHIEVEMENTS KÖNNEN NICHT AKTIVIERT WERDEN:"
 
+msgid "BLUETOOTH DEVICE LIST"
+msgstr "BLUETOOTH GERÄTELISTE"
+
+msgid "REMOVE ALL"
+msgstr "ALLE ENTFERNEN"
+
+msgid "NO BLUETOOTH DEVICES FOUND"
+msgstr "KEINE BLUETOOTH-GERÄTE GEFUNDEN"
+
+msgid " (Connected)"
+msgstr " (Verbunden)"
+
+msgid "BLUETOOTH DEVICES HAVE BEEN DELETED."
+msgstr "BLUETOOTH-GERÄTE WURDEN GELÖSCHT."
+
+#, c-format
+msgid "ARE YOU SURE YOU WANT TO REMOVE '%s' ?"
+msgstr "SIND SIE SICHER, DASS SIE '%s' ENTFERNEN MÖCHTEN?"
+
 msgid "THE BEZEL PROJECT"
 msgstr "THE BEZEL PROJECT"
 
@@ -654,7 +703,7 @@ msgstr "BEZELS ZUM INSTALLIEREN/ENTFERNEN AUSWÄHLEN"
 
 #, c-format
 msgid "UPDATING %s"
-msgstr "UPDATE %s"
+msgstr "UPDATING %s"
 
 msgid "UPDATE IS READY"
 msgstr "UPDATE IST BEREIT"
@@ -829,6 +878,39 @@ msgstr "CPU max Frequenz"
 
 msgid "Cpu feature"
 msgstr "CPU Eigenschaft"
+
+msgid "Available Memory"
+msgstr "Verfügbarer Speicher"
+
+msgid "Display Resolution"
+msgstr "Bildschirmauflösung"
+
+msgid "Display Refresh Rate"
+msgstr "Bildwiederholfrequenz"
+
+msgid "OpenGL Driver Version"
+msgstr "OpenGL-Treiberversion"
+
+msgid "Vulkan Driver Name"
+msgstr "Vulkan-Treibername"
+
+msgid "Vulkan Driver Version"
+msgstr "Vulkan-Treiberversion"
+
+msgid "Data Partition Format"
+msgstr "Datenpartition Format"
+
+msgid "Data Partition Available Space"
+msgstr "Verfügbarer Speicherplatz für die Partition"
+
+msgid "Network IP Address"
+msgstr "Netzwerk-IP-Adresse"
+
+msgid "UEFI Boot"
+msgstr "UEFI Boot"
+
+msgid "Secure Boot"
+msgstr "Secure Boot"
 
 msgctxt "game_options"
 msgid "SHARP-BILINEAR-SIMPLE"
@@ -1045,9 +1127,6 @@ msgstr "VSYNC"
 
 msgid "OVERSCAN"
 msgstr "OVERSCAN"
-
-msgid "Sets the display's resolution for emulationstation."
-msgstr "Legt die Auflösung für Emulationstation fest."
 
 msgid "USE OMX PLAYER (HARDWARE ACCELERATED)"
 msgstr "OMX PLAYER VERWENDEN (HARDWARE-BESCHLEUNIGT)"
@@ -1366,6 +1445,9 @@ msgstr "KODI BEIM BOOTVORGANG STARTEN"
 
 msgid "HARDWARE"
 msgstr "HARDWARE"
+
+msgid "Sets the display's resolution for emulationstation."
+msgstr "Legt die Auflösung für Emulationstation fest."
 
 msgid "AUDIO OUTPUT"
 msgstr "AUDIOAUSGANG"
@@ -2440,22 +2522,6 @@ msgstr "aktualisieren"
 
 msgid "NO MISSING BIOS"
 msgstr "KEIN FEHLENDES BIOS"
-
-msgid "FORGET A BLUETOOTH DEVICE"
-msgstr "BLUETOOTH-GERÄT ENTFERNEN"
-
-msgid "REMOVE ALL"
-msgstr "ALLE ENTFERNEN"
-
-msgid "NO BLUETOOTH DEVICES FOUND"
-msgstr "KEINE BLUETOOTH-GERÄTE GEFUNDEN"
-
-msgid "BLUETOOTH DEVICES HAVE BEEN DELETED."
-msgstr "BLUETOOTH-GERÄTE WURDEN GELÖSCHT."
-
-#, c-format
-msgid "ARE YOU SURE YOU WANT TO REMOVE '%s' ?"
-msgstr "SIND SIE SICHER, DASS SIE '%s' ENTFERNEN MÖCHTEN?"
 
 msgid "ZOOM OUT"
 msgstr "HERAUSZOOMEN"

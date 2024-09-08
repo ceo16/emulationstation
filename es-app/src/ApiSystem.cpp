@@ -515,6 +515,16 @@ bool ApiSystem::pairBluetoothDevice(const std::string& deviceName)
 	return executeScript("batocera-bluetooth trust " + deviceName);
 }
 
+bool ApiSystem::connectBluetoothDevice(const std::string& deviceName)
+{
+	return executeScript("batocera-bluetooth connect " + deviceName);
+}
+
+bool ApiSystem::disconnectBluetoothDevice(const std::string& deviceName)
+{
+	return executeScript("batocera-bluetooth disconnect " + deviceName);
+}
+
 bool ApiSystem::removeBluetoothDevice(const std::string& deviceName)
 {
 	return executeScript("batocera-bluetooth remove " + deviceName);
@@ -529,7 +539,6 @@ std::vector<std::string> ApiSystem::getPairedBluetoothDeviceList()
 {
 	return executeEnumerationScript("batocera-bluetooth list");
 }
-
 
 std::vector<std::string> ApiSystem::getAvailableStorageDevices() 
 {
@@ -2062,18 +2071,21 @@ std::vector<std::string> ApiSystem::getTimezones()
 	{
 		for (auto continent : Utils::FileSystem::getDirContent(folder, false))
 		{
-			for (auto file : Utils::FileSystem::getDirContent(continent, false))
+			std::string short_continent = continent.substr(continent.find_last_of('/') + 1);
+			if (short_continent == "Africa" || short_continent == "America"
+				|| short_continent == "Antarctica" || short_continent == "Asia"
+				|| short_continent == "Atlantic" || short_continent == "Australia"
+				|| short_continent == "Etc" || short_continent == "Europe"
+				|| short_continent == "Indian" || short_continent == "Pacific")
 			{
-				std::string short_continent = continent.substr(continent.find_last_of('/') + 1, -1);
-				if (short_continent == "Africa" || short_continent == "America"
-					|| short_continent == "Antarctica" || short_continent == "Asia"
-					|| short_continent == "Atlantic" || short_continent == "Australia"
-					|| short_continent == "Etc" || short_continent == "Europe"
-					|| short_continent == "Indian" || short_continent == "Pacific")
+				for (auto file : Utils::FileSystem::getDirContent(continent, false))
 				{
-					auto tz = Utils::FileSystem::getFileName(file);
-					if (std::find(ret.cbegin(), ret.cend(), tz) == ret.cend())
-						  ret.push_back(short_continent + "/" + tz);
+					if (!Utils::FileSystem::isDirectory(file))
+					{
+						auto tz = Utils::FileSystem::getFileName(file);
+						if (std::find(ret.cbegin(), ret.cend(), tz) == ret.cend())
+						ret.push_back(short_continent + "/" + tz);
+					}
 				}
 			}
 		}

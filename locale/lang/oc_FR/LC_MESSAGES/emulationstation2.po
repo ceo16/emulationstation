@@ -412,6 +412,36 @@ msgstr "CAP DE RET WIFI PAS TROBAT"
 msgid "SEARCHING WI-FI NETWORKS"
 msgstr "RECÈRCA DE RET WIFI"
 
+msgid "DEVICE OPTIONS"
+msgstr ""
+
+msgid "DISCONNECT"
+msgstr ""
+
+msgid "CONNECT"
+msgstr ""
+
+msgid "FORGET"
+msgstr ""
+
+#, c-format
+msgid "ARE YOU SURE YOU WANT TO FORGET '%s' ?"
+msgstr ""
+
+msgid "YES"
+msgstr "ÒC"
+
+msgid "NO"
+msgstr "NON"
+
+#, c-format
+msgid "ARE YOU SURE YOU WANT TO CONNECT TO '%s' ?"
+msgstr ""
+
+#, c-format
+msgid "ARE YOU SURE YOU WANT TO DISCONNECT '%s' ?"
+msgstr ""
+
 msgid "PAD TO KEYBOARD CONFIGURATION"
 msgstr ""
 
@@ -445,9 +475,6 @@ msgstr ""
 msgid "EMULATE MOUSE CURSOR"
 msgstr ""
 
-msgid "NO"
-msgstr "NON"
-
 msgid "LEFT ANALOG STICK"
 msgstr ""
 
@@ -459,9 +486,6 @@ msgstr ""
 
 msgid "ARE YOU SURE YOU WANT TO DELETE THIS ITEM?"
 msgstr "VOLÈTZ VERTADIÈRAMENT SUPRIMIR AQUESTE ELEMENT ?"
-
-msgid "YES"
-msgstr "ÒC"
 
 msgid "DELETE MAPPING"
 msgstr ""
@@ -524,6 +548,12 @@ msgid "MONTREAL"
 msgstr ""
 
 msgid "SAO PAULO"
+msgstr ""
+
+msgid "CUSTOM"
+msgstr ""
+
+msgid "CUSTOM RELAY SERVER"
 msgstr ""
 
 msgid "SHOW UNAVAILABLE GAMES"
@@ -643,6 +673,25 @@ msgid "View your RetroAchievement stats right from the main menu!"
 msgstr ""
 
 msgid "UNABLE TO ACTIVATE RETROACHIEVEMENTS:"
+msgstr ""
+
+msgid "BLUETOOTH DEVICE LIST"
+msgstr ""
+
+msgid "REMOVE ALL"
+msgstr "TOT SUPRIMIR"
+
+msgid "NO BLUETOOTH DEVICES FOUND"
+msgstr "CAP DE PERIFERIC BLUETOOTH PAS TROBAT"
+
+msgid " (Connected)"
+msgstr ""
+
+msgid "BLUETOOTH DEVICES HAVE BEEN DELETED."
+msgstr "TOTES LOS PERIFERICS BLUETOOTH SON ESTATS SUPRIMITS."
+
+#, c-format
+msgid "ARE YOU SURE YOU WANT TO REMOVE '%s' ?"
 msgstr ""
 
 msgid "THE BEZEL PROJECT"
@@ -820,6 +869,39 @@ msgstr ""
 
 msgid "Cpu feature"
 msgstr "Foncionalitat processor"
+
+msgid "Available Memory"
+msgstr ""
+
+msgid "Display Resolution"
+msgstr ""
+
+msgid "Display Refresh Rate"
+msgstr ""
+
+msgid "OpenGL Driver Version"
+msgstr ""
+
+msgid "Vulkan Driver Name"
+msgstr ""
+
+msgid "Vulkan Driver Version"
+msgstr ""
+
+msgid "Data Partition Format"
+msgstr ""
+
+msgid "Data Partition Available Space"
+msgstr ""
+
+msgid "Network IP Address"
+msgstr ""
+
+msgid "UEFI Boot"
+msgstr ""
+
+msgid "Secure Boot"
+msgstr ""
 
 msgctxt "game_options"
 msgid "SHARP-BILINEAR-SIMPLE"
@@ -1034,9 +1116,6 @@ msgid "VSYNC"
 msgstr ""
 
 msgid "OVERSCAN"
-msgstr ""
-
-msgid "Sets the display's resolution for emulationstation."
 msgstr ""
 
 msgid "USE OMX PLAYER (HARDWARE ACCELERATED)"
@@ -1332,6 +1411,9 @@ msgstr "KODI A L’AVIADA"
 
 msgid "HARDWARE"
 msgstr "MATERIAL"
+
+msgid "Sets the display's resolution for emulationstation."
+msgstr ""
 
 msgid "AUDIO OUTPUT"
 msgstr "SORTIDA ÀUDIO"
@@ -2389,22 +2471,6 @@ msgstr ""
 msgid "NO MISSING BIOS"
 msgstr ""
 
-msgid "FORGET A BLUETOOTH DEVICE"
-msgstr "OBLIDAR LO PERIFERIC BLUETOOTH"
-
-msgid "REMOVE ALL"
-msgstr "TOT SUPRIMIR"
-
-msgid "NO BLUETOOTH DEVICES FOUND"
-msgstr "CAP DE PERIFERIC BLUETOOTH PAS TROBAT"
-
-msgid "BLUETOOTH DEVICES HAVE BEEN DELETED."
-msgstr "TOTES LOS PERIFERICS BLUETOOTH SON ESTATS SUPRIMITS."
-
-#, c-format
-msgid "ARE YOU SURE YOU WANT TO REMOVE '%s' ?"
-msgstr ""
-
 msgid "ZOOM OUT"
 msgstr ""
 
@@ -3393,6 +3459,9 @@ msgid ""
 "CALIBRATING GUN\n"
 "Fire on targets to calibrate"
 msgstr ""
+
+#~ msgid "FORGET A BLUETOOTH DEVICE"
+#~ msgstr "OBLIDAR LO PERIFERIC BLUETOOTH"
 
 #~ msgid "CREATE NEW CUSTOM COLLECTION FROM THEME"
 #~ msgstr "CREAR UNA COLLECCION D'UN TÈMA"

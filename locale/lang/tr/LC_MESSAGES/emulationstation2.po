@@ -405,6 +405,36 @@ msgstr "WIFI AĞI BULUNAMADI"
 msgid "SEARCHING WI-FI NETWORKS"
 msgstr "WIFI AĞLARI TARANIYOR"
 
+msgid "DEVICE OPTIONS"
+msgstr ""
+
+msgid "DISCONNECT"
+msgstr ""
+
+msgid "CONNECT"
+msgstr ""
+
+msgid "FORGET"
+msgstr ""
+
+#, c-format
+msgid "ARE YOU SURE YOU WANT TO FORGET '%s' ?"
+msgstr ""
+
+msgid "YES"
+msgstr "EVET"
+
+msgid "NO"
+msgstr "HAYIR"
+
+#, c-format
+msgid "ARE YOU SURE YOU WANT TO CONNECT TO '%s' ?"
+msgstr ""
+
+#, c-format
+msgid "ARE YOU SURE YOU WANT TO DISCONNECT '%s' ?"
+msgstr ""
+
 msgid "PAD TO KEYBOARD CONFIGURATION"
 msgstr "PAD TO KEYBOARD AYARLARI"
 
@@ -438,9 +468,6 @@ msgstr "FARE İMLECİ"
 msgid "EMULATE MOUSE CURSOR"
 msgstr "FARE İMLECİ EMULASYONU"
 
-msgid "NO"
-msgstr "HAYIR"
-
 msgid "LEFT ANALOG STICK"
 msgstr "SOL ANALOG"
 
@@ -452,9 +479,6 @@ msgstr "AÇIKLAMAYI DÜZENLE"
 
 msgid "ARE YOU SURE YOU WANT TO DELETE THIS ITEM?"
 msgstr "BUNU SİLMEK İSTEDİĞİNİZDEN EMİN MİSİNİZ?"
-
-msgid "YES"
-msgstr "EVET"
 
 msgid "DELETE MAPPING"
 msgstr "EŞLEMEYİ SİL"
@@ -518,6 +542,12 @@ msgstr "MONTREAL"
 
 msgid "SAO PAULO"
 msgstr "SAO PAULO"
+
+msgid "CUSTOM"
+msgstr ""
+
+msgid "CUSTOM RELAY SERVER"
+msgstr ""
 
 msgid "SHOW UNAVAILABLE GAMES"
 msgstr "MEVCUT OLMAYAN OYUNLARI GÖSTER"
@@ -642,6 +672,25 @@ msgstr "RetroBaşarım istatistiklerinizi doğrudan ana menüden görüntüleyin
 
 msgid "UNABLE TO ACTIVATE RETROACHIEVEMENTS:"
 msgstr "RETROBAŞARIMLAR AKTİVE EDİLEMİYOR:"
+
+msgid "BLUETOOTH DEVICE LIST"
+msgstr ""
+
+msgid "REMOVE ALL"
+msgstr "HEPSİNİ SİL"
+
+msgid "NO BLUETOOTH DEVICES FOUND"
+msgstr "BLUETOOTH CİHAZI BULUNAMADI"
+
+msgid " (Connected)"
+msgstr ""
+
+msgid "BLUETOOTH DEVICES HAVE BEEN DELETED."
+msgstr "BLUETOOTH CİHAZLARI SİLİNDİ."
+
+#, c-format
+msgid "ARE YOU SURE YOU WANT TO REMOVE '%s' ?"
+msgstr "BUNU SİLMEK İSTEDİĞİNİZE EMİN MİSİNİZ '%s' ?"
 
 msgid "THE BEZEL PROJECT"
 msgstr "ÇERÇEVE PROJESİ"
@@ -826,6 +875,39 @@ msgstr "Cpu üst frekansı"
 
 msgid "Cpu feature"
 msgstr "Cpu özellikleri"
+
+msgid "Available Memory"
+msgstr ""
+
+msgid "Display Resolution"
+msgstr ""
+
+msgid "Display Refresh Rate"
+msgstr ""
+
+msgid "OpenGL Driver Version"
+msgstr ""
+
+msgid "Vulkan Driver Name"
+msgstr ""
+
+msgid "Vulkan Driver Version"
+msgstr ""
+
+msgid "Data Partition Format"
+msgstr ""
+
+msgid "Data Partition Available Space"
+msgstr ""
+
+msgid "Network IP Address"
+msgstr ""
+
+msgid "UEFI Boot"
+msgstr ""
+
+msgid "Secure Boot"
+msgstr ""
 
 msgctxt "game_options"
 msgid "SHARP-BILINEAR-SIMPLE"
@@ -1041,9 +1123,6 @@ msgstr "VSYNC"
 
 msgid "OVERSCAN"
 msgstr "OVERSCAN"
-
-msgid "Sets the display's resolution for emulationstation."
-msgstr "Emulationstation için ekran çözünürlüğünü ayarlar."
 
 msgid "USE OMX PLAYER (HARDWARE ACCELERATED)"
 msgstr "OMX PLAYER KULLAN (HARDWARE ACCELERATED)"
@@ -1362,6 +1441,9 @@ msgstr "KODİ AÇILIŞTA BAŞLASIN"
 
 msgid "HARDWARE"
 msgstr "DONANIM"
+
+msgid "Sets the display's resolution for emulationstation."
+msgstr "Emulationstation için ekran çözünürlüğünü ayarlar."
 
 msgid "AUDIO OUTPUT"
 msgstr "SES ÇIKIŞI"
@@ -2429,22 +2511,6 @@ msgstr "yenileme"
 msgid "NO MISSING BIOS"
 msgstr "EKSİK BIOS YOK"
 
-msgid "FORGET A BLUETOOTH DEVICE"
-msgstr "BLUETOOTH CİHAZI UNUT"
-
-msgid "REMOVE ALL"
-msgstr "HEPSİNİ SİL"
-
-msgid "NO BLUETOOTH DEVICES FOUND"
-msgstr "BLUETOOTH CİHAZI BULUNAMADI"
-
-msgid "BLUETOOTH DEVICES HAVE BEEN DELETED."
-msgstr "BLUETOOTH CİHAZLARI SİLİNDİ."
-
-#, c-format
-msgid "ARE YOU SURE YOU WANT TO REMOVE '%s' ?"
-msgstr "BUNU SİLMEK İSTEDİĞİNİZE EMİN MİSİNİZ '%s' ?"
-
 msgid "ZOOM OUT"
 msgstr "UZAKLAŞ"
 
@@ -3450,6 +3516,9 @@ msgid ""
 msgstr ""
 "SİLAH KALİBRE EDİLİYOR\n"
 "Kalibrasyon için hedeflere ateş et"
+
+#~ msgid "FORGET A BLUETOOTH DEVICE"
+#~ msgstr "BLUETOOTH CİHAZI UNUT"
 
 #~ msgid "Achievements won"
 #~ msgstr "Kazanılan başarımlar"

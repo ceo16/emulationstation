@@ -408,6 +408,36 @@ msgstr "לא נמצאו רשתות אלחוטיות"
 msgid "SEARCHING WI-FI NETWORKS"
 msgstr "סורק רשתות אלחוטיות"
 
+msgid "DEVICE OPTIONS"
+msgstr ""
+
+msgid "DISCONNECT"
+msgstr ""
+
+msgid "CONNECT"
+msgstr ""
+
+msgid "FORGET"
+msgstr ""
+
+#, c-format
+msgid "ARE YOU SURE YOU WANT TO FORGET '%s' ?"
+msgstr ""
+
+msgid "YES"
+msgstr "כן"
+
+msgid "NO"
+msgstr "לא"
+
+#, c-format
+msgid "ARE YOU SURE YOU WANT TO CONNECT TO '%s' ?"
+msgstr ""
+
+#, c-format
+msgid "ARE YOU SURE YOU WANT TO DISCONNECT '%s' ?"
+msgstr ""
+
 msgid "PAD TO KEYBOARD CONFIGURATION"
 msgstr "תצורת מקלדת למשטח"
 
@@ -441,9 +471,6 @@ msgstr "סמן העכבר"
 msgid "EMULATE MOUSE CURSOR"
 msgstr "דימוי סמן עכבר"
 
-msgid "NO"
-msgstr "לא"
-
 msgid "LEFT ANALOG STICK"
 msgstr "ג'ויסטיק ימין"
 
@@ -455,9 +482,6 @@ msgstr "עריכת תיאור"
 
 msgid "ARE YOU SURE YOU WANT TO DELETE THIS ITEM?"
 msgstr "?האם אתה בטוח שאתה רוצה למחוק פריט זה"
-
-msgid "YES"
-msgstr "כן"
 
 msgid "DELETE MAPPING"
 msgstr "מחיקת מיפוי"
@@ -520,6 +544,12 @@ msgid "MONTREAL"
 msgstr ""
 
 msgid "SAO PAULO"
+msgstr ""
+
+msgid "CUSTOM"
+msgstr ""
+
+msgid "CUSTOM RELAY SERVER"
 msgstr ""
 
 msgid "SHOW UNAVAILABLE GAMES"
@@ -640,6 +670,25 @@ msgstr ""
 
 msgid "UNABLE TO ACTIVATE RETROACHIEVEMENTS:"
 msgstr ""
+
+msgid "BLUETOOTH DEVICE LIST"
+msgstr ""
+
+msgid "REMOVE ALL"
+msgstr "הסר הכל"
+
+msgid "NO BLUETOOTH DEVICES FOUND"
+msgstr "לא נמצא התקן בלו-טות'"
+
+msgid " (Connected)"
+msgstr ""
+
+msgid "BLUETOOTH DEVICES HAVE BEEN DELETED."
+msgstr "התקן בלו-טות' נמחק."
+
+#, c-format
+msgid "ARE YOU SURE YOU WANT TO REMOVE '%s' ?"
+msgstr "האם אתה בטוח שאתה רוצה למחוק את '%s'?"
 
 msgid "THE BEZEL PROJECT"
 msgstr "פרויקט BEZEL"
@@ -816,6 +865,39 @@ msgstr "תדר שיא למעבד"
 
 msgid "Cpu feature"
 msgstr "מאפיין מעבד"
+
+msgid "Available Memory"
+msgstr ""
+
+msgid "Display Resolution"
+msgstr ""
+
+msgid "Display Refresh Rate"
+msgstr ""
+
+msgid "OpenGL Driver Version"
+msgstr ""
+
+msgid "Vulkan Driver Name"
+msgstr ""
+
+msgid "Vulkan Driver Version"
+msgstr ""
+
+msgid "Data Partition Format"
+msgstr ""
+
+msgid "Data Partition Available Space"
+msgstr ""
+
+msgid "Network IP Address"
+msgstr ""
+
+msgid "UEFI Boot"
+msgstr ""
+
+msgid "Secure Boot"
+msgstr ""
 
 msgctxt "game_options"
 msgid "SHARP-BILINEAR-SIMPLE"
@@ -1031,9 +1113,6 @@ msgstr "VSYNC"
 
 msgid "OVERSCAN"
 msgstr "OVERSCAN"
-
-msgid "Sets the display's resolution for emulationstation."
-msgstr ""
 
 msgid "USE OMX PLAYER (HARDWARE ACCELERATED)"
 msgstr ""
@@ -1328,6 +1407,9 @@ msgstr "הפעל את קודי בהפעלה"
 
 msgid "HARDWARE"
 msgstr "חומרה"
+
+msgid "Sets the display's resolution for emulationstation."
+msgstr ""
 
 msgid "AUDIO OUTPUT"
 msgstr "פלט שמע"
@@ -2385,22 +2467,6 @@ msgstr ""
 msgid "NO MISSING BIOS"
 msgstr "אין חוסר BIOS"
 
-msgid "FORGET A BLUETOOTH DEVICE"
-msgstr "שכח התקן בלו-טות'"
-
-msgid "REMOVE ALL"
-msgstr "הסר הכל"
-
-msgid "NO BLUETOOTH DEVICES FOUND"
-msgstr "לא נמצא התקן בלו-טות'"
-
-msgid "BLUETOOTH DEVICES HAVE BEEN DELETED."
-msgstr "התקן בלו-טות' נמחק."
-
-#, c-format
-msgid "ARE YOU SURE YOU WANT TO REMOVE '%s' ?"
-msgstr "האם אתה בטוח שאתה רוצה למחוק את '%s'?"
-
 msgid "ZOOM OUT"
 msgstr ""
 
@@ -3413,6 +3479,9 @@ msgid ""
 "CALIBRATING GUN\n"
 "Fire on targets to calibrate"
 msgstr ""
+
+#~ msgid "FORGET A BLUETOOTH DEVICE"
+#~ msgstr "שכח התקן בלו-טות'"
 
 #~ msgid "Achievements won"
 #~ msgstr "זכייה בהישגים"

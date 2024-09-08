@@ -410,6 +410,36 @@ msgstr "WI-FI VERKKOJA EI LÖYTYNYT"
 msgid "SEARCHING WI-FI NETWORKS"
 msgstr "ETSITÄÄN WI-FI VERKKOJA"
 
+msgid "DEVICE OPTIONS"
+msgstr ""
+
+msgid "DISCONNECT"
+msgstr ""
+
+msgid "CONNECT"
+msgstr ""
+
+msgid "FORGET"
+msgstr ""
+
+#, c-format
+msgid "ARE YOU SURE YOU WANT TO FORGET '%s' ?"
+msgstr ""
+
+msgid "YES"
+msgstr "KYLLÄ"
+
+msgid "NO"
+msgstr "EI"
+
+#, c-format
+msgid "ARE YOU SURE YOU WANT TO CONNECT TO '%s' ?"
+msgstr ""
+
+#, c-format
+msgid "ARE YOU SURE YOU WANT TO DISCONNECT '%s' ?"
+msgstr ""
+
 msgid "PAD TO KEYBOARD CONFIGURATION"
 msgstr "OHJAIMESTA-NÄPPÄIMISTÖÖN ASETUKSET"
 
@@ -443,9 +473,6 @@ msgstr "HIIREN KURSORI"
 msgid "EMULATE MOUSE CURSOR"
 msgstr "EMULOI HIIREN KURSORIA"
 
-msgid "NO"
-msgstr "EI"
-
 msgid "LEFT ANALOG STICK"
 msgstr "VASEN ANALOGINEN SAUVA"
 
@@ -457,9 +484,6 @@ msgstr "MUOKKAA KUVAUSTA"
 
 msgid "ARE YOU SURE YOU WANT TO DELETE THIS ITEM?"
 msgstr "OLETKO VARMA ETTÄ HALUAT POISTAA TÄMÄN KOHTEEN?"
-
-msgid "YES"
-msgstr "KYLLÄ"
 
 msgid "DELETE MAPPING"
 msgstr "POISTA KARTOITUS"
@@ -523,6 +547,12 @@ msgstr "MONTREAL"
 
 msgid "SAO PAULO"
 msgstr "SAO PAULO"
+
+msgid "CUSTOM"
+msgstr ""
+
+msgid "CUSTOM RELAY SERVER"
+msgstr ""
 
 msgid "SHOW UNAVAILABLE GAMES"
 msgstr "NÄYTÄ EI SAATAVILLA OLEVAT PELIT"
@@ -644,6 +674,25 @@ msgstr ""
 
 msgid "UNABLE TO ACTIVATE RETROACHIEVEMENTS:"
 msgstr ""
+
+msgid "BLUETOOTH DEVICE LIST"
+msgstr ""
+
+msgid "REMOVE ALL"
+msgstr "POISTA KAIKKI"
+
+msgid "NO BLUETOOTH DEVICES FOUND"
+msgstr "BLUETOOTH-LAITTEITA EI LÖYTYNYT"
+
+msgid " (Connected)"
+msgstr ""
+
+msgid "BLUETOOTH DEVICES HAVE BEEN DELETED."
+msgstr "BLUETOOTH-LAITTEET ON POISTETTU."
+
+#, c-format
+msgid "ARE YOU SURE YOU WANT TO REMOVE '%s' ?"
+msgstr "OLETKO VARMA, ETTÄ HALUAT POISTAA '%s' ?"
 
 msgid "THE BEZEL PROJECT"
 msgstr "KEHYSPROJEKTI"
@@ -824,6 +873,39 @@ msgid "Cpu max frequency"
 msgstr "Prosessorin maksimi taajuus"
 
 msgid "Cpu feature"
+msgstr ""
+
+msgid "Available Memory"
+msgstr ""
+
+msgid "Display Resolution"
+msgstr ""
+
+msgid "Display Refresh Rate"
+msgstr ""
+
+msgid "OpenGL Driver Version"
+msgstr ""
+
+msgid "Vulkan Driver Name"
+msgstr ""
+
+msgid "Vulkan Driver Version"
+msgstr ""
+
+msgid "Data Partition Format"
+msgstr ""
+
+msgid "Data Partition Available Space"
+msgstr ""
+
+msgid "Network IP Address"
+msgstr ""
+
+msgid "UEFI Boot"
+msgstr ""
+
+msgid "Secure Boot"
 msgstr ""
 
 msgctxt "game_options"
@@ -1041,9 +1123,6 @@ msgstr "VSYNC"
 
 msgid "OVERSCAN"
 msgstr "YLISKANNAUS"
-
-msgid "Sets the display's resolution for emulationstation."
-msgstr ""
 
 msgid "USE OMX PLAYER (HARDWARE ACCELERATED)"
 msgstr "KÄYTÄ OMX-SOITINTA (LAITTEISTO KIIHDYTETTY)"
@@ -1347,6 +1426,9 @@ msgstr "KÄYNNISTÄ KODI KÄYNNISTYESSÄ"
 
 msgid "HARDWARE"
 msgstr "LAITTEISTO"
+
+msgid "Sets the display's resolution for emulationstation."
+msgstr ""
 
 msgid "AUDIO OUTPUT"
 msgstr "ÄÄNEN ULOSTULO"
@@ -2416,22 +2498,6 @@ msgstr ""
 msgid "NO MISSING BIOS"
 msgstr "EI PUUTTUVAA BIOS:TA"
 
-msgid "FORGET A BLUETOOTH DEVICE"
-msgstr "UNOHDA BLUETOOTH-LAITE"
-
-msgid "REMOVE ALL"
-msgstr "POISTA KAIKKI"
-
-msgid "NO BLUETOOTH DEVICES FOUND"
-msgstr "BLUETOOTH-LAITTEITA EI LÖYTYNYT"
-
-msgid "BLUETOOTH DEVICES HAVE BEEN DELETED."
-msgstr "BLUETOOTH-LAITTEET ON POISTETTU."
-
-#, c-format
-msgid "ARE YOU SURE YOU WANT TO REMOVE '%s' ?"
-msgstr "OLETKO VARMA, ETTÄ HALUAT POISTAA '%s' ?"
-
 msgid "ZOOM OUT"
 msgstr ""
 
@@ -3430,6 +3496,9 @@ msgid ""
 "CALIBRATING GUN\n"
 "Fire on targets to calibrate"
 msgstr ""
+
+#~ msgid "FORGET A BLUETOOTH DEVICE"
+#~ msgstr "UNOHDA BLUETOOTH-LAITE"
 
 #~ msgid "SELECT THEME FOLDER"
 #~ msgstr "VALITSE TEEMAN KANSIO"

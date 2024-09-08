@@ -406,6 +406,36 @@ msgstr "NEBYLY NALEZENY ŽÁDNÉ SÍTĚ WI-FI"
 msgid "SEARCHING WI-FI NETWORKS"
 msgstr "VYHLEDÁVÁNÍ SÍTÍ WI-FI"
 
+msgid "DEVICE OPTIONS"
+msgstr ""
+
+msgid "DISCONNECT"
+msgstr ""
+
+msgid "CONNECT"
+msgstr ""
+
+msgid "FORGET"
+msgstr ""
+
+#, c-format
+msgid "ARE YOU SURE YOU WANT TO FORGET '%s' ?"
+msgstr ""
+
+msgid "YES"
+msgstr "ANO"
+
+msgid "NO"
+msgstr "NE"
+
+#, c-format
+msgid "ARE YOU SURE YOU WANT TO CONNECT TO '%s' ?"
+msgstr ""
+
+#, c-format
+msgid "ARE YOU SURE YOU WANT TO DISCONNECT '%s' ?"
+msgstr ""
+
 msgid "PAD TO KEYBOARD CONFIGURATION"
 msgstr "KONFIGURACE KLÁVESNICE NA HERNÍM OVLADAČI"
 
@@ -439,9 +469,6 @@ msgstr "KURZOR MYŠI"
 msgid "EMULATE MOUSE CURSOR"
 msgstr "EMULACE KURZORU MYŠI"
 
-msgid "NO"
-msgstr "NE"
-
 msgid "LEFT ANALOG STICK"
 msgstr "LEVÁ ANALOGOVÁ PÁČKA"
 
@@ -453,9 +480,6 @@ msgstr "UPRAVIT POPIS"
 
 msgid "ARE YOU SURE YOU WANT TO DELETE THIS ITEM?"
 msgstr "JSTE SI JISTI, ŽE CHCETE TUTO POLOŽKU ODSTRANIT?"
-
-msgid "YES"
-msgstr "ANO"
 
 msgid "DELETE MAPPING"
 msgstr "ODSTRANIT MAPOVÁNÍ"
@@ -519,6 +543,12 @@ msgstr "MONTREAL"
 
 msgid "SAO PAULO"
 msgstr "SAO PAULO"
+
+msgid "CUSTOM"
+msgstr ""
+
+msgid "CUSTOM RELAY SERVER"
+msgstr ""
 
 msgid "SHOW UNAVAILABLE GAMES"
 msgstr "ZOBRAZIT NEDOSTUPNÉ HRY"
@@ -639,6 +669,25 @@ msgstr "Prohlédněte si své statistiky RetroÚspechu přímo z hlavního menu!
 
 msgid "UNABLE TO ACTIVATE RETROACHIEVEMENTS:"
 msgstr "NELZE AKTIVOVAT RETROÚSPĚCHY:"
+
+msgid "BLUETOOTH DEVICE LIST"
+msgstr ""
+
+msgid "REMOVE ALL"
+msgstr "VŠE ODSTRANIT"
+
+msgid "NO BLUETOOTH DEVICES FOUND"
+msgstr "NEBYLO NALEZENO ŽÁDNÉ ZAŘÍZENÍ BLUETOOTH"
+
+msgid " (Connected)"
+msgstr ""
+
+msgid "BLUETOOTH DEVICES HAVE BEEN DELETED."
+msgstr "ZAŘÍZENÍ BLUETOOTH BYLA ODSTRANĚNA."
+
+#, c-format
+msgid "ARE YOU SURE YOU WANT TO REMOVE '%s' ?"
+msgstr "JSTE SI JISTI, ŽE CHCETE ODSTRANIT '%s' ?"
 
 msgid "THE BEZEL PROJECT"
 msgstr "PROJEKT RÁMEČEK"
@@ -823,6 +872,39 @@ msgstr "Cpu max frekvence"
 
 msgid "Cpu feature"
 msgstr "Funkce Cpu"
+
+msgid "Available Memory"
+msgstr ""
+
+msgid "Display Resolution"
+msgstr ""
+
+msgid "Display Refresh Rate"
+msgstr ""
+
+msgid "OpenGL Driver Version"
+msgstr ""
+
+msgid "Vulkan Driver Name"
+msgstr ""
+
+msgid "Vulkan Driver Version"
+msgstr ""
+
+msgid "Data Partition Format"
+msgstr ""
+
+msgid "Data Partition Available Space"
+msgstr ""
+
+msgid "Network IP Address"
+msgstr ""
+
+msgid "UEFI Boot"
+msgstr ""
+
+msgid "Secure Boot"
+msgstr ""
 
 msgctxt "game_options"
 msgid "SHARP-BILINEAR-SIMPLE"
@@ -1038,9 +1120,6 @@ msgstr "VSYNC"
 
 msgid "OVERSCAN"
 msgstr "OVERSCAN"
-
-msgid "Sets the display's resolution for emulationstation."
-msgstr "Nastaví rozlišení displeje pro emulační stanici."
 
 msgid "USE OMX PLAYER (HARDWARE ACCELERATED)"
 msgstr "POUŽITÍ PŘEHRÁVAČE OMX (HARDWAROVÁ AKCELERACE)"
@@ -1352,6 +1431,9 @@ msgstr "SPUŠTĚNÍ KODI PŘI STARTU"
 
 msgid "HARDWARE"
 msgstr "HARDWARE"
+
+msgid "Sets the display's resolution for emulationstation."
+msgstr "Nastaví rozlišení displeje pro emulační stanici."
 
 msgid "AUDIO OUTPUT"
 msgstr "AUDIO VÝSTUP"
@@ -2420,22 +2502,6 @@ msgstr "obnovit"
 msgid "NO MISSING BIOS"
 msgstr "NECHYBÍ ŽÁDNÝ BIOS"
 
-msgid "FORGET A BLUETOOTH DEVICE"
-msgstr "ZAPOMENOUT NA ZAŘÍZENÍ BLUETOOTH"
-
-msgid "REMOVE ALL"
-msgstr "VŠE ODSTRANIT"
-
-msgid "NO BLUETOOTH DEVICES FOUND"
-msgstr "NEBYLO NALEZENO ŽÁDNÉ ZAŘÍZENÍ BLUETOOTH"
-
-msgid "BLUETOOTH DEVICES HAVE BEEN DELETED."
-msgstr "ZAŘÍZENÍ BLUETOOTH BYLA ODSTRANĚNA."
-
-#, c-format
-msgid "ARE YOU SURE YOU WANT TO REMOVE '%s' ?"
-msgstr "JSTE SI JISTI, ŽE CHCETE ODSTRANIT '%s' ?"
-
 msgid "ZOOM OUT"
 msgstr "ZOOM-"
 
@@ -3455,6 +3521,9 @@ msgid ""
 msgstr ""
 "KALIBRACE ZBRANĚ\n"
 "Střelba na cíle pro kalibraci"
+
+#~ msgid "FORGET A BLUETOOTH DEVICE"
+#~ msgstr "ZAPOMENOUT NA ZAŘÍZENÍ BLUETOOTH"
 
 #~ msgid "Achievements won"
 #~ msgstr "Získané úspěchy"

@@ -405,6 +405,36 @@ msgstr "NENHUMA REDE WIFI ENCONTRADA"
 msgid "SEARCHING WI-FI NETWORKS"
 msgstr "PESQUISANDO REDES WIFI"
 
+msgid "DEVICE OPTIONS"
+msgstr ""
+
+msgid "DISCONNECT"
+msgstr ""
+
+msgid "CONNECT"
+msgstr ""
+
+msgid "FORGET"
+msgstr ""
+
+#, c-format
+msgid "ARE YOU SURE YOU WANT TO FORGET '%s' ?"
+msgstr ""
+
+msgid "YES"
+msgstr "SIM"
+
+msgid "NO"
+msgstr "NÃO"
+
+#, c-format
+msgid "ARE YOU SURE YOU WANT TO CONNECT TO '%s' ?"
+msgstr ""
+
+#, c-format
+msgid "ARE YOU SURE YOU WANT TO DISCONNECT '%s' ?"
+msgstr ""
+
 msgid "PAD TO KEYBOARD CONFIGURATION"
 msgstr "AJUSTE DE CONTROLE PARA TECLADO (PADTOKEY)"
 
@@ -438,9 +468,6 @@ msgstr "CURSOR DO MOUSE"
 msgid "EMULATE MOUSE CURSOR"
 msgstr "EMULAR CURSOR DO MOUSE"
 
-msgid "NO"
-msgstr "NÃO"
-
 msgid "LEFT ANALOG STICK"
 msgstr "ALAVANCA ANALÓGICA ESQUERDA"
 
@@ -452,9 +479,6 @@ msgstr "EDITAR DESCRIÇÃO"
 
 msgid "ARE YOU SURE YOU WANT TO DELETE THIS ITEM?"
 msgstr "TEM CERTEZA QUE DESEJA EXCLUIR ESTE ITEM ?"
-
-msgid "YES"
-msgstr "SIM"
 
 msgid "DELETE MAPPING"
 msgstr "APAGAR MAPEAMENTO"
@@ -518,6 +542,12 @@ msgstr "MONTREAL"
 
 msgid "SAO PAULO"
 msgstr "SÃO PAULO"
+
+msgid "CUSTOM"
+msgstr ""
+
+msgid "CUSTOM RELAY SERVER"
+msgstr ""
 
 msgid "SHOW UNAVAILABLE GAMES"
 msgstr "EXIBIR JOGOS INDISPONÍVEIS"
@@ -648,6 +678,25 @@ msgstr ""
 
 msgid "UNABLE TO ACTIVATE RETROACHIEVEMENTS:"
 msgstr "INCAPAZ DE ATIVAR CONQUISTAS:"
+
+msgid "BLUETOOTH DEVICE LIST"
+msgstr ""
+
+msgid "REMOVE ALL"
+msgstr "REMOVER TODOS"
+
+msgid "NO BLUETOOTH DEVICES FOUND"
+msgstr "NENHUM DISPOSITIVO BLUETOOTH ENCONTRADO"
+
+msgid " (Connected)"
+msgstr ""
+
+msgid "BLUETOOTH DEVICES HAVE BEEN DELETED."
+msgstr "TODOS OS DISPOSITIVOS BLUETOOTH FORAM REMOVIDOS."
+
+#, c-format
+msgid "ARE YOU SURE YOU WANT TO REMOVE '%s' ?"
+msgstr "TEM CERTEZA QUE DESEJA REMOVER '%s'?"
 
 msgid "THE BEZEL PROJECT"
 msgstr "PROJETO BEZEL (MOLDURAS)"
@@ -832,6 +881,39 @@ msgstr "Frequência máxima do processador"
 
 msgid "Cpu feature"
 msgstr "Recurso do processador"
+
+msgid "Available Memory"
+msgstr ""
+
+msgid "Display Resolution"
+msgstr ""
+
+msgid "Display Refresh Rate"
+msgstr ""
+
+msgid "OpenGL Driver Version"
+msgstr ""
+
+msgid "Vulkan Driver Name"
+msgstr ""
+
+msgid "Vulkan Driver Version"
+msgstr ""
+
+msgid "Data Partition Format"
+msgstr ""
+
+msgid "Data Partition Available Space"
+msgstr ""
+
+msgid "Network IP Address"
+msgstr ""
+
+msgid "UEFI Boot"
+msgstr ""
+
+msgid "Secure Boot"
+msgstr ""
 
 msgctxt "game_options"
 msgid "SHARP-BILINEAR-SIMPLE"
@@ -1051,9 +1133,6 @@ msgstr "VSYNC (SINCRONIZAR TAXA DE QUADROS)"
 
 msgid "OVERSCAN"
 msgstr "OVERSCAN (ULTRAPASSAR BORDAS DA TELA)"
-
-msgid "Sets the display's resolution for emulationstation."
-msgstr "Define a resolução do monitor para o emulationstation."
 
 msgid "USE OMX PLAYER (HARDWARE ACCELERATED)"
 msgstr "USAR O LEITOR OMX (ACELERAÇÃO DE HARDWARE)"
@@ -1376,6 +1455,9 @@ msgstr "ABRIR KODI NA INICIALIZAÇÃO"
 
 msgid "HARDWARE"
 msgstr "HARDWARE"
+
+msgid "Sets the display's resolution for emulationstation."
+msgstr "Define a resolução do monitor para o emulationstation."
 
 msgid "AUDIO OUTPUT"
 msgstr "SAÍDA DE ÁUDIO"
@@ -2445,22 +2527,6 @@ msgstr "atualizar"
 msgid "NO MISSING BIOS"
 msgstr "NENHUMA BIOS FALTANDO"
 
-msgid "FORGET A BLUETOOTH DEVICE"
-msgstr "REMOVER UM DISPOSITIVO BLUETOOTH"
-
-msgid "REMOVE ALL"
-msgstr "REMOVER TODOS"
-
-msgid "NO BLUETOOTH DEVICES FOUND"
-msgstr "NENHUM DISPOSITIVO BLUETOOTH ENCONTRADO"
-
-msgid "BLUETOOTH DEVICES HAVE BEEN DELETED."
-msgstr "TODOS OS DISPOSITIVOS BLUETOOTH FORAM REMOVIDOS."
-
-#, c-format
-msgid "ARE YOU SURE YOU WANT TO REMOVE '%s' ?"
-msgstr "TEM CERTEZA QUE DESEJA REMOVER '%s'?"
-
 msgid "ZOOM OUT"
 msgstr "AMPLIAR MENOS"
 
@@ -3471,6 +3537,9 @@ msgid ""
 msgstr ""
 "CALIBRANDO ARMA\n"
 "Atire nos alvos para calibrar"
+
+#~ msgid "FORGET A BLUETOOTH DEVICE"
+#~ msgstr "REMOVER UM DISPOSITIVO BLUETOOTH"
 
 #~ msgid "Achievements won"
 #~ msgstr "Conquistas alcançadas"

@@ -3,15 +3,15 @@ msgstr ""
 "Project-Id-Version: \n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2021-12-16 08:40+0100\n"
-"PO-Revision-Date: 2023-03-19 18:43+1100\n"
-"Last-Translator: \n"
+"PO-Revision-Date: 2024-07-03 11:40+0300\n"
+"Last-Translator: Mihai Vasiliu <mihai.vasiliu.93@gmail.com>\n"
 "Language-Team: \n"
 "Language: en_GB\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
-"X-Generator: Poedit 3.0\n"
+"X-Generator: Poedit 3.4.4\n"
 
 msgid "SCANNING BLUETOOTH"
 msgstr "SCANNING BLUETOOTH"
@@ -20,7 +20,7 @@ msgid "Searching for devices..."
 msgstr "Searching for devices..."
 
 msgid "BLUETOOTH SCAN IS ALREADY RUNNING."
-msgstr "BLUETOOTH SCAN IS ALREADY RUNNING"
+msgstr "BLUETOOTH SCAN IS ALREADY RUNNING."
 
 msgid "FORMATTING DEVICE"
 msgstr "FORMATTING DEVICE"
@@ -405,6 +405,36 @@ msgstr "NO WI-FI NETWORKS FOUND"
 msgid "SEARCHING WI-FI NETWORKS"
 msgstr "SEARCHING WI-FI NETWORKS"
 
+msgid "DEVICE OPTIONS"
+msgstr ""
+
+msgid "DISCONNECT"
+msgstr ""
+
+msgid "CONNECT"
+msgstr ""
+
+msgid "FORGET"
+msgstr ""
+
+#, c-format
+msgid "ARE YOU SURE YOU WANT TO FORGET '%s' ?"
+msgstr ""
+
+msgid "YES"
+msgstr "YES"
+
+msgid "NO"
+msgstr "NO"
+
+#, c-format
+msgid "ARE YOU SURE YOU WANT TO CONNECT TO '%s' ?"
+msgstr ""
+
+#, c-format
+msgid "ARE YOU SURE YOU WANT TO DISCONNECT '%s' ?"
+msgstr ""
+
 msgid "PAD TO KEYBOARD CONFIGURATION"
 msgstr "PAD TO KEYBOARD CONFIGURATION"
 
@@ -438,9 +468,6 @@ msgstr "MOUSE CURSOR"
 msgid "EMULATE MOUSE CURSOR"
 msgstr "EMULATE MOUSE CURSOR"
 
-msgid "NO"
-msgstr "NO"
-
 msgid "LEFT ANALOG STICK"
 msgstr "LEFT ANALOQUE STICK"
 
@@ -452,9 +479,6 @@ msgstr "EDIT DESCRIPTION"
 
 msgid "ARE YOU SURE YOU WANT TO DELETE THIS ITEM?"
 msgstr "ARE YOU SURE YOU WANT TO DELETE THIS ITEM?"
-
-msgid "YES"
-msgstr "YES"
 
 msgid "DELETE MAPPING"
 msgstr "DELETE MAPPING"
@@ -518,6 +542,12 @@ msgstr "MONTREAL"
 
 msgid "SAO PAULO"
 msgstr "SAO PAULO"
+
+msgid "CUSTOM"
+msgstr ""
+
+msgid "CUSTOM RELAY SERVER"
+msgstr ""
 
 msgid "SHOW UNAVAILABLE GAMES"
 msgstr "SHOW UNAVAILABLE GAMES"
@@ -639,6 +669,25 @@ msgstr "View your RetroAchievement stats right from the main menu!"
 
 msgid "UNABLE TO ACTIVATE RETROACHIEVEMENTS:"
 msgstr "UNABLE TO ACTIVATE RETROACHIEVEMENTS:"
+
+msgid "BLUETOOTH DEVICE LIST"
+msgstr ""
+
+msgid "REMOVE ALL"
+msgstr "REMOVE ALL"
+
+msgid "NO BLUETOOTH DEVICES FOUND"
+msgstr "NO BLUETOOTH DEVICES FOUND"
+
+msgid " (Connected)"
+msgstr ""
+
+msgid "BLUETOOTH DEVICES HAVE BEEN DELETED."
+msgstr "BLUETOOTH DEVICES HAVE BEEN DELETED."
+
+#, c-format
+msgid "ARE YOU SURE YOU WANT TO REMOVE '%s' ?"
+msgstr "ARE YOU SURE YOU WANT TO REMOVE '%s' ?"
 
 msgid "THE BEZEL PROJECT"
 msgstr "THE BEZEL PROJECT"
@@ -824,6 +873,39 @@ msgstr "CPU max frequency"
 msgid "Cpu feature"
 msgstr "CPU feature"
 
+msgid "Available Memory"
+msgstr ""
+
+msgid "Display Resolution"
+msgstr ""
+
+msgid "Display Refresh Rate"
+msgstr ""
+
+msgid "OpenGL Driver Version"
+msgstr ""
+
+msgid "Vulkan Driver Name"
+msgstr ""
+
+msgid "Vulkan Driver Version"
+msgstr ""
+
+msgid "Data Partition Format"
+msgstr ""
+
+msgid "Data Partition Available Space"
+msgstr ""
+
+msgid "Network IP Address"
+msgstr ""
+
+msgid "UEFI Boot"
+msgstr ""
+
+msgid "Secure Boot"
+msgstr ""
+
 msgctxt "game_options"
 msgid "SHARP-BILINEAR-SIMPLE"
 msgstr "SHARP-BILINEAR-SIMPLE"
@@ -887,7 +969,7 @@ msgid "GAME SETTINGS"
 msgstr "GAME SETTINGS"
 
 msgid "USER INTERFACE SETTINGS"
-msgstr "USER INTERGACE SETTINGS"
+msgstr "USER INTERFACE SETTINGS"
 
 msgid "GAME COLLECTION SETTINGS"
 msgstr "GAME COLLECTION SETTINGS"
@@ -986,7 +1068,7 @@ msgid "BACKGLASS / INFORMATION SCREEN"
 msgstr "BACKGLASS / INFORMATION SCREEN"
 
 msgid "THEME"
-msgstr ""
+msgstr "THEME"
 
 msgid "VIDEO OUTPUT"
 msgstr "VIDEO OUTPUT"
@@ -1038,9 +1120,6 @@ msgstr "VSYNC"
 
 msgid "OVERSCAN"
 msgstr "OVERSCAN"
-
-msgid "Sets the display's resolution for emulationstation."
-msgstr "Sets the display's resolution for emulationstation."
 
 msgid "USE OMX PLAYER (HARDWARE ACCELERATED)"
 msgstr "USE OMX PLAYER (HARDWARE ACCELERATED)"
@@ -1348,6 +1427,9 @@ msgstr "LAUNCH KODI AT BOOT"
 msgid "HARDWARE"
 msgstr "HARDWARE"
 
+msgid "Sets the display's resolution for emulationstation."
+msgstr "Sets the display's resolution for emulationstation."
+
 msgid "AUDIO OUTPUT"
 msgstr "AUDIO OUTPUT"
 
@@ -1427,7 +1509,7 @@ msgid "OVERCLOCK"
 msgstr "OVERCLOCK"
 
 msgid "LED HARDWARE"
-msgstr ""
+msgstr "LED HARDWARE"
 
 msgid "RED"
 msgstr "RED"
@@ -1439,7 +1521,7 @@ msgid "BLUE"
 msgstr "BLUE"
 
 msgid "LED BRIGHTNESS"
-msgstr ""
+msgstr "LED BRIGHTNESS"
 
 msgid "STORAGE"
 msgstr "STORAGE"
@@ -2181,7 +2263,7 @@ msgid "PREFERED REGION"
 msgstr "PREFERED REGION"
 
 msgid "OVERWRITE NAMES"
-msgstr ""
+msgstr "OVERWRITE NAMES"
 
 msgid "OVERWRITE DESCRIPTIONS"
 msgstr "OVERWRITE DESCRIPTIONS"
@@ -2410,22 +2492,6 @@ msgstr "refresh"
 
 msgid "NO MISSING BIOS"
 msgstr "NO MISSING BIOS"
-
-msgid "FORGET A BLUETOOTH DEVICE"
-msgstr "FORGET A BLUETOOTH DEVICE"
-
-msgid "REMOVE ALL"
-msgstr "REMOVE ALL"
-
-msgid "NO BLUETOOTH DEVICES FOUND"
-msgstr "NO BLUETOOTH DEVICES FOUND"
-
-msgid "BLUETOOTH DEVICES HAVE BEEN DELETED."
-msgstr "BLUETOOTH DEVICES HAVE BEEN DELETED."
-
-#, c-format
-msgid "ARE YOU SURE YOU WANT TO REMOVE '%s' ?"
-msgstr "ARE YOU SURE YOU WANT TO REMOVE '%s' ?"
 
 msgid "ZOOM OUT"
 msgstr "ZOOM OUT"
@@ -2864,7 +2930,7 @@ msgstr[1] "%i COLLECTIONS"
 msgid "%i ITEM"
 msgid_plural "%i ITEMS"
 msgstr[0] "%i ITEM"
-msgstr[1] "% ITEMS"
+msgstr[1] "%i ITEMS"
 
 #, c-format
 msgid "%i GAME"
@@ -3040,7 +3106,7 @@ msgid "Removed '%s' from '%s'"
 msgstr "Removed '%s' from '%s'"
 
 msgid "This collection is empty."
-msgstr "This collection is empty"
+msgstr "This collection is empty."
 
 #. TRANSLATION: number of developpers / various developpers
 msgid "None"
@@ -3433,6 +3499,9 @@ msgid ""
 msgstr ""
 "CALIBRATING GUN\n"
 "Fire on targets to calibrate"
+
+#~ msgid "FORGET A BLUETOOTH DEVICE"
+#~ msgstr "FORGET A BLUETOOTH DEVICE"
 
 #~ msgid "Achievements won"
 #~ msgstr "Achievements won"

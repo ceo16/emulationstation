@@ -45,7 +45,7 @@
 #include "guis/GuiTextEditPopup.h"
 #include "guis/GuiWifi.h"
 #include "guis/GuiBluetoothPair.h"
-#include "guis/GuiBluetoothForget.h"
+#include "guis/GuiBluetoothDevices.h"
 #include "scrapers/ThreadedScraper.h"
 #include "FileSorts.h"
 #include "ThreadedHasher.h"
@@ -80,6 +80,18 @@
 #define fake_gettext_cpu_number   _("Cpu number")
 #define fake_gettext_cpu_frequency _("Cpu max frequency")
 #define fake_gettext_cpu_feature  _("Cpu feature")
+
+#define fake_gettext_cpu_feature  _("Available Memory")
+#define fake_gettext_cpu_feature  _("Display Resolution")
+#define fake_gettext_cpu_feature  _("Display Refresh Rate")
+#define fake_gettext_cpu_feature  _("OpenGL Driver Version")
+#define fake_gettext_cpu_feature  _("Vulkan Driver Name")
+#define fake_gettext_cpu_feature  _("Vulkan Driver Version")
+#define fake_gettext_cpu_feature  _("Data Partition Format")
+#define fake_gettext_cpu_feature  _("Data Partition Available Space")
+#define fake_gettext_cpu_feature  _("Network IP Address")
+#define fake_gettext_cpu_feature  _("UEFI Boot")
+#define fake_gettext_cpu_feature  _("Secure Boot")
 
 #define fake_gettext_simple_bilinear_simple	pgettext("game_options", "SHARP-BILINEAR-SIMPLE")
 #define fake_gettext_scanlines				pgettext("game_options", "SCANLINES")
@@ -729,14 +741,6 @@ void GuiMenu::openDeveloperSettings()
 			ApiSystem::getInstance()->setOverscan(overscan_enabled->getState());
 		}
 	});
-
-	// es resolution
-	if (ApiSystem::getInstance()->isScriptingSupported(ApiSystem::RESOLUTION))
-	  {
-	    auto videoModeOptionList = createVideoResolutionModeOptionList(mWindow, "es", "resolution");
-	    s->addWithDescription(_("VIDEO MODE"), _("Sets the display's resolution for emulationstation."), videoModeOptionList);
-	    s->addSaveFunc([this, videoModeOptionList] { SystemConf::getInstance()->set("es.resolution", videoModeOptionList->getSelected()); });
-	  }
 #endif
 
 #ifdef _RPI_
@@ -1321,6 +1325,7 @@ void GuiMenu::openSystemSettings()
 	language_choice->add("EUSKARA",               "eu_ES", language == "eu_ES");
 	language_choice->add("SUOMI",                "fi_FI", language == "fi_FI");
 	language_choice->add("FRANÇAIS",             "fr_FR", language == "fr_FR" || language == "fr");
+	language_choice->add("GALEGO",               "gl_ES", language == "gl_ES");
 	language_choice->add("עברית",                "he_IL", language == "he_IL");
 	language_choice->add("HUNGARIAN",            "hu_HU", language == "hu_HU");
 	language_choice->add("BAHASA INDONESIA",     "id_ID", language == "id_ID");
@@ -1334,6 +1339,7 @@ void GuiMenu::openSystemSettings()
 	language_choice->add("POLISH",               "pl_PL", language == "pl_PL");
 	language_choice->add("PORTUGUÊS BRASILEIRO", "pt_BR", language == "pt_BR");
 	language_choice->add("PORTUGUÊS PORTUGAL",   "pt_PT", language == "pt_PT");
+	language_choice->add("ROMÂNĂ",               "ro_RO", language == "ro_RO");
 	language_choice->add("РУССКИЙ",              "ru_RU", language == "ru_RU");
 	language_choice->add("SLOVENČINA", 	     "sk_SK", language == "sk_SK");
 	language_choice->add("SVENSKA", 	     "sv_SE", language == "sv_SE");
@@ -1508,6 +1514,13 @@ void GuiMenu::openSystemSettings()
 			}
 		});
 	}
+	// es resolution
+	if (ApiSystem::getInstance()->isScriptingSupported(ApiSystem::RESOLUTION))
+	{
+	    auto videoModeOptionList = createVideoResolutionModeOptionList(mWindow, "es", "resolution");
+	    s->addWithDescription(_("VIDEO MODE"), _("Sets the display's resolution for emulationstation."), videoModeOptionList);
+	    s->addSaveFunc([this, videoModeOptionList] { SystemConf::getInstance()->set("es.resolution", videoModeOptionList->getSelected()); });
+	}
 #endif
 
 	if (ApiSystem::getInstance()->isScriptingSupported(ApiSystem::AUDIODEVICE))
@@ -1525,7 +1538,7 @@ void GuiMenu::openSystemSettings()
 			bool afound = false;
 			for (auto it = availableAudio.begin(); it != availableAudio.end(); it++)
 			{
-				std::vector<std::string> tokens = Utils::String::split(*it, ' ');
+				std::vector<std::string> tokens = Utils::String::split(*it, '\t');
 
 				if (selectedAudio == tokens.at(0))
 					afound = true;
@@ -1574,19 +1587,32 @@ void GuiMenu::openSystemSettings()
 			bool afound = false;
 			for (auto it = availableAudioProfiles.begin(); it != availableAudioProfiles.end(); it++)
 			{
-				std::vector<std::string> tokens = Utils::String::split(*it, ' ');
+				std::vector<std::string> tokens = Utils::String::split(*it, '\t');
 
 				if (selectedAudioProfile == tokens.at(0))
 					afound = true;
 
+				std::string vname = "";
 				if (tokens.size() >= 2)
 				{
-					// concatenat the ending words
-					std::string vname = "";
-					for (unsigned int i = 1; i < tokens.size(); i++)
+					// Check if the profile contains "bluez_card" and remove it from the display name
+					if (tokens.at(1).find("bluez_card") != std::string::npos)
 					{
-						if (i > 2) vname += " ";
-						vname += tokens.at(i);
+						// Skip the "bluez_card" token and use the remaining tokens for the display name
+						for (unsigned int i = 2; i < tokens.size(); i++)
+						{
+							if (i > 2) vname += " ";
+							vname += tokens.at(i);
+						}
+					}
+					else
+					{
+						// Normal concatenation for other profiles
+						for (unsigned int i = 1; i < tokens.size(); i++)
+						{
+							if (i > 1) vname += " ";
+							vname += tokens.at(i);
+						}
 					}
 					optionsAudioProfile->add(vname, tokens.at(0), selectedAudioProfile == tokens.at(0));
 				}
@@ -1643,26 +1669,35 @@ void GuiMenu::openSystemSettings()
 	std::string soundSplash   = SystemConf::getInstance()->get("splash.screen.sound");
 
 	std::string selectedSplash = "auto";
-	if(enabledSplash == "0")      selectedSplash = "nosplash";
-	else if(soundSplash   == "0") selectedSplash = "silentsplash";
+	if(enabledSplash == "1") {
+	  selectedSplash = "splash";
+	  if(soundSplash   == "0") selectedSplash = "silentsplash";
+	} else {
+	  if(enabledSplash == "0") selectedSplash = "nosplash";
+	}
 
-	optionsSplash->add(_("DEFAULT VIDEO/USER SET SPLASH"),          "auto", selectedSplash == "auto");
-	optionsSplash->add(_("SILENT VIDEO/USER SET SPLASH"), "silentsplash", selectedSplash == "silentsplash");
-	optionsSplash->add(_("BATOCERA SPLASH IMAGE"),     "nosplash", selectedSplash == "nosplash");
+	optionsSplash->add(_("AUTO"), "auto", selectedSplash == "auto");
+	optionsSplash->add(_("DEFAULT VIDEO/USER SET SPLASH"), "splash",       selectedSplash == "splash");
+	optionsSplash->add(_("SILENT VIDEO/USER SET SPLASH"),  "silentsplash", selectedSplash == "silentsplash");
+	optionsSplash->add(_("BATOCERA SPLASH IMAGE"),         "nosplash",     selectedSplash == "nosplash");
 
 	s->addWithLabel(_("SPLASH SETTING"), optionsSplash);
 
 	s->addSaveFunc([this, optionsSplash, selectedSplash]
 	{
 	  if (optionsSplash->changed()) {
-	    if(optionsSplash->getSelected() == "nosplash") {
-	      SystemConf::getInstance()->set("splash.screen.enabled", "0");
+	    if(optionsSplash->getSelected() == "auto") {
+	      SystemConf::getInstance()->set("splash.screen.enabled", "");
 	    } else {
-	      SystemConf::getInstance()->set("splash.screen.enabled", "1");
-	      if(optionsSplash->getSelected() == "silentsplash") {
-		SystemConf::getInstance()->set("splash.screen.sound", "0");
+	      if(optionsSplash->getSelected() == "nosplash") {
+		SystemConf::getInstance()->set("splash.screen.enabled", "0");
 	      } else {
-		SystemConf::getInstance()->set("splash.screen.sound", "1");
+		SystemConf::getInstance()->set("splash.screen.enabled", "1");
+		if(optionsSplash->getSelected() == "silentsplash") {
+		  SystemConf::getInstance()->set("splash.screen.sound", "0");
+		} else {
+		  SystemConf::getInstance()->set("splash.screen.sound", "1");
+		}
 	      }
 	    }
 	    SystemConf::getInstance()->saveSystemConf();

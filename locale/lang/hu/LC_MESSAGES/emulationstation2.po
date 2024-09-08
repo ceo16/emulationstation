@@ -3,7 +3,7 @@ msgstr ""
 "Project-Id-Version: emulationstation\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: \n"
-"PO-Revision-Date: 2024-05-10 15:17+0200\n"
+"PO-Revision-Date: 2024-09-02 22:02+0200\n"
 "Last-Translator: Szoldán Albert\n"
 "Language-Team: \n"
 "Language: hu\n"
@@ -405,6 +405,36 @@ msgstr "NINCS WIFI HÁLÓZAT"
 msgid "SEARCHING WI-FI NETWORKS"
 msgstr "WIFI HÁLÓZAT KERESÉSE"
 
+msgid "DEVICE OPTIONS"
+msgstr "ESZKÖZ OPCIÓK"
+
+msgid "DISCONNECT"
+msgstr "SZÉTKAPCSOL"
+
+msgid "CONNECT"
+msgstr "KAPCSOLAT"
+
+msgid "FORGET"
+msgstr "ELFELEJT"
+
+#, c-format
+msgid "ARE YOU SURE YOU WANT TO FORGET '%s' ?"
+msgstr "BIZTOS, HOGY EL AKAROD FELEJTENI A '%s' -T?"
+
+msgid "YES"
+msgstr "IGEN"
+
+msgid "NO"
+msgstr "NEM"
+
+#, c-format
+msgid "ARE YOU SURE YOU WANT TO CONNECT TO '%s' ?"
+msgstr "BIZTOS, HOGY A '%s'-HOZ AKARSZ CSATLAKOZNI?"
+
+#, c-format
+msgid "ARE YOU SURE YOU WANT TO DISCONNECT '%s' ?"
+msgstr "BIZTOS VAGY BENNE, HOGY A '%s'-T LE AKAROD VÁLASZTANI?"
+
 msgid "PAD TO KEYBOARD CONFIGURATION"
 msgstr "PAD2KEY BEÁLLÍTÁSOK"
 
@@ -438,9 +468,6 @@ msgstr "EGÉR KURZOR"
 msgid "EMULATE MOUSE CURSOR"
 msgstr "EGÉR KURZOR EMULÁLÁSA"
 
-msgid "NO"
-msgstr "NEM"
-
 msgid "LEFT ANALOG STICK"
 msgstr "BAL ANALÓG KAR"
 
@@ -452,9 +479,6 @@ msgstr "LEÍRÁS SZERKESZTÉSE"
 
 msgid "ARE YOU SURE YOU WANT TO DELETE THIS ITEM?"
 msgstr "BIZTOSAN TÖRÖLNI SZERETNÉD?"
-
-msgid "YES"
-msgstr "IGEN"
 
 msgid "DELETE MAPPING"
 msgstr "MEGFELELTETÉS TÖRLÉSE"
@@ -518,6 +542,12 @@ msgstr "MONTREAL"
 
 msgid "SAO PAULO"
 msgstr "SAO PAULO"
+
+msgid "CUSTOM"
+msgstr "EGYEDI"
+
+msgid "CUSTOM RELAY SERVER"
+msgstr "EGYÉNI RELAY SZERVER"
 
 msgid "SHOW UNAVAILABLE GAMES"
 msgstr "NEM ELÉRHETŐ JÁTÉKOK MEGJELENÍTÉSE"
@@ -642,6 +672,25 @@ msgstr "Tekintse meg RetroAchievement statisztikáit közvetlenül a főmenübő
 
 msgid "UNABLE TO ACTIVATE RETROACHIEVEMENTS:"
 msgstr "NEM LEHET AKTIVÁLNI A RETROACHIEVEMENTS-EKET:"
+
+msgid "BLUETOOTH DEVICE LIST"
+msgstr "BLUETOOTH ESZKÖZÖK LISTÁJA"
+
+msgid "REMOVE ALL"
+msgstr "MINDET ELTÁVOLÍT"
+
+msgid "NO BLUETOOTH DEVICES FOUND"
+msgstr "NEM TALÁLHATÓ BLUETOOTH ESZKÖZ"
+
+msgid " (Connected)"
+msgstr " (Csatlakoztatva)"
+
+msgid "BLUETOOTH DEVICES HAVE BEEN DELETED."
+msgstr "A BLUETOOTH-ESZKÖZÖK TÖRÖLVE LETTEK."
+
+#, c-format
+msgid "ARE YOU SURE YOU WANT TO REMOVE '%s' ?"
+msgstr "BIZTOSAN EL AKARJA TÁVOLÍTANI A '%s' -OKAT?"
 
 msgid "THE BEZEL PROJECT"
 msgstr "KERET PROJEKT"
@@ -827,6 +876,39 @@ msgstr "Cpu maximális frekvencia"
 msgid "Cpu feature"
 msgstr "Cpu jellemző"
 
+msgid "Available Memory"
+msgstr "Rendelkezésre álló memória"
+
+msgid "Display Resolution"
+msgstr "Kijelző felbontása"
+
+msgid "Display Refresh Rate"
+msgstr "Kijelző frissítési gyakorisága"
+
+msgid "OpenGL Driver Version"
+msgstr "OpenGL illesztőprogram verziója"
+
+msgid "Vulkan Driver Name"
+msgstr "Vulkan illesztőprogram neve"
+
+msgid "Vulkan Driver Version"
+msgstr "Vulkan illesztőprogram verziója"
+
+msgid "Data Partition Format"
+msgstr "Adatpartíció formátuma"
+
+msgid "Data Partition Available Space"
+msgstr "Adatpartíció rendelkezésre álló hely"
+
+msgid "Network IP Address"
+msgstr "Hálózati IP-cím"
+
+msgid "UEFI Boot"
+msgstr "UEFI-indítás"
+
+msgid "Secure Boot"
+msgstr "Biztonságos indítás"
+
 msgctxt "game_options"
 msgid "SHARP-BILINEAR-SIMPLE"
 msgstr "ÉLES-BILINEÁRIS-EGYSZERŰ"
@@ -989,7 +1071,7 @@ msgid "BACKGLASS / INFORMATION SCREEN"
 msgstr "HÁTTÉRÜVEG / INFORMÁCIÓS KÉPERNYŐ"
 
 msgid "THEME"
-msgstr ""
+msgstr "TÉMA"
 
 msgid "VIDEO OUTPUT"
 msgstr "VIDEÓ KIMENET"
@@ -1041,9 +1123,6 @@ msgstr "VSYNC"
 
 msgid "OVERSCAN"
 msgstr "OVERSCAN"
-
-msgid "Sets the display's resolution for emulationstation."
-msgstr "Kijelző felbontás beállítása az emulációhoz."
 
 msgid "USE OMX PLAYER (HARDWARE ACCELERATED)"
 msgstr "OMX PLAYER HASZNÁLATA (HARDVERESEN GYORSÍTOTT)"
@@ -1366,6 +1445,9 @@ msgstr "KODI INDULÁSKOR"
 msgid "HARDWARE"
 msgstr "HARDVER"
 
+msgid "Sets the display's resolution for emulationstation."
+msgstr "Kijelző felbontás beállítása az emulációhoz."
+
 msgid "AUDIO OUTPUT"
 msgstr "HANG KIMENET"
 
@@ -1446,7 +1528,7 @@ msgid "OVERCLOCK"
 msgstr "OVERCLOCK"
 
 msgid "LED HARDWARE"
-msgstr ""
+msgstr "LED HARDWARE"
 
 msgid "RED"
 msgstr "PIROS"
@@ -1458,7 +1540,7 @@ msgid "BLUE"
 msgstr "KÉK"
 
 msgid "LED BRIGHTNESS"
-msgstr ""
+msgstr "LED FÉNYERŐ"
 
 msgid "STORAGE"
 msgstr "TÁROLÓ"
@@ -2206,7 +2288,7 @@ msgid "PREFERED REGION"
 msgstr "ELŐNYBEN RÉSZESÍTETT RÉGIÓ"
 
 msgid "OVERWRITE NAMES"
-msgstr ""
+msgstr "NEVEK FELÜLÍRÁSA"
 
 msgid "OVERWRITE DESCRIPTIONS"
 msgstr "A LEÍRÁSOK FELÜLÍRÁSA"
@@ -2435,22 +2517,6 @@ msgstr "frissítés"
 
 msgid "NO MISSING BIOS"
 msgstr "NINCS HIÁNYZÓ BIOS"
-
-msgid "FORGET A BLUETOOTH DEVICE"
-msgstr "BLUETOOTH-ESZKÖZ ELFELEJTÉSE"
-
-msgid "REMOVE ALL"
-msgstr "MINDET ELTÁVOLÍT"
-
-msgid "NO BLUETOOTH DEVICES FOUND"
-msgstr "NEM TALÁLHATÓ BLUETOOTH ESZKÖZ"
-
-msgid "BLUETOOTH DEVICES HAVE BEEN DELETED."
-msgstr "A BLUETOOTH-ESZKÖZÖK TÖRÖLVE LETTEK."
-
-#, c-format
-msgid "ARE YOU SURE YOU WANT TO REMOVE '%s' ?"
-msgstr "BIZTOSAN EL AKARJA TÁVOLÍTANI A '%s' -OKAT?"
 
 msgid "ZOOM OUT"
 msgstr "KICSINYÍTÉS"
@@ -3460,6 +3526,9 @@ msgid ""
 msgstr ""
 "FEGYVER KALIBRÁCIÓ\n"
 "Tűz a kalibrálandó célpontokra"
+
+#~ msgid "FORGET A BLUETOOTH DEVICE"
+#~ msgstr "BLUETOOTH-ESZKÖZ ELFELEJTÉSE"
 
 #~ msgid "Achievements won"
 #~ msgstr "Elért achivementek"

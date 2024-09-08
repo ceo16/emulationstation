@@ -402,6 +402,36 @@ msgstr "HARI GABEKO SARERIK EZ DA AURKITU"
 msgid "SEARCHING WI-FI NETWORKS"
 msgstr "HARI GABEKO SAREAK BILATZEN"
 
+msgid "DEVICE OPTIONS"
+msgstr ""
+
+msgid "DISCONNECT"
+msgstr ""
+
+msgid "CONNECT"
+msgstr ""
+
+msgid "FORGET"
+msgstr ""
+
+#, c-format
+msgid "ARE YOU SURE YOU WANT TO FORGET '%s' ?"
+msgstr ""
+
+msgid "YES"
+msgstr "BAI"
+
+msgid "NO"
+msgstr "EZ"
+
+#, c-format
+msgid "ARE YOU SURE YOU WANT TO CONNECT TO '%s' ?"
+msgstr ""
+
+#, c-format
+msgid "ARE YOU SURE YOU WANT TO DISCONNECT '%s' ?"
+msgstr ""
+
 msgid "PAD TO KEYBOARD CONFIGURATION"
 msgstr "PAD-ETIK TEKLATURAKO KONFIGURAZIOA"
 
@@ -435,9 +465,6 @@ msgstr "XAGU KURTSOREA"
 msgid "EMULATE MOUSE CURSOR"
 msgstr "EMULATU XAGU KURSOREA"
 
-msgid "NO"
-msgstr "EZ"
-
 msgid "LEFT ANALOG STICK"
 msgstr "EZKER STICK ANALOGIKOA"
 
@@ -449,9 +476,6 @@ msgstr "EDITATU DESKRIBAPENA"
 
 msgid "ARE YOU SURE YOU WANT TO DELETE THIS ITEM?"
 msgstr "ZIUR AL ZAUDE ARTIKULU HAU EZABATU NAHI DUZULA"
-
-msgid "YES"
-msgstr "BAI"
 
 msgid "DELETE MAPPING"
 msgstr "EZABATU MAPEATZEA"
@@ -515,6 +539,12 @@ msgstr "MONTREAL"
 
 msgid "SAO PAULO"
 msgstr "SAO PAULO"
+
+msgid "CUSTOM"
+msgstr ""
+
+msgid "CUSTOM RELAY SERVER"
+msgstr ""
 
 msgid "SHOW UNAVAILABLE GAMES"
 msgstr "ERAKUTSI ESKURAGARRI EZ DAUDEN JOKOAK"
@@ -639,6 +669,25 @@ msgstr "Ikusi zure RetroAchivement egoera menu nagusitik zuzenean!"
 
 msgid "UNABLE TO ACTIVATE RETROACHIEVEMENTS:"
 msgstr "EZIN IZAN DA RETROACHIVEMENTS AKTIBATU:"
+
+msgid "BLUETOOTH DEVICE LIST"
+msgstr ""
+
+msgid "REMOVE ALL"
+msgstr "KENDU DENAK"
+
+msgid "NO BLUETOOTH DEVICES FOUND"
+msgstr "EZ DA BLUETOOTH GAILURIK AURKITU"
+
+msgid " (Connected)"
+msgstr ""
+
+msgid "BLUETOOTH DEVICES HAVE BEEN DELETED."
+msgstr "BLUETOOTH GAILUAK KENDU DIRA"
+
+#, c-format
+msgid "ARE YOU SURE YOU WANT TO REMOVE '%s' ?"
+msgstr "ZIUR AL ZAUDE '%s' KENDU NAHI DUZULA"
 
 msgid "THE BEZEL PROJECT"
 msgstr "BEZEL PROIEKTUA"
@@ -823,6 +872,39 @@ msgstr "PUZ-aren gehieneko frekuentzia"
 
 msgid "Cpu feature"
 msgstr "PUZ ezaugarria"
+
+msgid "Available Memory"
+msgstr ""
+
+msgid "Display Resolution"
+msgstr ""
+
+msgid "Display Refresh Rate"
+msgstr ""
+
+msgid "OpenGL Driver Version"
+msgstr ""
+
+msgid "Vulkan Driver Name"
+msgstr ""
+
+msgid "Vulkan Driver Version"
+msgstr ""
+
+msgid "Data Partition Format"
+msgstr ""
+
+msgid "Data Partition Available Space"
+msgstr ""
+
+msgid "Network IP Address"
+msgstr ""
+
+msgid "UEFI Boot"
+msgstr ""
+
+msgid "Secure Boot"
+msgstr ""
 
 msgctxt "game_options"
 msgid "SHARP-BILINEAR-SIMPLE"
@@ -1038,9 +1120,6 @@ msgstr "VSYNC"
 
 msgid "OVERSCAN"
 msgstr "OVERSCAN"
-
-msgid "Sets the display's resolution for emulationstation."
-msgstr "Pantailaren bereizmena ezartzen du emulationstation-entzat"
 
 msgid "USE OMX PLAYER (HARDWARE ACCELERATED)"
 msgstr "ERABILI OMX IKARKURLERA (HADRWARE BIDEZKO AZELERAZIOAREKIN)"
@@ -1353,6 +1432,9 @@ msgstr "HASI KODI ABIARAZTEAN"
 
 msgid "HARDWARE"
 msgstr "HARDWARE-A"
+
+msgid "Sets the display's resolution for emulationstation."
+msgstr "Pantailaren bereizmena ezartzen du emulationstation-entzat"
 
 msgid "AUDIO OUTPUT"
 msgstr "AUDIO IRTEERA"
@@ -2424,22 +2506,6 @@ msgstr ""
 msgid "NO MISSING BIOS"
 msgstr "EZ DA BIOS-IK FALTA"
 
-msgid "FORGET A BLUETOOTH DEVICE"
-msgstr "AHAZTU BLUETOOTH GAILUA"
-
-msgid "REMOVE ALL"
-msgstr "KENDU DENAK"
-
-msgid "NO BLUETOOTH DEVICES FOUND"
-msgstr "EZ DA BLUETOOTH GAILURIK AURKITU"
-
-msgid "BLUETOOTH DEVICES HAVE BEEN DELETED."
-msgstr "BLUETOOTH GAILUAK KENDU DIRA"
-
-#, c-format
-msgid "ARE YOU SURE YOU WANT TO REMOVE '%s' ?"
-msgstr "ZIUR AL ZAUDE '%s' KENDU NAHI DUZULA"
-
 msgid "ZOOM OUT"
 msgstr "KANPORAKO ZOOM-A"
 
@@ -3447,6 +3513,9 @@ msgid ""
 "CALIBRATING GUN\n"
 "Fire on targets to calibrate"
 msgstr "PISTOLA KALIBRATZENItuei tiro egin kalibratzeko"
+
+#~ msgid "FORGET A BLUETOOTH DEVICE"
+#~ msgstr "AHAZTU BLUETOOTH GAILUA"
 
 #~ msgid "Achievements won"
 #~ msgstr "Lorpenak irabazita"

@@ -409,6 +409,36 @@ msgstr ""
 msgid "SEARCHING WI-FI NETWORKS"
 msgstr ""
 
+msgid "DEVICE OPTIONS"
+msgstr ""
+
+msgid "DISCONNECT"
+msgstr ""
+
+msgid "CONNECT"
+msgstr ""
+
+msgid "FORGET"
+msgstr ""
+
+#, c-format
+msgid "ARE YOU SURE YOU WANT TO FORGET '%s' ?"
+msgstr ""
+
+msgid "YES"
+msgstr ""
+
+msgid "NO"
+msgstr ""
+
+#, c-format
+msgid "ARE YOU SURE YOU WANT TO CONNECT TO '%s' ?"
+msgstr ""
+
+#, c-format
+msgid "ARE YOU SURE YOU WANT TO DISCONNECT '%s' ?"
+msgstr ""
+
 msgid "PAD TO KEYBOARD CONFIGURATION"
 msgstr ""
 
@@ -442,9 +472,6 @@ msgstr ""
 msgid "EMULATE MOUSE CURSOR"
 msgstr ""
 
-msgid "NO"
-msgstr ""
-
 msgid "LEFT ANALOG STICK"
 msgstr ""
 
@@ -455,9 +482,6 @@ msgid "EDIT DESCRIPTION"
 msgstr ""
 
 msgid "ARE YOU SURE YOU WANT TO DELETE THIS ITEM?"
-msgstr ""
-
-msgid "YES"
 msgstr ""
 
 msgid "DELETE MAPPING"
@@ -521,6 +545,12 @@ msgid "MONTREAL"
 msgstr ""
 
 msgid "SAO PAULO"
+msgstr ""
+
+msgid "CUSTOM"
+msgstr ""
+
+msgid "CUSTOM RELAY SERVER"
 msgstr ""
 
 msgid "SHOW UNAVAILABLE GAMES"
@@ -640,6 +670,25 @@ msgid "View your RetroAchievement stats right from the main menu!"
 msgstr ""
 
 msgid "UNABLE TO ACTIVATE RETROACHIEVEMENTS:"
+msgstr ""
+
+msgid "BLUETOOTH DEVICE LIST"
+msgstr ""
+
+msgid "REMOVE ALL"
+msgstr ""
+
+msgid "NO BLUETOOTH DEVICES FOUND"
+msgstr ""
+
+msgid " (Connected)"
+msgstr ""
+
+msgid "BLUETOOTH DEVICES HAVE BEEN DELETED."
+msgstr ""
+
+#, c-format
+msgid "ARE YOU SURE YOU WANT TO REMOVE '%s' ?"
 msgstr ""
 
 msgid "THE BEZEL PROJECT"
@@ -816,6 +865,39 @@ msgid "Cpu max frequency"
 msgstr ""
 
 msgid "Cpu feature"
+msgstr ""
+
+msgid "Available Memory"
+msgstr ""
+
+msgid "Display Resolution"
+msgstr ""
+
+msgid "Display Refresh Rate"
+msgstr ""
+
+msgid "OpenGL Driver Version"
+msgstr ""
+
+msgid "Vulkan Driver Name"
+msgstr ""
+
+msgid "Vulkan Driver Version"
+msgstr ""
+
+msgid "Data Partition Format"
+msgstr ""
+
+msgid "Data Partition Available Space"
+msgstr ""
+
+msgid "Network IP Address"
+msgstr ""
+
+msgid "UEFI Boot"
+msgstr ""
+
+msgid "Secure Boot"
 msgstr ""
 
 msgctxt "game_options"
@@ -1031,9 +1113,6 @@ msgid "VSYNC"
 msgstr ""
 
 msgid "OVERSCAN"
-msgstr ""
-
-msgid "Sets the display's resolution for emulationstation."
 msgstr ""
 
 msgid "USE OMX PLAYER (HARDWARE ACCELERATED)"
@@ -1328,6 +1407,9 @@ msgid "LAUNCH KODI AT BOOT"
 msgstr ""
 
 msgid "HARDWARE"
+msgstr ""
+
+msgid "Sets the display's resolution for emulationstation."
 msgstr ""
 
 msgid "AUDIO OUTPUT"
@@ -2384,22 +2466,6 @@ msgid "refresh"
 msgstr ""
 
 msgid "NO MISSING BIOS"
-msgstr ""
-
-msgid "FORGET A BLUETOOTH DEVICE"
-msgstr ""
-
-msgid "REMOVE ALL"
-msgstr ""
-
-msgid "NO BLUETOOTH DEVICES FOUND"
-msgstr ""
-
-msgid "BLUETOOTH DEVICES HAVE BEEN DELETED."
-msgstr ""
-
-#, c-format
-msgid "ARE YOU SURE YOU WANT TO REMOVE '%s' ?"
 msgstr ""
 
 msgid "ZOOM OUT"

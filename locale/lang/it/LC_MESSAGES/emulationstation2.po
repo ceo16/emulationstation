@@ -406,6 +406,36 @@ msgstr "NESSUNA RETE WIFI TROVATA"
 msgid "SEARCHING WI-FI NETWORKS"
 msgstr "RICERCA RETI WIFI"
 
+msgid "DEVICE OPTIONS"
+msgstr "OPZIONI DISPOSITIVO"
+
+msgid "DISCONNECT"
+msgstr "DISCONNETTI"
+
+msgid "CONNECT"
+msgstr "CONNETTI"
+
+msgid "FORGET"
+msgstr "DIMENTICA"
+
+#, c-format
+msgid "ARE YOU SURE YOU WANT TO FORGET '%s' ?"
+msgstr "SEI SICURO DI VOLER RIMUOVERE '%s' ?"
+
+msgid "YES"
+msgstr "SI"
+
+msgid "NO"
+msgstr "NO"
+
+#, c-format
+msgid "ARE YOU SURE YOU WANT TO CONNECT TO '%s' ?"
+msgstr "SEI SICURO DI VOLER CONNETTERE '%s' ?"
+
+#, c-format
+msgid "ARE YOU SURE YOU WANT TO DISCONNECT '%s' ?"
+msgstr "SEI SICURO DI VOLER DISCONNETTERE '%s' ?"
+
 msgid "PAD TO KEYBOARD CONFIGURATION"
 msgstr "CONFIGURAZIONE PAD2KEY"
 
@@ -439,9 +469,6 @@ msgstr "CURSORE MOUSE"
 msgid "EMULATE MOUSE CURSOR"
 msgstr "EMULA CURSORE DEL MOUSE"
 
-msgid "NO"
-msgstr "NO"
-
 msgid "LEFT ANALOG STICK"
 msgstr "ANALOGICO SINISTRO"
 
@@ -453,9 +480,6 @@ msgstr "MODIFICA DESCRIZIONE"
 
 msgid "ARE YOU SURE YOU WANT TO DELETE THIS ITEM?"
 msgstr "SEI SICURO DI VOLER ELIMINARE QUESTO ELEMENTO?"
-
-msgid "YES"
-msgstr "SI"
 
 msgid "DELETE MAPPING"
 msgstr "ELIMINA MAPPATURA"
@@ -519,6 +543,12 @@ msgstr "MONTREAL"
 
 msgid "SAO PAULO"
 msgstr "SAO PAULO"
+
+msgid "CUSTOM"
+msgstr ""
+
+msgid "CUSTOM RELAY SERVER"
+msgstr ""
 
 msgid "SHOW UNAVAILABLE GAMES"
 msgstr "MOSTRA GIOCHI NON DISPONIBILI"
@@ -640,6 +670,25 @@ msgstr "Mostra le statistiche Retroconquiste nel menu principale!"
 
 msgid "UNABLE TO ACTIVATE RETROACHIEVEMENTS:"
 msgstr "IMPOSSIBILE ATTIVARE I TROFEI:"
+
+msgid "BLUETOOTH DEVICE LIST"
+msgstr "LISTA DISPOSITIVI BLUETOOTH"
+
+msgid "REMOVE ALL"
+msgstr "RIMUOVI TUTTO"
+
+msgid "NO BLUETOOTH DEVICES FOUND"
+msgstr "NESSUN DISPOSITIVO BLUETOOTH TROVATO"
+
+msgid " (Connected)"
+msgstr " (Connesso)"
+
+msgid "BLUETOOTH DEVICES HAVE BEEN DELETED."
+msgstr "I DISPOSITIVI BLUETOOTH SONO STATI ELIMINATI"
+
+#, c-format
+msgid "ARE YOU SURE YOU WANT TO REMOVE '%s' ?"
+msgstr "SEI SICURO DI VOLER RIMUOVERE '%s' ?"
 
 msgid "THE BEZEL PROJECT"
 msgstr "IL PROGETTO BEZEL"
@@ -824,6 +873,39 @@ msgstr "Frequenza max CPU"
 
 msgid "Cpu feature"
 msgstr "Caratteristiche CPU"
+
+msgid "Available Memory"
+msgstr ""
+
+msgid "Display Resolution"
+msgstr ""
+
+msgid "Display Refresh Rate"
+msgstr ""
+
+msgid "OpenGL Driver Version"
+msgstr ""
+
+msgid "Vulkan Driver Name"
+msgstr ""
+
+msgid "Vulkan Driver Version"
+msgstr ""
+
+msgid "Data Partition Format"
+msgstr ""
+
+msgid "Data Partition Available Space"
+msgstr ""
+
+msgid "Network IP Address"
+msgstr ""
+
+msgid "UEFI Boot"
+msgstr ""
+
+msgid "Secure Boot"
+msgstr ""
 
 msgctxt "game_options"
 msgid "SHARP-BILINEAR-SIMPLE"
@@ -1039,9 +1121,6 @@ msgstr "VSYNC"
 
 msgid "OVERSCAN"
 msgstr "OVERSCAN"
-
-msgid "Sets the display's resolution for emulationstation."
-msgstr "Imposta la risuluzione schermo per emulationstation."
 
 msgid "USE OMX PLAYER (HARDWARE ACCELERATED)"
 msgstr "USA OMX PLAYER (ACCELERAZIONE HARDWARE)"
@@ -1353,6 +1432,9 @@ msgstr "KODI ALL’AVVIO"
 
 msgid "HARDWARE"
 msgstr "HARDWARE"
+
+msgid "Sets the display's resolution for emulationstation."
+msgstr "Imposta la risuluzione schermo per emulationstation."
 
 msgid "AUDIO OUTPUT"
 msgstr "USCITA AUDIO"
@@ -2422,22 +2504,6 @@ msgstr "aggiorna"
 msgid "NO MISSING BIOS"
 msgstr "NESSUN BIOS MANCANTE"
 
-msgid "FORGET A BLUETOOTH DEVICE"
-msgstr "ELIMINA UN DISPOSITIVO BLUETOOTH"
-
-msgid "REMOVE ALL"
-msgstr "RIMUOVI TUTTO"
-
-msgid "NO BLUETOOTH DEVICES FOUND"
-msgstr "NESSUN DISPOSITIVO BLUETOOTH TROVATO"
-
-msgid "BLUETOOTH DEVICES HAVE BEEN DELETED."
-msgstr "I DISPOSITIVI BLUETOOTH SONO STATI ELIMINATI"
-
-#, c-format
-msgid "ARE YOU SURE YOU WANT TO REMOVE '%s' ?"
-msgstr "SEI SICURO DI VOLER RIMUOVERE '%s' ?"
-
 msgid "ZOOM OUT"
 msgstr "RIDUCI"
 
@@ -3445,6 +3511,9 @@ msgid ""
 msgstr ""
 "CALIBRAZIONE PISTOLA\n"
 "Spara sui bersagli per calibrare"
+
+#~ msgid "FORGET A BLUETOOTH DEVICE"
+#~ msgstr "ELIMINA UN DISPOSITIVO BLUETOOTH"
 
 #~ msgid "-10 for auto"
 #~ msgstr "-10 per automatico"

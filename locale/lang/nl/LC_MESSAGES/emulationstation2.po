@@ -3,7 +3,7 @@ msgstr ""
 "Project-Id-Version: emulationstation\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2021-12-15 23:48+0100\n"
-"PO-Revision-Date: 2024-06-03 21:11+0000\n"
+"PO-Revision-Date: 2024-09-01 17:01+0000\n"
 "Last-Translator: THa MuSHeR\n"
 "Language-Team: Dutch (Netherlands)\n"
 "Language: nl-NL\n"
@@ -407,6 +407,36 @@ msgstr "GEEN WI-FI NETWERKEN GEVONDEN"
 msgid "SEARCHING WI-FI NETWORKS"
 msgstr "WI-FI NETWERKEN ZOEKEN"
 
+msgid "DEVICE OPTIONS"
+msgstr "APPARAATOPTIES"
+
+msgid "DISCONNECT"
+msgstr "VERBREEK"
+
+msgid "CONNECT"
+msgstr "VERBIND"
+
+msgid "FORGET"
+msgstr "VERGEET"
+
+#, c-format
+msgid "ARE YOU SURE YOU WANT TO FORGET '%s' ?"
+msgstr "BENT U ZEKER DAT U '%s' WILT VERGETEN?"
+
+msgid "YES"
+msgstr "JA"
+
+msgid "NO"
+msgstr "NEE"
+
+#, c-format
+msgid "ARE YOU SURE YOU WANT TO CONNECT TO '%s' ?"
+msgstr "BENT U ZEKER DAT U MET '%s' WILT VERBINDEN?"
+
+#, c-format
+msgid "ARE YOU SURE YOU WANT TO DISCONNECT '%s' ?"
+msgstr "BENT U ZEKER DAT U '%s' WILT VERBREKEN?"
+
 msgid "PAD TO KEYBOARD CONFIGURATION"
 msgstr "PAD-TO-KEY CONFIGURATIE"
 
@@ -440,9 +470,6 @@ msgstr "MUISAANWIJZER"
 msgid "EMULATE MOUSE CURSOR"
 msgstr "EMULEER MUISAANWIJZER"
 
-msgid "NO"
-msgstr "NEE"
-
 msgid "LEFT ANALOG STICK"
 msgstr "LINKER ANALOGE STICK"
 
@@ -454,9 +481,6 @@ msgstr "WIJZIG BESCHRIJVING"
 
 msgid "ARE YOU SURE YOU WANT TO DELETE THIS ITEM?"
 msgstr "WEET U ZEKER DAT U DIT ITEM WIL VERWIJDEREN?"
-
-msgid "YES"
-msgstr "JA"
 
 msgid "DELETE MAPPING"
 msgstr "VERWIJDER MAPPING"
@@ -520,6 +544,12 @@ msgstr "MONTREAL"
 
 msgid "SAO PAULO"
 msgstr "SAO PAULO"
+
+msgid "CUSTOM"
+msgstr "AANGEPAST"
+
+msgid "CUSTOM RELAY SERVER"
+msgstr "AANGEPASTE RELAY SERVER"
 
 msgid "SHOW UNAVAILABLE GAMES"
 msgstr "TOON NIET-BESCHIKBARE SPELLEN"
@@ -645,6 +675,25 @@ msgstr "Bekijk je Retroprestaties statistieken direct vanuit het hoofdmenu!"
 
 msgid "UNABLE TO ACTIVATE RETROACHIEVEMENTS:"
 msgstr "KAN RETROPRESTATIES NIET ACTIVEREN:"
+
+msgid "BLUETOOTH DEVICE LIST"
+msgstr "BLUETOOTH APPARAATLIJST"
+
+msgid "REMOVE ALL"
+msgstr "VERWIJDER ALLES"
+
+msgid "NO BLUETOOTH DEVICES FOUND"
+msgstr "GEEN BLUETOOTH APPARATEN GEVONDEN"
+
+msgid " (Connected)"
+msgstr "(Verbonden)"
+
+msgid "BLUETOOTH DEVICES HAVE BEEN DELETED."
+msgstr "BLUETOOTH APPARATEN ZIJN VERWIJDERD."
+
+#, c-format
+msgid "ARE YOU SURE YOU WANT TO REMOVE '%s' ?"
+msgstr "WEET U ZEKER DAT U '%s' WILT VERWIJDEREN?"
 
 msgid "THE BEZEL PROJECT"
 msgstr "HET OMLIJSTING PROJECT"
@@ -829,6 +878,39 @@ msgstr "CPU max frequentie"
 
 msgid "Cpu feature"
 msgstr "CPU functies"
+
+msgid "Available Memory"
+msgstr "Beschikbaar Geheugen"
+
+msgid "Display Resolution"
+msgstr "Schermresolutie"
+
+msgid "Display Refresh Rate"
+msgstr "Scherm Refresh Rate"
+
+msgid "OpenGL Driver Version"
+msgstr "OpenGL Driver Versie"
+
+msgid "Vulkan Driver Name"
+msgstr "Vulkan Driver Naam"
+
+msgid "Vulkan Driver Version"
+msgstr "Vulkan Driver Versie"
+
+msgid "Data Partition Format"
+msgstr "Data Partitie Format"
+
+msgid "Data Partition Available Space"
+msgstr "Data Partitie Beschikbare ruimte"
+
+msgid "Network IP Address"
+msgstr "Netwerk IP Adres"
+
+msgid "UEFI Boot"
+msgstr "UEFI Boot"
+
+msgid "Secure Boot"
+msgstr "Secure Boot"
 
 msgctxt "game_options"
 msgid "SHARP-BILINEAR-SIMPLE"
@@ -1045,9 +1127,6 @@ msgstr "V-SYNC"
 
 msgid "OVERSCAN"
 msgstr "OVERSCAN"
-
-msgid "Sets the display's resolution for emulationstation."
-msgstr "Stelt de schermresolutie voor emulationstation in."
 
 msgid "USE OMX PLAYER (HARDWARE ACCELERATED)"
 msgstr "GEBRUIK OMX SPELER (HARDWARE VERSNELD)"
@@ -1370,6 +1449,9 @@ msgstr "START KODI BIJ HET OPSTARTEN"
 
 msgid "HARDWARE"
 msgstr "HARDWARE"
+
+msgid "Sets the display's resolution for emulationstation."
+msgstr "Stelt de schermresolutie voor emulationstation in."
 
 msgid "AUDIO OUTPUT"
 msgstr "AUDIO UITVOER"
@@ -2440,22 +2522,6 @@ msgstr "vernieuw"
 
 msgid "NO MISSING BIOS"
 msgstr "GEEN ONTBREKENDE BIOS"
-
-msgid "FORGET A BLUETOOTH DEVICE"
-msgstr "VERGEET EEN BLUETOOTH APPARAAT"
-
-msgid "REMOVE ALL"
-msgstr "VERWIJDER ALLES"
-
-msgid "NO BLUETOOTH DEVICES FOUND"
-msgstr "GEEN BLUETOOTH APPARATEN GEVONDEN"
-
-msgid "BLUETOOTH DEVICES HAVE BEEN DELETED."
-msgstr "BLUETOOTH APPARATEN ZIJN VERWIJDERD."
-
-#, c-format
-msgid "ARE YOU SURE YOU WANT TO REMOVE '%s' ?"
-msgstr "WEET U ZEKER DAT U '%s' WILT VERWIJDEREN?"
 
 msgid "ZOOM OUT"
 msgstr "ZOOM UIT"

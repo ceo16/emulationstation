@@ -405,6 +405,36 @@ msgstr "NENHUMA REDE WIFI ENCONTRADA"
 msgid "SEARCHING WI-FI NETWORKS"
 msgstr "A PROCURA DE REDES WIFI"
 
+msgid "DEVICE OPTIONS"
+msgstr "OPÇÕES DE DISPOSITIVO"
+
+msgid "DISCONNECT"
+msgstr "DESCONECTAR"
+
+msgid "CONNECT"
+msgstr "CONECTAR"
+
+msgid "FORGET"
+msgstr "ESQUECER"
+
+#, c-format
+msgid "ARE YOU SURE YOU WANT TO FORGET '%s' ?"
+msgstr "VOCÊ TEM A CERTEZA QUE QUER ESQUECER '%s' ?"
+
+msgid "YES"
+msgstr "SIM"
+
+msgid "NO"
+msgstr "NÃO"
+
+#, c-format
+msgid "ARE YOU SURE YOU WANT TO CONNECT TO '%s' ?"
+msgstr "VOCÊ TEM A CERTEZA QUE DESEJA SE CONECTAR A '%s' ?"
+
+#, c-format
+msgid "ARE YOU SURE YOU WANT TO DISCONNECT '%s' ?"
+msgstr "VOCÊ TEM A CERTEZA QUE QUER DESCONECTAR '%s' ?"
+
 msgid "PAD TO KEYBOARD CONFIGURATION"
 msgstr "AJUSTE DE PAD2KEY"
 
@@ -438,9 +468,6 @@ msgstr "CURSOR DO RATO"
 msgid "EMULATE MOUSE CURSOR"
 msgstr "EMULAR CURSOR DO RATO"
 
-msgid "NO"
-msgstr "NÃO"
-
 msgid "LEFT ANALOG STICK"
 msgstr "BOTÃO ANALÓGICO ESQUERDO"
 
@@ -452,9 +479,6 @@ msgstr "EDITAR DESCRIÇÃO"
 
 msgid "ARE YOU SURE YOU WANT TO DELETE THIS ITEM?"
 msgstr "TEM A CERTEZA QUE DESEJA ELIMINAR ESTE ITEM?"
-
-msgid "YES"
-msgstr "SIM"
 
 msgid "DELETE MAPPING"
 msgstr "ELIMINAR MAPEAMENTO"
@@ -518,6 +542,12 @@ msgstr "MONTREAL"
 
 msgid "SAO PAULO"
 msgstr "SÃO PAULO"
+
+msgid "CUSTOM"
+msgstr "PERSONALIZADO"
+
+msgid "CUSTOM RELAY SERVER"
+msgstr "SERVIDOR DE RELÉ PERSONALIZADO"
 
 msgid "SHOW UNAVAILABLE GAMES"
 msgstr "MOSTRAR JOGOS INDISPONÍVEIS"
@@ -644,6 +674,25 @@ msgstr ""
 
 msgid "UNABLE TO ACTIVATE RETROACHIEVEMENTS:"
 msgstr "INCAPAZ DE ATIVAR RETROACHIEVEMENTS:"
+
+msgid "BLUETOOTH DEVICE LIST"
+msgstr "LISTA DE DISPOSITIVOS BLUETOOTH"
+
+msgid "REMOVE ALL"
+msgstr "REMOVER TODOS"
+
+msgid "NO BLUETOOTH DEVICES FOUND"
+msgstr "NENHUM DISPOSITIVO BLUETOOTH ENCONTRADO"
+
+msgid " (Connected)"
+msgstr "Conectado"
+
+msgid "BLUETOOTH DEVICES HAVE BEEN DELETED."
+msgstr "TODOS OS DISPOSITIVOS BLUETOOTH FORAM ELIMINADOS."
+
+#, c-format
+msgid "ARE YOU SURE YOU WANT TO REMOVE '%s' ?"
+msgstr "TEM A CERTEZA QUE DESEJA REMOVER '%s' ?"
 
 msgid "THE BEZEL PROJECT"
 msgstr "PROJETO BEZEL (MOLDURAS)"
@@ -828,6 +877,39 @@ msgstr "Frequência máxima de CPU"
 
 msgid "Cpu feature"
 msgstr "Características de CPU"
+
+msgid "Available Memory"
+msgstr "Memória Disponível"
+
+msgid "Display Resolution"
+msgstr "Resolução do Ecrã"
+
+msgid "Display Refresh Rate"
+msgstr "Taxa de Atualização do Ecrã"
+
+msgid "OpenGL Driver Version"
+msgstr "Versão do driver OpenGL"
+
+msgid "Vulkan Driver Name"
+msgstr "Nome do driver Vulkan"
+
+msgid "Vulkan Driver Version"
+msgstr "Versão do driver Vulkan"
+
+msgid "Data Partition Format"
+msgstr "Formato da partição de dados"
+
+msgid "Data Partition Available Space"
+msgstr "Espaço Disponível para Partição de Dados"
+
+msgid "Network IP Address"
+msgstr "Endereço IP da rede"
+
+msgid "UEFI Boot"
+msgstr "Inicialização UEFI"
+
+msgid "Secure Boot"
+msgstr "Inicialização segura"
 
 msgctxt "game_options"
 msgid "SHARP-BILINEAR-SIMPLE"
@@ -1045,9 +1127,6 @@ msgstr "VSYNC"
 
 msgid "OVERSCAN"
 msgstr "OVERSCAN"
-
-msgid "Sets the display's resolution for emulationstation."
-msgstr "Defina a resolução do monitor para o emulationstation."
 
 msgid "USE OMX PLAYER (HARDWARE ACCELERATED)"
 msgstr "USAR O LEITOR OMX (ACELERAÇÃO DE HARDWARE)"
@@ -1362,6 +1441,9 @@ msgstr "ABRIR KODI NA INICIALIZAÇÃO"
 
 msgid "HARDWARE"
 msgstr "HARDWARE"
+
+msgid "Sets the display's resolution for emulationstation."
+msgstr "Defina a resolução do monitor para o emulationstation."
 
 msgid "AUDIO OUTPUT"
 msgstr "SAÍDA DE ÁUDIO"
@@ -2429,22 +2511,6 @@ msgstr "atualizar"
 msgid "NO MISSING BIOS"
 msgstr "SEM BIOS EM FALTA"
 
-msgid "FORGET A BLUETOOTH DEVICE"
-msgstr "DESEMPARELHAR DISPOSITIVO BLUETOOTH"
-
-msgid "REMOVE ALL"
-msgstr "REMOVER TODOS"
-
-msgid "NO BLUETOOTH DEVICES FOUND"
-msgstr "NENHUM DISPOSITIVO BLUETOOTH ENCONTRADO"
-
-msgid "BLUETOOTH DEVICES HAVE BEEN DELETED."
-msgstr "TODOS OS DISPOSITIVOS BLUETOOTH FORAM ELIMINADOS."
-
-#, c-format
-msgid "ARE YOU SURE YOU WANT TO REMOVE '%s' ?"
-msgstr "TEM A CERTEZA QUE DESEJA REMOVER '%s' ?"
-
 msgid "ZOOM OUT"
 msgstr "REDUZIR ZOOM"
 
@@ -3450,6 +3516,9 @@ msgid ""
 msgstr ""
 "CALIBRAR ARMA\n"
 "Atire nos alvos para calibrar"
+
+#~ msgid "(Connected)"
+#~ msgstr "(Conectado)"
 
 #~ msgid ""
 #~ "YOU ARE GOING TO MAP A CONTROLLER. MAP BASED ON THE BUTTON'S POSITION "
