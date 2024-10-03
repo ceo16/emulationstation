@@ -2619,6 +2619,9 @@ msgstr ""
 msgid "WHITE"
 msgstr ""
 
+msgid "BORDER RATIO"
+msgstr ""
+
 msgid "CAMERA CONTRAST"
 msgstr ""
 

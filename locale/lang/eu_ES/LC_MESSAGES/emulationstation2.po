@@ -2667,6 +2667,9 @@ msgstr "ERTZ KOLOREA"
 msgid "WHITE"
 msgstr "ZURIA"
 
+msgid "BORDER RATIO"
+msgstr ""
+
 msgid "CAMERA CONTRAST"
 msgstr "KAMERAREN KONTRASTEA"
 

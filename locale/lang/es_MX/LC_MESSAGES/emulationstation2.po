@@ -2673,6 +2673,9 @@ msgstr "COLOR DE BORDE"
 msgid "WHITE"
 msgstr "BLANCO"
 
+msgid "BORDER RATIO"
+msgstr ""
+
 msgid "CAMERA CONTRAST"
 msgstr "CONTRASTE DE CÁMARA"
 

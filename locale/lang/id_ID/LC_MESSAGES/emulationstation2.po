@@ -2657,6 +2657,9 @@ msgstr "WARNA BORDER"
 msgid "WHITE"
 msgstr "PUTIH"
 
+msgid "BORDER RATIO"
+msgstr ""
+
 msgid "CAMERA CONTRAST"
 msgstr "KONTRAS KAMERA"
 

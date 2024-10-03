@@ -2634,6 +2634,9 @@ msgstr "邊框顏色"
 msgid "WHITE"
 msgstr "白色"
 
+msgid "BORDER RATIO"
+msgstr ""
+
 msgid "CAMERA CONTRAST"
 msgstr "相機對比度"
 

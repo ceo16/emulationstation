@@ -2660,6 +2660,9 @@ msgstr "RAMFÄRG"
 msgid "WHITE"
 msgstr "VIT"
 
+msgid "BORDER RATIO"
+msgstr ""
+
 msgid "CAMERA CONTRAST"
 msgstr "KAMERAKONTRAST"
 

@@ -2680,6 +2680,9 @@ msgstr "COLOR DE LES VORES"
 msgid "WHITE"
 msgstr "BLANC"
 
+msgid "BORDER RATIO"
+msgstr ""
+
 msgid "CAMERA CONTRAST"
 msgstr "CONTRAST DE CÀMERA"
 

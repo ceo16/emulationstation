@@ -2653,6 +2653,9 @@ msgstr ""
 msgid "WHITE"
 msgstr "VALKOINEN"
 
+msgid "BORDER RATIO"
+msgstr ""
+
 msgid "CAMERA CONTRAST"
 msgstr "KAMERAN KONTRASTI"
 

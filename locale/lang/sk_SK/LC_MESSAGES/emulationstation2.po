@@ -2661,6 +2661,9 @@ msgstr "Farba okraja"
 msgid "WHITE"
 msgstr "biela"
 
+msgid "BORDER RATIO"
+msgstr ""
+
 msgid "CAMERA CONTRAST"
 msgstr "Kontrast fotoaparátu"
 

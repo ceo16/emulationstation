@@ -2661,6 +2661,9 @@ msgstr "ЦВЕТ РАМКИ"
 msgid "WHITE"
 msgstr "БЕЛЫЙ"
 
+msgid "BORDER RATIO"
+msgstr ""
+
 msgid "CAMERA CONTRAST"
 msgstr "КОНТРАСТ КАМЕРЫ"
 

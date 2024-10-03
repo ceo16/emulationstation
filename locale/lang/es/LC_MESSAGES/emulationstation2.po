@@ -3,8 +3,8 @@ msgstr ""
 "Project-Id-Version: emulationstation\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2024-03-26 00:00+0100\n"
-"PO-Revision-Date: 2024-08-31 00:00+0100\n"
-"Last-Translator: roliverosc <roliverosc@hotmail.com>, 2024\n"
+"PO-Revision-Date: 2024-09-17 00:00+0100\n"
+"Last-Translator: roliverosc, 2024\n"
 "Language-Team: Spanish\n"
 "Language: es_ES\n"
 "MIME-Version: 1.0\n"
@@ -1684,7 +1684,7 @@ msgstr ""
 "renderizado."
 
 msgid "SMOOTH GAMES (BILINEAR FILTERING)"
-msgstr "SUAVIZAR JUEGOS (FILTRO BILINEAL)"
+msgstr "SUAVIZAR JUEGOS (FILTRADO BILINEAL)"
 
 msgid "REWIND"
 msgstr "REBOBINAR"
@@ -2682,6 +2682,9 @@ msgstr "COLOR DEL BORDE"
 msgid "WHITE"
 msgstr "BLANCO"
 
+msgid "BORDER RATIO"
+msgstr "RELACIÓN BORDE"
+
 msgid "CAMERA CONTRAST"
 msgstr "CONTRASTE DE CÁMARA"
 
@@ -2885,7 +2888,7 @@ msgid "Full"
 msgstr "Completo"
 
 msgid "Kiosk"
-msgstr "Kiosko"
+msgstr "Restringido"
 
 msgid "Kid"
 msgstr "Para niños"

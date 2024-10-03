@@ -2684,6 +2684,9 @@ msgstr "لون الإطار"
 msgid "WHITE"
 msgstr "أبيض"
 
+msgid "BORDER RATIO"
+msgstr ""
+
 msgid "CAMERA CONTRAST"
 msgstr "تباين الكاميرا"
 

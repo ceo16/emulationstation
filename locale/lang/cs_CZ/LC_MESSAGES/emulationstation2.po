@@ -2662,6 +2662,9 @@ msgstr "BARVA HRANICE"
 msgid "WHITE"
 msgstr "BÍLÁ"
 
+msgid "BORDER RATIO"
+msgstr ""
+
 msgid "CAMERA CONTRAST"
 msgstr "KONTRAST KAMERY"
 

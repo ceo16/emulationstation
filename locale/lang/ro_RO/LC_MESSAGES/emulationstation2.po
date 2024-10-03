@@ -2678,6 +2678,9 @@ msgstr "CULOARE CHENAR"
 msgid "WHITE"
 msgstr "ALBĂ"
 
+msgid "BORDER RATIO"
+msgstr ""
+
 msgid "CAMERA CONTRAST"
 msgstr "CONTRAST CAMERĂ"
 

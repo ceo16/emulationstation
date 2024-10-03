@@ -2644,6 +2644,9 @@ msgstr "ΧΡΩΜΑ ΠΕΡΙΓΡΑΜΜΑΤΟΣ"
 msgid "WHITE"
 msgstr "ΑΣΠΡΟ"
 
+msgid "BORDER RATIO"
+msgstr ""
+
 msgid "CAMERA CONTRAST"
 msgstr ""
 
