@@ -3,7 +3,7 @@ msgstr ""
 "Project-Id-Version: emulationstation\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: \n"
-"PO-Revision-Date: 2024-09-22 18:53+0200\n"
+"PO-Revision-Date: 2024-10-11 23:27+0200\n"
 "Last-Translator: Szoldán Albert\n"
 "Language-Team: \n"
 "Language: hu\n"
@@ -835,13 +835,13 @@ msgid "fade"
 msgstr "eltűnik"
 
 msgid "fast fade"
-msgstr ""
+msgstr "gyors elhalványulás"
 
 msgid "slide"
 msgstr "csúsztat"
 
 msgid "fast slide"
-msgstr ""
+msgstr "gyors csúszás"
 
 msgid "fade & slide"
 msgstr "eltűnik és csúsztat"
@@ -1860,6 +1860,12 @@ msgstr "FEGYVER IKON MEGJELENÍTÉSE"
 
 msgid "SHOW WHEEL ICON"
 msgstr "KORMÁNY IKON MEGJELENÍTÉSE"
+
+msgid "SHOW TRACKBALL ICON"
+msgstr ""
+
+msgid "SHOW SPINNER ICON"
+msgstr ""
 
 msgid "SHOW FILENAMES INSTEAD"
 msgstr "FÁJLNEVEK MEGJELENÍTÉSE A LISTÁKBAN"
@@ -3048,6 +3054,12 @@ msgstr "FÉNYPUSKA"
 msgid "STEERING WHEEL"
 msgstr "KORMÁNYOS JÁTÉKOK"
 
+msgid "TRACKBALL"
+msgstr ""
+
+msgid "SPINNER"
+msgstr ""
+
 msgid "HAVING MEDIAS"
 msgstr "MEGLÉVŐ MÉDIÁK"
 
@@ -3128,6 +3140,12 @@ msgstr "fénypisztoly játékok"
 
 msgid "wheel games"
 msgstr "kormányos játékok"
+
+msgid "trackball games"
+msgstr ""
+
+msgid "spinner games"
+msgstr ""
 
 msgid "collections"
 msgstr "gyűjtemények"

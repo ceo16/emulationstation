@@ -837,13 +837,13 @@ msgid "fade"
 msgstr "escurecer"
 
 msgid "fast fade"
-msgstr ""
+msgstr "escurecimento rápido"
 
 msgid "slide"
 msgstr "deslizar"
 
 msgid "fast slide"
-msgstr ""
+msgstr "deslizamento rápido"
 
 msgid "fade & slide"
 msgstr "escurecer & deslizar"
@@ -1853,6 +1853,12 @@ msgstr "MOSTRAR ÍCONE DE ARMA"
 
 msgid "SHOW WHEEL ICON"
 msgstr "MOSTRAR ÍCONE DA RODA"
+
+msgid "SHOW TRACKBALL ICON"
+msgstr "MOSTRAR ÍCONE DO TRACKBALL"
+
+msgid "SHOW SPINNER ICON"
+msgstr "MOSTRAR ÍCONE GIRATÓRIO"
 
 msgid "SHOW FILENAMES INSTEAD"
 msgstr "MOSTRAR NOMES DE FICHEIROS"
@@ -3039,6 +3045,12 @@ msgstr "PISTOLAS"
 msgid "STEERING WHEEL"
 msgstr "VOLANTE"
 
+msgid "TRACKBALL"
+msgstr "TRACKBALL"
+
+msgid "SPINNER"
+msgstr "GIRATÓRIO"
+
 msgid "HAVING MEDIAS"
 msgstr "TER MEDIA"
 
@@ -3119,6 +3131,12 @@ msgstr "jogos de pistola"
 
 msgid "wheel games"
 msgstr "jogos de volante"
+
+msgid "trackball games"
+msgstr "jogos de trackball"
+
+msgid "spinner games"
+msgstr "jogos giratórios"
 
 msgid "collections"
 msgstr "coleções"

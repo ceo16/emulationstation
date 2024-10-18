@@ -3,7 +3,7 @@ msgstr ""
 "Project-Id-Version: emulationstation\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2021-12-15 23:48+0100\n"
-"PO-Revision-Date: 2024-09-29 12:53+0000\n"
+"PO-Revision-Date: 2024-10-12 18:00+0000\n"
 "Last-Translator: \n"
 "Language-Team: German\n"
 "Language: de\n"
@@ -838,13 +838,13 @@ msgid "fade"
 msgstr "Überblenden"
 
 msgid "fast fade"
-msgstr ""
+msgstr "Schnelles Überblenden"
 
 msgid "slide"
 msgstr "Gleiten"
 
 msgid "fast slide"
-msgstr ""
+msgstr "Schnelles Gleiten"
 
 msgid "fade & slide"
 msgstr "Überblenden & Gleiten"
@@ -1865,6 +1865,12 @@ msgstr "WAFFEN SYMBOL ANZEIGEN"
 
 msgid "SHOW WHEEL ICON"
 msgstr "RAD SYMBOL ANZEIGEN"
+
+msgid "SHOW TRACKBALL ICON"
+msgstr ""
+
+msgid "SHOW SPINNER ICON"
+msgstr ""
 
 msgid "SHOW FILENAMES INSTEAD"
 msgstr "DATEINAMEN IN LISTEN ANZEIGEN"
@@ -3055,6 +3061,12 @@ msgstr "LIGHTGUN"
 msgid "STEERING WHEEL"
 msgstr "LENKRAD"
 
+msgid "TRACKBALL"
+msgstr ""
+
+msgid "SPINNER"
+msgstr ""
+
 msgid "HAVING MEDIAS"
 msgstr "VORHANDENE MEDIEN"
 
@@ -3135,6 +3147,12 @@ msgstr "Lightgun-Spiele"
 
 msgid "wheel games"
 msgstr "Lenkrad-Spiele"
+
+msgid "trackball games"
+msgstr ""
+
+msgid "spinner games"
+msgstr ""
 
 msgid "collections"
 msgstr "Sammlungen"

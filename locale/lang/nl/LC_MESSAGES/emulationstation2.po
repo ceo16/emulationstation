@@ -3,7 +3,7 @@ msgstr ""
 "Project-Id-Version: emulationstation\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2021-12-15 23:48+0100\n"
-"PO-Revision-Date: 2024-09-29 08:13+0000\n"
+"PO-Revision-Date: 2024-10-13 14:47+0000\n"
 "Last-Translator: THa MuSHeR\n"
 "Language-Team: Dutch (Netherlands)\n"
 "Language: nl-NL\n"
@@ -838,13 +838,13 @@ msgid "fade"
 msgstr "vervagen"
 
 msgid "fast fade"
-msgstr ""
+msgstr "snel vervagen"
 
 msgid "slide"
 msgstr "schuiven"
 
 msgid "fast slide"
-msgstr ""
+msgstr "snel glijden"
 
 msgid "fade & slide"
 msgstr "vervagen en schuiven"
@@ -1867,6 +1867,12 @@ msgstr "TOON GUN ICOON"
 
 msgid "SHOW WHEEL ICON"
 msgstr "TOON STUURWIEL ICOON"
+
+msgid "SHOW TRACKBALL ICON"
+msgstr ""
+
+msgid "SHOW SPINNER ICON"
+msgstr ""
 
 msgid "SHOW FILENAMES INSTEAD"
 msgstr "TOON BESTANDSNAMEN IN PLAATS VAN DE TITEL"
@@ -3053,6 +3059,12 @@ msgstr "LIGHTGUN"
 msgid "STEERING WHEEL"
 msgstr "STUURWIEL"
 
+msgid "TRACKBALL"
+msgstr ""
+
+msgid "SPINNER"
+msgstr ""
+
 msgid "HAVING MEDIAS"
 msgstr "AANWEZIGE MEDIA"
 
@@ -3133,6 +3145,12 @@ msgstr "lightgun spellen"
 
 msgid "wheel games"
 msgstr "spellen met stuurwiel"
+
+msgid "trackball games"
+msgstr ""
+
+msgid "spinner games"
+msgstr ""
 
 msgid "collections"
 msgstr "collecties"

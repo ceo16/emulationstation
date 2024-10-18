@@ -3,7 +3,7 @@ msgstr ""
 "Project-Id-Version: emulationstation\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2024-03-26 00:00+0100\n"
-"PO-Revision-Date: 2024-10-07 00:00+0100\n"
+"PO-Revision-Date: 2024-10-12 00:00+0100\n"
 "Last-Translator: roliverosc <roliverosc@hotmail.com>, 2024\n"
 "Language-Team: spanish\n"
 "Language: es\n"
@@ -838,13 +838,13 @@ msgid "fade"
 msgstr "fundido"
 
 msgid "fast fade"
-msgstr ""
+msgstr "fundido rápido"
 
 msgid "slide"
 msgstr "deslizar"
 
 msgid "fast slide"
-msgstr ""
+msgstr "deslizar rápido"
 
 msgid "fade & slide"
 msgstr "fundido y deslizar"
@@ -1864,6 +1864,12 @@ msgstr "MOSTRAR ICONO DE PISTOLA"
 
 msgid "SHOW WHEEL ICON"
 msgstr "MOSTRAR ICONO DE VOLANTE"
+
+msgid "SHOW TRACKBALL ICON"
+msgstr ""
+
+msgid "SHOW SPINNER ICON"
+msgstr ""
 
 msgid "SHOW FILENAMES INSTEAD"
 msgstr "MOSTRAR NOMBRES DE ARCHIVOS"
@@ -3055,6 +3061,12 @@ msgstr "PISTOLA (LIGHTGUN)"
 msgid "STEERING WHEEL"
 msgstr "VOLANTE"
 
+msgid "TRACKBALL"
+msgstr ""
+
+msgid "SPINNER"
+msgstr ""
+
 msgid "HAVING MEDIAS"
 msgstr "TIENE MEDIOS"
 
@@ -3135,6 +3147,12 @@ msgstr "juegos compatibles con lightgun"
 
 msgid "wheel games"
 msgstr "juegos compatibles con volante"
+
+msgid "trackball games"
+msgstr ""
+
+msgid "spinner games"
+msgstr ""
 
 msgid "collections"
 msgstr "colecciones"
