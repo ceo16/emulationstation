@@ -3,7 +3,7 @@ msgstr ""
 "Project-Id-Version: \n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: \n"
-"PO-Revision-Date: 2024-09-04 12:09+0300\n"
+"PO-Revision-Date: 2024-10-21 11:58+0300\n"
 "Last-Translator: Mihai Vasiliu <mihai.vasiliu.93@gmail.com>\n"
 "Language-Team: \n"
 "Language: ro_RO\n"
@@ -551,6 +551,21 @@ msgstr "PERSONALIZAT"
 msgid "CUSTOM RELAY SERVER"
 msgstr "SERVER RETRANSLAȚIE PERSONALIZAT"
 
+msgid "PUBLICLY ANNOUNCE GAME"
+msgstr "ANUNȚĂ PUBLIC JOCUL"
+
+msgid "PLAYER PASSWORD"
+msgstr "PAROLĂ JUCĂTORI"
+
+msgid "VIEWER PASSWORD"
+msgstr "PAROLĂ SPECTATORI"
+
+msgid "SHOW RELAY SERVER GAMES ONLY"
+msgstr ""
+
+msgid "Relay server games have a higher chance of successful entry."
+msgstr ""
+
 msgid "SHOW UNAVAILABLE GAMES"
 msgstr "AFIȘEAZĂ JOCURILE INDISPONIBILE"
 
@@ -839,13 +854,13 @@ msgid "fade"
 msgstr "atenuează"
 
 msgid "fast fade"
-msgstr ""
+msgstr "atenuează rapid"
 
 msgid "slide"
 msgstr "glisează"
 
 msgid "fast slide"
-msgstr ""
+msgstr "glisează rapid"
 
 msgid "fade & slide"
 msgstr "atenuează și glisează"
@@ -1195,7 +1210,7 @@ msgid "Reset customized file extensions filters to default."
 msgstr "Resetează extensile de fișiere personalizate la implicite."
 
 msgid "REDETECT ALL GAMES' LANG/REGION"
-msgstr "DETECTEAZĂ LIMBA/REGIUNEA TUTUROR JOCURILOR"
+msgstr "REDETECTEAZĂ LIMBA/REGIUNEA JOCURILOR"
 
 msgid "FIND ALL GAMES WITH NETPLAY/ACHIEVEMENTS"
 msgstr "GĂSEȘTE TOATE JOCURILE CU NETPLAY/REALIZĂRI"
@@ -1271,6 +1286,9 @@ msgstr "TRANZIȚII CARUSEL"
 
 msgid "QUICK SYSTEM SELECT"
 msgstr "SELECȚIA RAPIDĂ A SISTEMULUI"
+
+msgid "QUICK JUMP LETTER"
+msgstr ""
 
 msgid "ON-SCREEN KEYBOARD"
 msgstr "TASTATURĂ PE ECRAN"
@@ -1863,10 +1881,10 @@ msgid "SHOW WHEEL ICON"
 msgstr "ARATĂ PICTOGRAMĂ VOLAN"
 
 msgid "SHOW TRACKBALL ICON"
-msgstr ""
+msgstr "ARATĂ PICROGRAMĂ TRACKBALL"
 
 msgid "SHOW SPINNER ICON"
-msgstr ""
+msgstr "ARATĂ PICROGRAMĂ SPINNER"
 
 msgid "SHOW FILENAMES INSTEAD"
 msgstr "ARATĂ NUMELE DE FIȘIERE ÎN LOC"
@@ -2176,27 +2194,6 @@ msgstr "STĂRI SALVATE"
 
 msgid "OPEN"
 msgstr "DESCHIDE"
-
-msgid "START A NETPLAY GAME"
-msgstr "PORNEȘTE UN JOC NETPLAY"
-
-msgid "NETPLAY"
-msgstr "NETPLAY"
-
-msgid "START GAME"
-msgstr "ÎNCEPE JOCUL"
-
-msgid "HOST A NETPLAY GAME"
-msgstr "GĂZDUIEȘTE UN JOC NETPLAY"
-
-msgid "PUBLICLY ANNOUNCE GAME"
-msgstr "ANUNȚĂ PUBLIC JOCUL"
-
-msgid "PLAYER PASSWORD"
-msgstr "PAROLĂ JUCĂTORI"
-
-msgid "VIEWER PASSWORD"
-msgstr "PAROLĂ SPECTATORI"
 
 msgid "FIND SIMILAR GAMES..."
 msgstr "GĂSEȘTE JOCURI SIMILARE..."
@@ -2562,6 +2559,9 @@ msgstr "CONECTEAZĂ-TE LA NETPLAY"
 msgid "Select a game lobby to join"
 msgstr "Alege o sală pentru te alătura"
 
+msgid "Select a game lobby to create or join"
+msgstr ""
+
 msgid "FAILED"
 msgstr "EȘUAT"
 
@@ -2576,6 +2576,15 @@ msgstr "ACELAȘI ROM"
 
 msgid "UNAVAILABLE CORE"
 msgstr "NUCLEU INDISPONIBIL"
+
+msgid "PLAY ONLINE AS HOST"
+msgstr ""
+
+msgid "PLAY OFFLINE"
+msgstr ""
+
+msgid "JOIN EXISTING GAME"
+msgstr ""
 
 msgid "AVAILABLE GAMES"
 msgstr "JOCURI DISPONIBILE"
@@ -2691,7 +2700,7 @@ msgid "WHITE"
 msgstr "ALBĂ"
 
 msgid "BORDER RATIO"
-msgstr ""
+msgstr "RAPORT CHENAR"
 
 msgid "CAMERA CONTRAST"
 msgstr "CONTRAST CAMERĂ"
@@ -2984,6 +2993,9 @@ msgstr[0] "%i JOC"
 msgstr[1] "%i JOCURI"
 msgstr[2] "%i DE JOCURI"
 
+msgid "NETPLAY"
+msgstr "NETPLAY"
+
 msgid "NAVIGATION BAR"
 msgstr "BARĂ DE NAVIGAȚIE"
 
@@ -3060,10 +3072,10 @@ msgid "STEERING WHEEL"
 msgstr "VOLAN"
 
 msgid "TRACKBALL"
-msgstr ""
+msgstr "TRACKBALL"
 
 msgid "SPINNER"
-msgstr ""
+msgstr "SPINNER"
 
 msgid "HAVING MEDIAS"
 msgstr "CU FIȘIERE MEDIA"
@@ -3147,10 +3159,10 @@ msgid "wheel games"
 msgstr "jocuri cu volanul"
 
 msgid "trackball games"
-msgstr ""
+msgstr "jocuri cu trackball"
 
 msgid "spinner games"
-msgstr ""
+msgstr "jocuri cu spinner"
 
 msgid "collections"
 msgstr "colecții"
@@ -3566,6 +3578,15 @@ msgid ""
 msgstr ""
 "SE CALIBREAZĂ PISTOLUL\n"
 "Trage în ținte pentru a-l calibra"
+
+#~ msgid "START A NETPLAY GAME"
+#~ msgstr "PORNEȘTE UN JOC NETPLAY"
+
+#~ msgid "START GAME"
+#~ msgstr "ÎNCEPE JOCUL"
+
+#~ msgid "HOST A NETPLAY GAME"
+#~ msgstr "GĂZDUIEȘTE UN JOC NETPLAY"
 
 #~ msgid "FORGET A BLUETOOTH DEVICE"
 #~ msgstr "ELIMINĂ UN DISPOZITIV BLUETOOTH"

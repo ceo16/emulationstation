@@ -3,7 +3,7 @@ msgstr ""
 "Project-Id-Version: batocera-es v34beta(2022/04/06)\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: \n"
-"PO-Revision-Date: 2024-10-18 03:37+0800\n"
+"PO-Revision-Date: 2024-10-25 23:34+0800\n"
 "Last-Translator: wanger\n"
 "Language-Team: mikakunin,王二,monyxie\n"
 "Language: zh_CN\n"
@@ -547,6 +547,21 @@ msgstr "定制"
 
 msgid "CUSTOM RELAY SERVER"
 msgstr "定制中继服务器"
+
+msgid "PUBLICLY ANNOUNCE GAME"
+msgstr "公开的游戏"
+
+msgid "PLAYER PASSWORD"
+msgstr "玩家口令"
+
+msgid "VIEWER PASSWORD"
+msgstr "观众口令"
+
+msgid "SHOW RELAY SERVER GAMES ONLY"
+msgstr "仅显示中继服务器游戏"
+
+msgid "Relay server games have a higher chance of successful entry."
+msgstr "中继服务器游戏有更高机会成功进入."
 
 msgid "SHOW UNAVAILABLE GAMES"
 msgstr "显示不可用的游戏"
@@ -1250,6 +1265,9 @@ msgstr "循环画面转场"
 msgid "QUICK SYSTEM SELECT"
 msgstr "快速系统选择"
 
+msgid "QUICK JUMP LETTER"
+msgstr "快速跳转字母"
+
 msgid "ON-SCREEN KEYBOARD"
 msgstr "虚拟键盘"
 
@@ -1584,7 +1602,7 @@ msgid "Current setting"
 msgstr "当前设置"
 
 msgid "UPDATE GAMELISTS"
-msgstr "更新游戏列表（放入ROM或者安装程序后操作）"
+msgstr "更新游戏列表"
 
 msgid "ACCOUNTS"
 msgstr "账户"
@@ -2134,27 +2152,6 @@ msgstr "存档槽"
 msgid "OPEN"
 msgstr "打开"
 
-msgid "START A NETPLAY GAME"
-msgstr "开始联网游戏"
-
-msgid "NETPLAY"
-msgstr "联网游戏"
-
-msgid "START GAME"
-msgstr "开始游戏"
-
-msgid "HOST A NETPLAY GAME"
-msgstr "建立联网主机"
-
-msgid "PUBLICLY ANNOUNCE GAME"
-msgstr "公开的游戏"
-
-msgid "PLAYER PASSWORD"
-msgstr "玩家口令"
-
-msgid "VIEWER PASSWORD"
-msgstr "观众口令"
-
 msgid "FIND SIMILAR GAMES..."
 msgstr "寻找类似游戏..."
 
@@ -2519,6 +2516,9 @@ msgstr "进行联网游戏"
 msgid "Select a game lobby to join"
 msgstr "选择要加入的游戏大厅"
 
+msgid "Select a game lobby to create or join"
+msgstr "选择要创建或加入的游戏大厅"
+
 msgid "FAILED"
 msgstr "失败"
 
@@ -2533,6 +2533,15 @@ msgstr "相同的ROM"
 
 msgid "UNAVAILABLE CORE"
 msgstr "核心不可用"
+
+msgid "PLAY ONLINE AS HOST"
+msgstr "以主机身份在线玩游戏"
+
+msgid "PLAY OFFLINE"
+msgstr "离线游玩"
+
+msgid "JOIN EXISTING GAME"
+msgstr "加入现有游戏"
 
 msgid "AVAILABLE GAMES"
 msgstr "可用的游戏"
@@ -2929,6 +2938,9 @@ msgstr[0] "%i 个项目"
 msgid "%i GAME"
 msgid_plural "%i GAMES"
 msgstr[0] "%i 个游戏"
+
+msgid "NETPLAY"
+msgstr "联网游戏"
 
 msgid "NAVIGATION BAR"
 msgstr "导航栏"
@@ -3493,6 +3505,15 @@ msgid ""
 msgstr ""
 "校准枪\n"
 "对准目标射击以进行校准"
+
+#~ msgid "START A NETPLAY GAME"
+#~ msgstr "开始联网游戏"
+
+#~ msgid "START GAME"
+#~ msgstr "开始游戏"
+
+#~ msgid "HOST A NETPLAY GAME"
+#~ msgstr "建立联网主机"
 
 #~ msgid "FORGET A BLUETOOTH DEVICE"
 #~ msgstr "解除配对的蓝牙设备"
