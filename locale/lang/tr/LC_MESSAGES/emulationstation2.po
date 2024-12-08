@@ -406,20 +406,20 @@ msgid "SEARCHING WI-FI NETWORKS"
 msgstr "WIFI AĞLARI TARANIYOR"
 
 msgid "DEVICE OPTIONS"
-msgstr ""
+msgstr "AYGIT SEÇENEKLERİ"
 
 msgid "DISCONNECT"
-msgstr ""
+msgstr "BAĞLANTIYI KES"
 
 msgid "CONNECT"
-msgstr ""
+msgstr "BAĞLAN"
 
 msgid "FORGET"
-msgstr ""
+msgstr "UNUT"
 
 #, c-format
 msgid "ARE YOU SURE YOU WANT TO FORGET '%s' ?"
-msgstr ""
+msgstr "ARE YOU SURE YOU WANT TO FORGET '%s' ?"
 
 msgid "YES"
 msgstr "EVET"
@@ -429,11 +429,11 @@ msgstr "HAYIR"
 
 #, c-format
 msgid "ARE YOU SURE YOU WANT TO CONNECT TO '%s' ?"
-msgstr ""
+msgstr "'%s' 'A BAĞLANMAK İSTEDİĞİNE EMİN MİSİN ?"
 
 #, c-format
 msgid "ARE YOU SURE YOU WANT TO DISCONNECT '%s' ?"
-msgstr ""
+msgstr "'%s' 'A BAĞLANTIYI KESMEK İSTEDİĞİNE EMİN MİSİN ?"
 
 msgid "PAD TO KEYBOARD CONFIGURATION"
 msgstr "PAD TO KEYBOARD AYARLARI"
@@ -544,10 +544,10 @@ msgid "SAO PAULO"
 msgstr "SAO PAULO"
 
 msgid "CUSTOM"
-msgstr ""
+msgstr "ÖZEL"
 
 msgid "CUSTOM RELAY SERVER"
-msgstr ""
+msgstr "ÖZEL RELAY SUNUCUSU"
 
 msgid "PUBLICLY ANNOUNCE GAME"
 msgstr "AÇIK YAYINLANMIŞ OYUN"
@@ -557,6 +557,12 @@ msgstr "OYUNCU ŞİFRESİ"
 
 msgid "VIEWER PASSWORD"
 msgstr "İZLEYİCİ ŞİFRESİ"
+
+msgid "SHOW NETPLAY OPTIONS WHEN LAUNCHING GAME"
+msgstr ""
+
+msgid "Allows choice of online, offline, or joining another game."
+msgstr ""
 
 msgid "SHOW RELAY SERVER GAMES ONLY"
 msgstr ""
@@ -689,7 +695,7 @@ msgid "UNABLE TO ACTIVATE RETROACHIEVEMENTS:"
 msgstr "RETROBAŞARIMLAR AKTİVE EDİLEMİYOR:"
 
 msgid "BLUETOOTH DEVICE LIST"
-msgstr ""
+msgstr "BLUETOOTH AYGITI LİSTESİ"
 
 msgid "REMOVE ALL"
 msgstr "HEPSİNİ SİL"
@@ -698,7 +704,7 @@ msgid "NO BLUETOOTH DEVICES FOUND"
 msgstr "BLUETOOTH CİHAZI BULUNAMADI"
 
 msgid " (Connected)"
-msgstr ""
+msgstr " (Bağlandı)"
 
 msgid "BLUETOOTH DEVICES HAVE BEEN DELETED."
 msgstr "BLUETOOTH CİHAZLARI SİLİNDİ."
@@ -850,13 +856,13 @@ msgid "fade"
 msgstr "soldur"
 
 msgid "fast fade"
-msgstr ""
+msgstr "hızlı soldur"
 
 msgid "slide"
 msgstr "kaydır"
 
 msgid "fast slide"
-msgstr ""
+msgstr "hızlı kaydır"
 
 msgid "fade & slide"
 msgstr "soldur & kaydır"
@@ -898,37 +904,37 @@ msgid "Cpu feature"
 msgstr "Cpu özellikleri"
 
 msgid "Available Memory"
-msgstr ""
+msgstr "Kullanılabilir Bellek"
 
 msgid "Display Resolution"
-msgstr ""
+msgstr "Ekran Çözünürlüğü"
 
 msgid "Display Refresh Rate"
-msgstr ""
+msgstr "Ekran Yenileme Hızı"
 
 msgid "OpenGL Driver Version"
-msgstr ""
+msgstr "OpenGL Sürücü Versiyonu"
 
 msgid "Vulkan Driver Name"
-msgstr ""
+msgstr "Vulkan Sürücü İsmi"
 
 msgid "Vulkan Driver Version"
-msgstr ""
+msgstr "Vulkan Sürücü Versiyonu"
 
 msgid "Data Partition Format"
-msgstr ""
+msgstr "Disk Bölümü Formatı"
 
 msgid "Data Partition Available Space"
-msgstr ""
+msgstr "Disk Bölümü Boş Alanı"
 
 msgid "Network IP Address"
-msgstr ""
+msgstr "Sunucu IP Adresi"
 
 msgid "UEFI Boot"
-msgstr ""
+msgstr "UEFI Başlatma"
 
 msgid "Secure Boot"
-msgstr ""
+msgstr "Güvenli Başlatma"
 
 msgctxt "game_options"
 msgid "SHARP-BILINEAR-SIMPLE"
@@ -1092,7 +1098,7 @@ msgid "BACKGLASS / INFORMATION SCREEN"
 msgstr "ARKA CAM / BİLGİ EKRANI"
 
 msgid "THEME"
-msgstr ""
+msgstr "TEMA"
 
 msgid "VIDEO OUTPUT"
 msgstr "VİDEO ÇIKIŞI"
@@ -1548,7 +1554,7 @@ msgid "OVERCLOCK"
 msgstr "OVERCLOCK"
 
 msgid "LED HARDWARE"
-msgstr ""
+msgstr "LED DONANIM"
 
 msgid "RED"
 msgstr "KIRMIZI"
@@ -1560,7 +1566,7 @@ msgid "BLUE"
 msgstr "MAVİ"
 
 msgid "LED BRIGHTNESS"
-msgstr ""
+msgstr "LED PARLAKLIĞI"
 
 msgid "STORAGE"
 msgstr "DEPOLAMA"
@@ -2187,6 +2193,18 @@ msgstr "KAYIT NOKTALARI"
 msgid "OPEN"
 msgstr "AÇ"
 
+msgid "START A NETPLAY GAME"
+msgstr "BİR NETPLAY OYUNUNA BAŞLA"
+
+msgid "NETPLAY"
+msgstr "NETPLAY"
+
+msgid "START GAME"
+msgstr "OYUNU BAŞLAT"
+
+msgid "HOST A NETPLAY GAME"
+msgstr "NETPLAY OYUNUNA EVSAHİBİ OL"
+
 msgid "FIND SIMILAR GAMES..."
 msgstr "BENZER OYUNLARI BUL..."
 
@@ -2290,10 +2308,10 @@ msgid "PREFERED REGION"
 msgstr "TERCİH EDİLEN BÖLGE"
 
 msgid "OVERWRITE NAMES"
-msgstr ""
+msgstr "İSİMLERİ ÜZERİNE YAZ"
 
 msgid "OVERWRITE DESCRIPTIONS"
-msgstr "AÇIKLAMAYI ÜZERİNE YAZ"
+msgstr "AÇIKLAMALARI ÜZERİNE YAZ"
 
 msgid "OVERWRITE MEDIAS"
 msgstr "MEDYALARI ÜZERİNE YAZ"
@@ -2691,7 +2709,7 @@ msgid "WHITE"
 msgstr "BEYAZ"
 
 msgid "BORDER RATIO"
-msgstr ""
+msgstr "KENAR ORANI"
 
 msgid "CAMERA CONTRAST"
 msgstr "KAMERA KONTRASTI"
@@ -2979,9 +2997,6 @@ msgid "%i GAME"
 msgid_plural "%i GAMES"
 msgstr[0] "%i OYUN"
 msgstr[1] "%i OYUNLARI"
-
-msgid "NETPLAY"
-msgstr "NETPLAY"
 
 msgid "NAVIGATION BAR"
 msgstr "GEZİNTİ ÇUBUĞU"
@@ -3555,15 +3570,6 @@ msgid ""
 msgstr ""
 "SİLAH KALİBRE EDİLİYOR\n"
 "Kalibrasyon için hedeflere ateş et"
-
-#~ msgid "START A NETPLAY GAME"
-#~ msgstr "BİR NETPLAY OYUNUNA BAŞLA"
-
-#~ msgid "START GAME"
-#~ msgstr "OYUNU BAŞLAT"
-
-#~ msgid "HOST A NETPLAY GAME"
-#~ msgstr "NETPLAY OYUNUNA EVSAHİBİ OL"
 
 #~ msgid "FORGET A BLUETOOTH DEVICE"
 #~ msgstr "BLUETOOTH CİHAZI UNUT"

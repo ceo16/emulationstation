@@ -1,9 +1,9 @@
 msgid ""
 msgstr ""
-"Project-Id-Version: batocera-es v41b(2024/10/25)\n"
+"Project-Id-Version: batocera-es v41b(2024/11/01)\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: \n"
-"PO-Revision-Date: 2024-10-25 20:46+0900\n"
+"PO-Revision-Date: 2024-11-01 05:54+0900\n"
 "Last-Translator: mikakunin\n"
 "Language-Team: mikakunin\n"
 "Language: ja\n"
@@ -560,6 +560,12 @@ msgstr "プレーヤーパスワード"
 
 msgid "VIEWER PASSWORD"
 msgstr "ウォッチパスワード"
+
+msgid "SHOW NETPLAY OPTIONS WHEN LAUNCHING GAME"
+msgstr "ゲーム起動時にネットプレイ オプションを表示"
+
+msgid "Allows choice of online, offline, or joining another game."
+msgstr "オンライン、オフライン、別のゲームへの参加を選択できます"
 
 msgid "SHOW RELAY SERVER GAMES ONLY"
 msgstr "リレーサーバーゲームのみを表示"
@@ -2178,6 +2184,18 @@ msgstr "ステートマネージャ"
 msgid "OPEN"
 msgstr "開く"
 
+msgid "START A NETPLAY GAME"
+msgstr "ネットプレイを開始"
+
+msgid "NETPLAY"
+msgstr "ネットプレイ"
+
+msgid "START GAME"
+msgstr "ゲームを開始"
+
+msgid "HOST A NETPLAY GAME"
+msgstr "ネットプレイ(ホストで)を開始"
+
 msgid "FIND SIMILAR GAMES..."
 msgstr "類似のゲームを探す..."
 
@@ -2971,9 +2989,6 @@ msgid "%i GAME"
 msgid_plural "%i GAMES"
 msgstr[0] "ゲーム数 :%i"
 
-msgid "NETPLAY"
-msgstr "ネットプレイ"
-
 msgid "NAVIGATION BAR"
 msgstr "操作バー"
 
@@ -3538,15 +3553,6 @@ msgid ""
 msgstr ""
 "銃キャリブレーション\n"
 "ターゲットに発射して較正"
-
-#~ msgid "START A NETPLAY GAME"
-#~ msgstr "ネットプレイを開始"
-
-#~ msgid "START GAME"
-#~ msgstr "ゲームを開始"
-
-#~ msgid "HOST A NETPLAY GAME"
-#~ msgstr "ネットプレイ(ホストで)を開始"
 
 #~ msgid "FORGET A BLUETOOTH DEVICE"
 #~ msgstr "BLUETOOTH デバイスの削除"

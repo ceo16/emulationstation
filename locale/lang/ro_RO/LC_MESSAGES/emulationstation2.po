@@ -3,7 +3,7 @@ msgstr ""
 "Project-Id-Version: \n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: \n"
-"PO-Revision-Date: 2024-10-21 11:58+0300\n"
+"PO-Revision-Date: 2024-11-25 23:59+0200\n"
 "Last-Translator: Mihai Vasiliu <mihai.vasiliu.93@gmail.com>\n"
 "Language-Team: \n"
 "Language: ro_RO\n"
@@ -560,11 +560,19 @@ msgstr "PAROLĂ JUCĂTORI"
 msgid "VIEWER PASSWORD"
 msgstr "PAROLĂ SPECTATORI"
 
+msgid "SHOW NETPLAY OPTIONS WHEN LAUNCHING GAME"
+msgstr "ARATĂ OPȚIUNILE NETPLAY LA LANSAREA JOCULUI"
+
+msgid "Allows choice of online, offline, or joining another game."
+msgstr "Permite alegerea online, offline sau alăturarea la un alt joc."
+
 msgid "SHOW RELAY SERVER GAMES ONLY"
-msgstr ""
+msgstr "ARATĂ DOAR JOCURILE CU SERVER DE RETRANSLAȚIE"
 
 msgid "Relay server games have a higher chance of successful entry."
 msgstr ""
+"Jocurile cu server de retranslație au o șansă mai mare de a permite "
+"alăturarea cu succes."
 
 msgid "SHOW UNAVAILABLE GAMES"
 msgstr "AFIȘEAZĂ JOCURILE INDISPONIBILE"
@@ -1288,7 +1296,7 @@ msgid "QUICK SYSTEM SELECT"
 msgstr "SELECȚIA RAPIDĂ A SISTEMULUI"
 
 msgid "QUICK JUMP LETTER"
-msgstr ""
+msgstr "SALT RAPID LITERĂ"
 
 msgid "ON-SCREEN KEYBOARD"
 msgstr "TASTATURĂ PE ECRAN"
@@ -2195,6 +2203,18 @@ msgstr "STĂRI SALVATE"
 msgid "OPEN"
 msgstr "DESCHIDE"
 
+msgid "START A NETPLAY GAME"
+msgstr "PORNEȘTE UN JOC NETPLAY"
+
+msgid "NETPLAY"
+msgstr "NETPLAY"
+
+msgid "START GAME"
+msgstr "ÎNCEPE JOCUL"
+
+msgid "HOST A NETPLAY GAME"
+msgstr "GĂZDUIEȘTE UN JOC NETPLAY"
+
 msgid "FIND SIMILAR GAMES..."
 msgstr "GĂSEȘTE JOCURI SIMILARE..."
 
@@ -2560,7 +2580,7 @@ msgid "Select a game lobby to join"
 msgstr "Alege o sală pentru te alătura"
 
 msgid "Select a game lobby to create or join"
-msgstr ""
+msgstr "Alege o sală pentru a crea sau a te alătura"
 
 msgid "FAILED"
 msgstr "EȘUAT"
@@ -2578,13 +2598,13 @@ msgid "UNAVAILABLE CORE"
 msgstr "NUCLEU INDISPONIBIL"
 
 msgid "PLAY ONLINE AS HOST"
-msgstr ""
+msgstr "JOACĂ ONLINE CA GAZDĂ"
 
 msgid "PLAY OFFLINE"
-msgstr ""
+msgstr "JOACĂ OFFLINE"
 
 msgid "JOIN EXISTING GAME"
-msgstr ""
+msgstr "ALĂTURĂ-TE LA UN JOC EXISTENT"
 
 msgid "AVAILABLE GAMES"
 msgstr "JOCURI DISPONIBILE"
@@ -2992,9 +3012,6 @@ msgid_plural "%i GAMES"
 msgstr[0] "%i JOC"
 msgstr[1] "%i JOCURI"
 msgstr[2] "%i DE JOCURI"
-
-msgid "NETPLAY"
-msgstr "NETPLAY"
 
 msgid "NAVIGATION BAR"
 msgstr "BARĂ DE NAVIGAȚIE"
@@ -3578,15 +3595,6 @@ msgid ""
 msgstr ""
 "SE CALIBREAZĂ PISTOLUL\n"
 "Trage în ținte pentru a-l calibra"
-
-#~ msgid "START A NETPLAY GAME"
-#~ msgstr "PORNEȘTE UN JOC NETPLAY"
-
-#~ msgid "START GAME"
-#~ msgstr "ÎNCEPE JOCUL"
-
-#~ msgid "HOST A NETPLAY GAME"
-#~ msgstr "GĂZDUIEȘTE UN JOC NETPLAY"
 
 #~ msgid "FORGET A BLUETOOTH DEVICE"
 #~ msgstr "ELIMINĂ UN DISPOZITIV BLUETOOTH"
