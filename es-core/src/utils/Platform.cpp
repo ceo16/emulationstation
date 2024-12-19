@@ -265,7 +265,7 @@ namespace Utils
 			return quitMode == QuitMode::FAST_REBOOT || quitMode == QuitMode::FAST_SHUTDOWN;
 		}
 
-		std::string queryIPAdress()
+		std::string queryIPAddress()
 		{
 #ifdef DEVTEST
 			return "127.0.0.1";
@@ -318,7 +318,7 @@ namespace Utils
 					inet_ntop(AF_INET, tmpAddrPtr, addressBuffer, INET_ADDRSTRLEN);
 
 					std::string ifName = ifa->ifa_name;
-					if (ifName.find("eth") != std::string::npos || ifName.find("wlan") != std::string::npos || ifName.find("mlan") != std::string::npos || ifName.find("en") != std::string::npos || ifName.find("wl") != std::string::npos || ifName.find("p2p") != std::string::npos)
+					if (ifName.find("eth") != std::string::npos || ifName.find("wlan") != std::string::npos || ifName.find("mlan") != std::string::npos || ifName.find("en") != std::string::npos || ifName.find("wl") != std::string::npos || ifName.find("p2p") != std::string::npos || ifName.find("usb") != std::string::npos)
 					{
 						result = std::string(addressBuffer);
 						break;
@@ -341,7 +341,7 @@ namespace Utils
 						inet_ntop(AF_INET6, tmpAddrPtr, addressBuffer, INET6_ADDRSTRLEN);
 
 						std::string ifName = ifa->ifa_name;
-						if (ifName.find("eth") != std::string::npos || ifName.find("wlan") != std::string::npos || ifName.find("mlan") != std::string::npos || ifName.find("en") != std::string::npos || ifName.find("wl") != std::string::npos || ifName.find("p2p") != std::string::npos)
+						if (ifName.find("eth") != std::string::npos || ifName.find("wlan") != std::string::npos || ifName.find("mlan") != std::string::npos || ifName.find("en") != std::string::npos || ifName.find("wl") != std::string::npos || ifName.find("p2p") != std::string::npos || ifName.find("usb") != std::string::npos)
 						{
 							result = std::string(addressBuffer);
 							break;
