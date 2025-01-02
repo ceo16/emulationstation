@@ -1,9 +1,9 @@
 msgid ""
 msgstr ""
-"Project-Id-Version: batocera-es v41b(2024/11/01)\n"
+"Project-Id-Version: batocera-es v41b(2024/12/31)\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: \n"
-"PO-Revision-Date: 2024-11-01 05:54+0900\n"
+"PO-Revision-Date: 2024-12-31 10:03+0900\n"
 "Last-Translator: mikakunin\n"
 "Language-Team: mikakunin\n"
 "Language: ja\n"
@@ -1203,8 +1203,8 @@ msgstr "クリーニング"
 msgid "RESET GAMELISTS USAGE DATA"
 msgstr "ゲームリストの使用データをリセット"
 
-msgid "Reset values of GameTime, PlayCount and LastPlayed metadatas."
-msgstr "プレイ時間, プレイ回数, 最終プレイゲーム名 のデータ値を初期化します"
+msgid "Reset values of GameTime, PlayCount and LastPlayed metadata."
+msgstr "プレイ時間, 回数, 最終プレイゲーム名 のデータ値を初期化します"
 
 msgid "RESET FILE EXTENSIONS"
 msgstr "ファイル表示拡張子設定をリセット"
@@ -2415,6 +2415,9 @@ msgstr "非表示システムにあるゲームをコレクションに表示"
 msgid "SHOW EMPTY SYSTEMS"
 msgstr "全てのシステムを表示"
 
+msgid "DON'T SHOW GROUPS WITH ONLY ONE SYSTEM"
+msgstr "システムが1つしかないグループは表示しない"
+
 msgid "Loading..."
 msgstr "読み込み中…"
 
@@ -2667,6 +2670,9 @@ msgstr "コントローラーアクティビティを表示"
 
 msgid "SHOW CONTROLLER BATTERY LEVEL"
 msgstr "コントローラーバッテリーレベルを表示"
+
+msgid "DRAW GUN CROSSHAIR"
+msgstr "銃のクロスへア(照準)表示"
 
 msgid "default"
 msgstr "標準"
@@ -3093,8 +3099,8 @@ msgstr "「ゲームリストを更新」で変更を適用します"
 msgid "Loading system config..."
 msgstr "システム設定を読み込んでいます..."
 
-msgid "SAVING METADATAS. PLEASE WAIT..."
-msgstr "メタ情報の保存中です。 お待ちください..."
+msgid "SAVING METADATA. PLEASE WAIT..."
+msgstr "メタ情報の保存中。 お待ちください..."
 
 msgid "THE EMULATOR EXITED UNEXPECTEDLY"
 msgstr "エミュレータが予期せず終了しました"
