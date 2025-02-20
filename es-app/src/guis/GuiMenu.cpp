@@ -453,29 +453,18 @@ void GuiMenu::openDmdSettings()
 
 	s->addGroup("ZEDMD");
 
-	// zedmd.matrix
-	auto zedmd_matrix = std::make_shared< OptionListComponent<std::string> >(window, _("MATRIX"), false);
-	std::string current_zedmd_matrix = SystemConf::getInstance()->get("dmd.zedmd.matrix");
-	zedmd_matrix->addRange({ { _("AUTO"), "" }, { "RGB", "rgb" }, { "RBG", "rbg" }, { "BRG", "brg" }, { "BGR", "bgr" }, { "GRB", "grb" }, { "GBR", "gbr" } }, current_zedmd_matrix);
-	s->addWithDescription(_("MATRIX"), _("rgb dmd order"), zedmd_matrix);
-
 	// zedmd.brightness
 	auto zedmd_brightness = std::make_shared< OptionListComponent<std::string> >(window, _("BRIGHTNESS"), false);
 	std::string current_zedmd_brightness = SystemConf::getInstance()->get("dmd.zedmd.brightness");
 	zedmd_brightness->addRange({ { _("AUTO"), "" }, { "0", "0" }, { "1", "1" }, { "2", "2" }, { "3", "3" }, { "4", "4" }, { "5", "5" }, { "6", "6" }, { "7", "7" }, { "8", "8" }, { "9", "9" }, { "10", "10" }, { "11", "11" }, { "12", "12" }, { "13", "13" }, { "14", "14" }, { "15", "15" } }, current_zedmd_brightness);
 	s->addWithLabel(_("BRIGHTNESS"), zedmd_brightness);
 
-	s->addSaveFunc([window, server, format, zedmd_matrix, zedmd_brightness, current_server, current_format, current_zedmd_matrix, current_zedmd_brightness] {
+	s->addSaveFunc([window, server, format, zedmd_brightness, current_server, current_format, current_zedmd_brightness] {
 	  bool needRestart = false;
 	  bool needSave    = false;
 
 	  if(current_format != format->getSelected()) {
 	    SystemConf::getInstance()->set("dmd.format", format->getSelected());
-	    needSave = true;
-	  }
-	  if(current_zedmd_matrix != zedmd_matrix->getSelected()) {
-	    SystemConf::getInstance()->set("dmd.zedmd.matrix", zedmd_matrix->getSelected());
-	    needRestart = true;
 	    needSave = true;
 	  }
 	  if(current_zedmd_brightness != zedmd_brightness->getSelected()) {
