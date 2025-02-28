@@ -225,7 +225,10 @@ void Settings::setDefaults()
 	mStringMap["ScrapperLogoSrc"] = "wheel";
 	mBoolMap["ScrapeVideos"] = false;
 	mBoolMap["ScrapeShortTitle"] = false;
-	
+
+	mBoolMap["ScreenSaverDateTime"] = false;
+	mStringMap["ScreenSaverDateFormat"] = "%Y-%m-%d";
+	mStringMap["ScreenSaverTimeFormat"] = "%H:%M:%S";
 	mBoolMap["ScreenSaverMarquee"] = true;
 	mBoolMap["ScreenSaverControls"] = true;
 	mStringMap["ScreenSaverGameInfo"] = "never";
@@ -354,8 +357,6 @@ void Settings::setDefaults()
 	mIntMap["audio.display_titles_time"] = 10;
 
 	mBoolMap["NetPlayCheckIndexesAtStart"] = false;
-	mBoolMap["NetPlayShowOptionsWhenLaunchingGames"] = false;
-	mBoolMap["NetPlayShowOnlyRelayServerGames"] = false;
 	mBoolMap["NetPlayShowMissingGames"] = false;
 	
 	mBoolMap["CheevosCheckIndexesAtStart"] = false;	

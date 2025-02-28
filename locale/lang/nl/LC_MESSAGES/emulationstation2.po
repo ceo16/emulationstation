@@ -3,7 +3,7 @@ msgstr ""
 "Project-Id-Version: emulationstation\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2021-12-15 23:48+0100\n"
-"PO-Revision-Date: 2025-01-06 15:09+0000\n"
+"PO-Revision-Date: 2025-02-22 18:09+0000\n"
 "Last-Translator: THa MuSHeR\n"
 "Language-Team: Dutch (Netherlands)\n"
 "Language: nl-NL\n"
@@ -550,27 +550,6 @@ msgstr "AANGEPAST"
 
 msgid "CUSTOM RELAY SERVER"
 msgstr "AANGEPASTE RELAY SERVER"
-
-msgid "PUBLICLY ANNOUNCE GAME"
-msgstr "EEN SPEL PUBLIEKELIJK AANKONDIGEN"
-
-msgid "PLAYER PASSWORD"
-msgstr "SPELER WACHTWOORD"
-
-msgid "VIEWER PASSWORD"
-msgstr "TOESCHOUWER WACHTWOORD"
-
-msgid "SHOW NETPLAY OPTIONS WHEN LAUNCHING GAME"
-msgstr "TOON NETPLAY-OPTIES BIJ HET STARTEN VAN HET SPEL"
-
-msgid "Allows choice of online, offline, or joining another game."
-msgstr "Biedt de keuze tussen online, offline of deelnemen aan een ander spel."
-
-msgid "SHOW RELAY SERVER GAMES ONLY"
-msgstr "ALLEEN RELAY SERVER SPELLEN TONEN"
-
-msgid "Relay server games have a higher chance of successful entry."
-msgstr "Relay server spellen hebben een grotere kans op succesvolle toegang."
 
 msgid "SHOW UNAVAILABLE GAMES"
 msgstr "TOON NIET-BESCHIKBARE SPELLEN"
@@ -2213,6 +2192,15 @@ msgstr "START SPEL"
 msgid "HOST A NETPLAY GAME"
 msgstr "HOST EEN NETPLAY SPEL"
 
+msgid "PUBLICLY ANNOUNCE GAME"
+msgstr "EEN SPEL PUBLIEKELIJK AANKONDIGEN"
+
+msgid "PLAYER PASSWORD"
+msgstr "SPELER WACHTWOORD"
+
+msgid "VIEWER PASSWORD"
+msgstr "TOESCHOUWER WACHTWOORD"
+
 msgid "FIND SIMILAR GAMES..."
 msgstr "VIND SOORTGELIJKE SPELLEN..."
 
@@ -2578,9 +2566,6 @@ msgstr "VERBIND MET NETPLAY"
 msgid "Select a game lobby to join"
 msgstr "Selecteer een spel lobby voor deelname"
 
-msgid "Select a game lobby to create or join"
-msgstr "Selecteer een gamelobby om aan te maken of eraan deel te nemen"
-
 msgid "FAILED"
 msgstr "MISLUKT"
 
@@ -2595,15 +2580,6 @@ msgstr "DEZELFDE ROM"
 
 msgid "UNAVAILABLE CORE"
 msgstr "NIET-BESCHIKBARE CORE"
-
-msgid "PLAY ONLINE AS HOST"
-msgstr "SPEEL ONLINE ALS HOST"
-
-msgid "PLAY OFFLINE"
-msgstr "SPEEL OFFLINE"
-
-msgid "JOIN EXISTING GAME"
-msgstr "DOE MEE AAN EEN BESTAAND SPEL"
 
 msgid "AVAILABLE GAMES"
 msgstr "BESCHIKBARE SPELLEN"
@@ -2689,10 +2665,10 @@ msgid "DRAW GUN CROSSHAIR"
 msgstr "TEKEN PISTOOL KRUIS"
 
 msgid "BEHAVIOR"
-msgstr ""
+msgstr "GEDRAG"
 
 msgid "RESTRICT HOTKEYS TO EXIT"
-msgstr ""
+msgstr "BEPERK SNELTOETSEN OM AF TE SLUITEN"
 
 msgid "default"
 msgstr "standaard"
@@ -2870,6 +2846,15 @@ msgstr "GEBRUIK OMX SPELER VOOR SCHERMBEVEILIGING"
 
 msgid "SHOW GAME INFO"
 msgstr "TOON SPELINFO"
+
+msgid "SHOW DATE TIME"
+msgstr ""
+
+msgid "DATE FORMAT"
+msgstr ""
+
+msgid "TIME FORMAT"
+msgstr ""
 
 msgid "USE MARQUEE AS GAME INFO"
 msgstr "GEBRUIK MARQUEE ALS SPELINFO"
@@ -3147,7 +3132,7 @@ msgid "UKNOWN ERROR"
 msgstr "ONBEKENDE FOUT"
 
 msgid "Interlaced"
-msgstr ""
+msgstr "Geïnterlinieerd"
 
 msgid "all games"
 msgstr "alle spellen"
@@ -3594,8 +3579,28 @@ msgstr ""
 "KALIBREREN GUN\n"
 "Vuur op doelen om te kalibreren"
 
-#~ msgid "MATRIX"
-#~ msgstr "MATRIX"
+#~ msgid "SHOW NETPLAY OPTIONS WHEN LAUNCHING GAME"
+#~ msgstr "TOON NETPLAY-OPTIES BIJ HET STARTEN VAN HET SPEL"
 
-#~ msgid "rgb dmd order"
-#~ msgstr "RGB DMD volgorde"
+#~ msgid "Allows choice of online, offline, or joining another game."
+#~ msgstr ""
+#~ "Biedt de keuze tussen online, offline of deelnemen aan een ander spel."
+
+#~ msgid "SHOW RELAY SERVER GAMES ONLY"
+#~ msgstr "ALLEEN RELAY SERVER SPELLEN TONEN"
+
+#~ msgid "Relay server games have a higher chance of successful entry."
+#~ msgstr ""
+#~ "Relay server spellen hebben een grotere kans op succesvolle toegang."
+
+#~ msgid "Select a game lobby to create or join"
+#~ msgstr "Selecteer een gamelobby om aan te maken of eraan deel te nemen"
+
+#~ msgid "PLAY ONLINE AS HOST"
+#~ msgstr "SPEEL ONLINE ALS HOST"
+
+#~ msgid "PLAY OFFLINE"
+#~ msgstr "SPEEL OFFLINE"
+
+#~ msgid "JOIN EXISTING GAME"
+#~ msgstr "DOE MEE AAN EEN BESTAAND SPEL"

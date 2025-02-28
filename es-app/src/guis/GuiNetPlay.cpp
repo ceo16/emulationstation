@@ -1,6 +1,10 @@
 #include "GuiNetPlay.h"
 #include "Window.h"
 #include <string>
+#include <future>
+#include <arpa/inet.h>
+#include <unistd.h>
+#include <fcntl.h>
 #include "Log.h"
 #include "Settings.h"
 #include "SystemConf.h"
@@ -147,13 +151,13 @@ static std::map<std::string, std::string> coreList =
 #endif
 };
 
-GuiNetPlay::GuiNetPlay(Window* window, FileData* targetGame)
+GuiNetPlay::GuiNetPlay(Window* window)
 	: GuiComponent(window), 
 	mBusyAnim(window),
 	mBackground(window, ":/frame.png"),
 	mGrid(window, Vector2i(1, 3)),
 	mList(nullptr),
-	mTargetGame(targetGame)
+	mLanLobbySocket(-1)
 {	
 	addChild(&mBackground);
 	addChild(&mGrid);
@@ -171,10 +175,7 @@ GuiNetPlay::GuiNetPlay(Window* window, FileData* targetGame)
 	mHeaderGrid = std::make_shared<ComponentGrid>(mWindow, Vector2i(1, 5));
 
 	mTitle = std::make_shared<TextComponent>(mWindow, _("CONNECT TO NETPLAY"), theme->Title.font, theme->Title.color, ALIGN_CENTER);
-	if (mTargetGame == nullptr)
-		mSubtitle = std::make_shared<TextComponent>(mWindow, _("Select a game lobby to join"), theme->TextSmall.font, theme->TextSmall.color, ALIGN_CENTER);
-	else
-		mSubtitle = std::make_shared<TextComponent>(mWindow, _("Select a game lobby to create or join"), theme->TextSmall.font, theme->TextSmall.color, ALIGN_CENTER);
+	mSubtitle = std::make_shared<TextComponent>(mWindow, _("Select a game lobby to join"), theme->TextSmall.font, theme->TextSmall.color, ALIGN_CENTER);
 	
 	mHeaderGrid->setEntry(mTitle, Vector2i(0, 1), false, true);
 	mHeaderGrid->setEntry(mSubtitle, Vector2i(0, 3), false, true);
@@ -223,6 +224,15 @@ GuiNetPlay::GuiNetPlay(Window* window, FileData* targetGame)
 	startRequest();
 }
 
+GuiNetPlay::~GuiNetPlay()
+{
+	if (mLanLobbySocket >= 0)
+	{
+		close(mLanLobbySocket);
+		mLanLobbySocket = -1;
+	}
+}
+
 void GuiNetPlay::onSizeChanged()
 {
 	GuiComponent::onSizeChanged();
@@ -254,6 +264,7 @@ void GuiNetPlay::startRequest()
 	if (netPlayLobby.empty())
 		netPlayLobby = "http://lobby.libretro.com/list/";
 
+	lanLobbyRequest();
 	mLobbyRequest = std::unique_ptr<HttpReq>(new HttpReq(netPlayLobby));
 }
 
@@ -261,21 +272,65 @@ void GuiNetPlay::update(int deltaTime)
 {
 	GuiComponent::update(deltaTime);
 
-	if (mLobbyRequest)
+	if (!mLobbyRequest)
+		return;
+
+	auto status = mLobbyRequest->status();
+	if (status == HttpReq::REQ_IN_PROGRESS)
 	{
-		auto status = mLobbyRequest->status();
-		if (status != HttpReq::REQ_IN_PROGRESS)
-		{
-			if (status == HttpReq::REQ_SUCCESS)
-				populateFromJson(mLobbyRequest->getContent());
-			else
-				mWindow->pushGui(new GuiMsgBox(mWindow, _("FAILED") + std::string(" : ") + mLobbyRequest->getErrorMsg()));
-
-			mLobbyRequest.reset();
-		}
-
 		mBusyAnim.update(deltaTime);
+		return;
 	}
+
+	populateFromLan();
+
+	if (status == HttpReq::REQ_SUCCESS)
+		populateFromJson(mLobbyRequest->getContent());
+
+	if (mList->size() == 0)
+	{
+		if (status != HttpReq::REQ_SUCCESS)
+			mWindow->pushGui(new GuiMsgBox(mWindow, _("FAILED") + std::string(" : ") + mLobbyRequest->getErrorMsg()));
+		else
+		{
+			ComponentListRow row;
+			auto empty = std::make_shared<TextComponent>(mWindow);
+			empty->setText(_("NO GAMES FOUND"));
+			row.addElement(empty, true);
+			mList->addRow(std::move(row));
+
+			mGrid.moveCursor(Vector2i(0, 1));
+		}
+	}
+	else
+		mList->setCursorIndex(0, true);
+
+	mLobbyRequest.reset();
+}
+
+void GuiNetPlay::lanLobbyRequest()
+{
+	if (mLanLobbySocket < 0)
+	{
+		mLanLobbySocket = socket(AF_INET, SOCK_DGRAM, 0);
+		if (mLanLobbySocket < 0)
+			return;
+
+		int broadcastEnable = 1;
+		setsockopt(mLanLobbySocket, SOL_SOCKET, SO_BROADCAST, &broadcastEnable, sizeof(broadcastEnable));
+
+		int flags = fcntl(mLanLobbySocket, F_GETFL, 0);
+		fcntl(mLanLobbySocket, F_SETFL, flags | O_NONBLOCK);
+	}
+
+	struct sockaddr_in broadcastAddr;
+	memset(&broadcastAddr, 0, sizeof(broadcastAddr));
+	broadcastAddr.sin_family = AF_INET;
+	broadcastAddr.sin_port = htons(std::stoi(SystemConf::getInstance()->get("global.netplay.port")));
+	broadcastAddr.sin_addr.s_addr = htonl(INADDR_BROADCAST);
+
+	uint32_t query_magic = htonl(DISCOVERY_QUERY_MAGIC);
+	sendto(mLanLobbySocket, &query_magic, sizeof(query_magic), 0, (struct sockaddr*)&broadcastAddr, sizeof(broadcastAddr));
 }
 
 bool GuiNetPlay::input(InputConfig* config, Input input)
@@ -318,6 +373,9 @@ FileData* GuiNetPlay::getFileData(std::string gameInfo, bool crc, std::string co
 		lowCore = Utils::String::toLower(Utils::String::replace(coreName, " ", "_"));
 	
 	std::string normalizedName = normalizeName(gameInfo);
+	std::string normalizedNameNoSpace = Utils::String::replace(normalizedName, " ", "");
+
+	std::vector<std::future<FileData*>> futures;
 	for (auto sys : SystemData::sSystemVector)
 	{
 		if (!sys->isNetplaySupported())
@@ -330,36 +388,49 @@ FileData* GuiNetPlay::getFileData(std::string gameInfo, bool crc, std::string co
 			for (auto& emul : sys->getEmulators())
 				for (auto& core : emul.cores)
 					if (Utils::String::toLower(core.name) == lowCore)
+					{
 						coreExists = true;
+						break;
+					}
 
 			if (!coreExists)
 				continue;
 		}
 
-		for (auto file : sys->getRootFolder()->getFilesRecursive(GAME))
-		{
-			if (crc)
+		futures.push_back(std::async(std::launch::async, [sys, crc, gameInfo, normalizedName, normalizedNameNoSpace, &normalizeName]() -> FileData* {
+			for (auto file : sys->getRootFolder()->getFilesRecursive(GAME, false, sys))
 			{
-				if (file->getMetadata(MetaDataId::Crc32) == gameInfo)
-					return file;
+				if (crc)
+				{
+					if (file->getMetadata(MetaDataId::Crc32) == gameInfo)
+						return file;
 
-				continue;
+					continue;
+				}
+				else
+				{
+					std::string stem = normalizeName(file->getName());
+					if (stem == normalizedName)
+						return file;
+
+					stem = normalizeName(Utils::FileSystem::getStem(file->getPath()));
+					if (stem == normalizedName)
+						return file;
+
+					stem = Utils::String::replace(normalizeName(file->getName()), " ", "");
+					if (stem == Utils::String::replace(normalizedName, " ", ""))
+						return file;
+				}
 			}
-			else
-			{
-				std::string stem = normalizeName(file->getName());
-				if (stem == normalizedName)
-					return file;
+			return nullptr;
+		}));
+	}
 
-				stem = normalizeName(Utils::FileSystem::getStem(file->getPath()));
-				if (stem == normalizedName)
-					return file;
-
-				stem = Utils::String::replace(normalizeName(file->getName()), " ", "");
-				if (stem == Utils::String::replace(normalizedName, " ", ""))
-					return file;
-			}
-		}
+	for (auto& fut : futures)
+	{
+		FileData* file = fut.get();
+		if (file != nullptr)
+			return file;
 	}
 
 	return nullptr;
@@ -505,8 +576,7 @@ bool GuiNetPlay::populateFromJson(const std::string json)
 	}
 
 	std::vector<LobbyAppEntry> entries;
-	const std::string targetCRC = mTargetGame == nullptr ? "" : mTargetGame->getMetadata(MetaDataId::Crc32);
-	bool netPlayShowOnlyRelayServerGames = Settings::NetPlayShowOnlyRelayServerGames();
+	entries.reserve(doc.Size());
 
 	for (auto& item : doc.GetArray())
 	{
@@ -543,9 +613,6 @@ bool GuiNetPlay::populateFromJson(const std::string json)
 		if (fields.HasMember("game_crc") && fields["game_crc"].IsString())
 			game.game_crc = fields["game_crc"].GetString();
 
-		if (!targetCRC.empty() && targetCRC != game.game_crc)
-			continue;
-
 		if (file != nullptr)
 		{
 			std::string fileCRC = file->getMetadata(MetaDataId::Crc32);
@@ -577,9 +644,6 @@ bool GuiNetPlay::populateFromJson(const std::string json)
 		if (fields.HasMember("host_method") && fields["host_method"].IsInt())
 			game.host_method = fields["host_method"].GetInt();
 
-		if (netPlayShowOnlyRelayServerGames && game.host_method != 3)
-			continue;
-
 		if (fields.HasMember("has_password") && fields["has_password"].IsBool())
 			game.has_password = fields["has_password"].GetBool();
 
@@ -606,49 +670,18 @@ bool GuiNetPlay::populateFromJson(const std::string json)
 
 		game.coreExists = coreExists(file, game.core_name);
 
-		entries.push_back(game);
+		entries.push_back(std::move(game));
 	}	
-
-	auto theme = ThemeData::getMenuTheme();
 
 	bool groupAvailable = false;
 
-	struct { bool operator()(LobbyAppEntry& a, LobbyAppEntry& b) const 
-	{ 
-		if (a.isCrcValid == b.isCrcValid)
-			return a.coreExists && !b.coreExists;
-
-		return a.isCrcValid && !b.isCrcValid;
-	} } sortByValidCrc;
-
-	std::sort(entries.begin(), entries.end(), sortByValidCrc);
-
-	if (mTargetGame != nullptr)
-	{
-		auto addPlayOption = [this](const std::string& label, NetPlayMode mode) {
-			ComponentListRow row;
-			auto textComponent = std::make_shared<TextComponent>(mWindow);
-			textComponent->setText(label);
-			row.addElement(textComponent, true);
-
-			row.makeAcceptInputHandler([this, mode] {
-				LaunchGameOptions options;
-				options.netPlayMode = mode;
-				ViewController::get()->launch(mTargetGame, options);
-
-				delete this;
-			});
-
-			mList->addRow(row);
-		};
-
-		addPlayOption(_("PLAY ONLINE AS HOST"), SERVER);
-		addPlayOption(_("PLAY OFFLINE"), OFFLINE);
-	}
+	std::sort(entries.begin(), entries.end(), [](const LobbyAppEntry& a, const LobbyAppEntry& b) {
+		return a.isCrcValid ? !b.isCrcValid : (a.coreExists && !b.coreExists);
+	});
 
 	bool netPlayShowMissingGames = Settings::NetPlayShowMissingGames();
 
-	for (auto game : entries)
+	for (auto& game : entries)
 	{
 		if (game.fileData == nullptr)
 			continue;
@@ -656,11 +689,11 @@ bool GuiNetPlay::populateFromJson(const std::string json)
 		if (!netPlayShowMissingGames && !game.coreExists)
 			continue;
 
-		if (netPlayShowMissingGames && !groupAvailable)
-		{			
-			if (mTargetGame != nullptr)
-				mList->addGroup(_("JOIN EXISTING GAME"), true);
-			else
+		if (!groupAvailable)
+		{
+			if (mList->size() > 0)
+				mList->addGroup(_("ONLINE GAMES"), true);
+			else if (netPlayShowMissingGames)
 				mList->addGroup(_("AVAILABLE GAMES"), true);
 
 			groupAvailable = true;
@@ -672,14 +705,14 @@ bool GuiNetPlay::populateFromJson(const std::string json)
 		if (game.fileData != nullptr)
 			row.makeAcceptInputHandler([this, game] { launchGame(game); });
 
-		mList->addRow(row);
+		mList->addRow(std::move(row));
 	}
 
 	if (netPlayShowMissingGames)
 	{
 		bool groupUnavailable = false;
 
-		for (auto game : entries)
+		for (auto& game : entries)
 		{
 			if (game.fileData != nullptr)
 				continue;
@@ -692,22 +725,96 @@ bool GuiNetPlay::populateFromJson(const std::string json)
 
 			ComponentListRow row;
 			row.addElement(std::make_shared<NetPlayLobbyListEntry>(mWindow, game), true);
-			mList->addRow(row);
+			mList->addRow(std::move(row));
 		}
 	}
 
-	if (mList->size() == 0)
-	{
-		ComponentListRow row;
-		auto empty = std::make_shared<TextComponent>(mWindow);
-		empty->setText(_("NO GAMES FOUND"));
-		row.addElement(empty, true);
-		mList->addRow(row);
+	return true;
+}
 
-		mGrid.moveCursor(Vector2i(0, 1));
+bool GuiNetPlay::populateFromLan()
+{
+	if (mLanLobbySocket < 0)
+		return false;
+
+	struct sockaddr_in serverAddr;
+	socklen_t addrLen = sizeof(serverAddr);
+	ad_packet response;
+
+	std::vector<LobbyAppEntry> entries;
+	while (true)
+	{
+		ssize_t received = recvfrom(mLanLobbySocket, &response, sizeof(response), 0, (struct sockaddr*)&serverAddr, &addrLen);
+		if (received < 0)
+			if (errno == EWOULDBLOCK || errno == EAGAIN)
+				break;
+
+		if (received != sizeof(response))
+			continue;
+
+		if (ntohl(response.header) != DISCOVERY_RESPONSE_MAGIC)
+			continue;
+
+		LobbyAppEntry game;
+
+		game.isCrcValid = false;
+		game.core_name = response.core;
+
+		char crcBuf[9];
+		snprintf(crcBuf, sizeof(crcBuf), "%08X", ntohl(response.content_crc));
+		game.game_crc = std::string(crcBuf);
+
+		FileData* file = getFileData(game.game_crc, true, game.core_name);
+		if (file == nullptr)
+		{
+			file = getFileData(response.content, false, game.core_name);
+			if (file != nullptr)
+				file->checkCrc32();
+		}
+
+		game.fileData = file;
+		game.username = response.nick;
+
+		if (file != nullptr)
+		{
+			std::string fileCRC = file->getMetadata(MetaDataId::Crc32);
+			if (game.game_crc == fileCRC)
+				game.isCrcValid = true;
+		}
+
+		game.subsystem_name = response.subsystem_name;
+		game.frontend = response.frontend;
+		game.ip = inet_ntoa(serverAddr.sin_addr);
+		game.country = "lan";
+		game.has_password = ntohl(response.has_password);
+		game.has_spectate_password = ntohl(response.has_password);
+		game.game_name = response.content;
+		game.retroarch_version = response.retroarch_version;
+		game.core_version = response.core_version;
+		game.port = ntohl(response.port);
+
+		game.coreExists = coreExists(file, game.core_name);
+
+		entries.push_back(std::move(game));
 	}
-	else
-		mList->setCursorIndex(0, true);
+
+	if (entries.empty())
+		return false;
+
+	mList->addGroup(_("LAN GAMES"), true);
+	for (auto game : entries)
+	{
+		if (game.fileData == nullptr)
+			continue;
+
+		ComponentListRow row;
+		row.addElement(std::make_shared<NetPlayLobbyListEntry>(mWindow, game), true);
+
+		if (game.fileData != nullptr)
+			row.makeAcceptInputHandler([this, game] { launchGame(game); });
+
+		mList->addRow(std::move(row));
+	}
 
 	return true;
 }
