@@ -2567,6 +2567,12 @@ msgstr "AYNI ROM"
 msgid "UNAVAILABLE CORE"
 msgstr "MEVCUT OLMAYAN ÇEKİRDEK"
 
+msgid "LAN GAMES"
+msgstr ""
+
+msgid "ONLINE GAMES"
+msgstr ""
+
 msgid "AVAILABLE GAMES"
 msgstr "MEVCUT OYUNLAR"
 

@@ -2523,6 +2523,12 @@ msgstr "אותו ה ROM"
 msgid "UNAVAILABLE CORE"
 msgstr "ליבה לא זמינה"
 
+msgid "LAN GAMES"
+msgstr ""
+
+msgid "ONLINE GAMES"
+msgstr ""
+
 msgid "AVAILABLE GAMES"
 msgstr "משחקים זמנים"
 

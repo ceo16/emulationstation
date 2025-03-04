@@ -2524,6 +2524,12 @@ msgstr ""
 msgid "UNAVAILABLE CORE"
 msgstr ""
 
+msgid "LAN GAMES"
+msgstr ""
+
+msgid "ONLINE GAMES"
+msgstr ""
+
 msgid "AVAILABLE GAMES"
 msgstr ""
 

@@ -2551,6 +2551,12 @@ msgstr "SAME ROM"
 msgid "UNAVAILABLE CORE"
 msgstr "UNAVAILABLE CORE"
 
+msgid "LAN GAMES"
+msgstr ""
+
+msgid "ONLINE GAMES"
+msgstr ""
+
 msgid "AVAILABLE GAMES"
 msgstr "AVAILABLE GAMES"
 

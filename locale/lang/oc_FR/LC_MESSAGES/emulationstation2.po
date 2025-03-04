@@ -2527,6 +2527,12 @@ msgstr "ROM IDENTICA"
 msgid "UNAVAILABLE CORE"
 msgstr "CÒS PAS DISPONIBLE"
 
+msgid "LAN GAMES"
+msgstr ""
+
+msgid "ONLINE GAMES"
+msgstr ""
+
 msgid "AVAILABLE GAMES"
 msgstr "JÒCS DISPONIBLES"
 

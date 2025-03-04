@@ -2581,6 +2581,12 @@ msgstr "نفس الروم"
 msgid "UNAVAILABLE CORE"
 msgstr "النواة غير متوفرة"
 
+msgid "LAN GAMES"
+msgstr ""
+
+msgid "ONLINE GAMES"
+msgstr ""
+
 msgid "AVAILABLE GAMES"
 msgstr "ألعاب متوفرة"
 

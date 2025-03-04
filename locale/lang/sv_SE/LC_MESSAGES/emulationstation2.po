@@ -2560,6 +2560,12 @@ msgstr "SAMMA ROM"
 msgid "UNAVAILABLE CORE"
 msgstr "OTILLGÄNGLIG KÄRNA"
 
+msgid "LAN GAMES"
+msgstr ""
+
+msgid "ONLINE GAMES"
+msgstr ""
+
 msgid "AVAILABLE GAMES"
 msgstr "TILLGÄNGLIGA SPEL"
 

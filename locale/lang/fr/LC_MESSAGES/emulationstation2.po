@@ -2570,6 +2570,12 @@ msgstr "ROM IDENTIQUE"
 msgid "UNAVAILABLE CORE"
 msgstr "CŒUR NON DISPONIBLE"
 
+msgid "LAN GAMES"
+msgstr ""
+
+msgid "ONLINE GAMES"
+msgstr ""
+
 msgid "AVAILABLE GAMES"
 msgstr "JEUX DISPONIBLES"
 

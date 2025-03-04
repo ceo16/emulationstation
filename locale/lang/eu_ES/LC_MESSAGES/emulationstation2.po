@@ -2566,6 +2566,12 @@ msgstr "ROM BERDINA"
 msgid "UNAVAILABLE CORE"
 msgstr "NUKLEO ESKURAEZINA"
 
+msgid "LAN GAMES"
+msgstr ""
+
+msgid "ONLINE GAMES"
+msgstr ""
+
 msgid "AVAILABLE GAMES"
 msgstr "JOKO ESKURAGARRIAK"
 

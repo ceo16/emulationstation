@@ -2527,6 +2527,12 @@ msgstr "UN ROM"
 msgid "UNAVAILABLE CORE"
 msgstr "CRAIDD ANNERBYNIOL"
 
+msgid "LAN GAMES"
+msgstr ""
+
+msgid "ONLINE GAMES"
+msgstr ""
+
 msgid "AVAILABLE GAMES"
 msgstr "GEMAU AR GAEL"
 

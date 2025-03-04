@@ -2557,6 +2557,12 @@ msgstr "SAMA ROM"
 msgid "UNAVAILABLE CORE"
 msgstr "YDIN EI SAATAVILLA"
 
+msgid "LAN GAMES"
+msgstr ""
+
+msgid "ONLINE GAMES"
+msgstr ""
+
 msgid "AVAILABLE GAMES"
 msgstr "SAATAVILLA OLEVAT PELIT"
 

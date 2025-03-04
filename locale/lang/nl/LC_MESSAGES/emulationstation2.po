@@ -2581,6 +2581,12 @@ msgstr "DEZELFDE ROM"
 msgid "UNAVAILABLE CORE"
 msgstr "NIET-BESCHIKBARE CORE"
 
+msgid "LAN GAMES"
+msgstr ""
+
+msgid "ONLINE GAMES"
+msgstr ""
+
 msgid "AVAILABLE GAMES"
 msgstr "BESCHIKBARE SPELLEN"
 

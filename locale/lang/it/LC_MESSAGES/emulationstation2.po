@@ -2563,6 +2563,12 @@ msgstr "ROM UGUALE"
 msgid "UNAVAILABLE CORE"
 msgstr "CORE NON DISPONIBILE"
 
+msgid "LAN GAMES"
+msgstr ""
+
+msgid "ONLINE GAMES"
+msgstr ""
+
 msgid "AVAILABLE GAMES"
 msgstr "GIOCHI DISPONIBILI"
 

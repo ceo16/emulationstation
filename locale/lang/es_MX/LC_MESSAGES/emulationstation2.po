@@ -2572,6 +2572,12 @@ msgstr "LA ROM ES IGUAL"
 msgid "UNAVAILABLE CORE"
 msgstr "NÚCLEO NO DISPONIBLE"
 
+msgid "LAN GAMES"
+msgstr ""
+
+msgid "ONLINE GAMES"
+msgstr ""
+
 msgid "AVAILABLE GAMES"
 msgstr "JUEGOS DISPONIBLES"
 

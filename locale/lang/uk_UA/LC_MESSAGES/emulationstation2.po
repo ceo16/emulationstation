@@ -2529,6 +2529,12 @@ msgstr "ТА Ж САМА ГРА"
 msgid "UNAVAILABLE CORE"
 msgstr "НЕДОСТУПНЕ ЯДРО"
 
+msgid "LAN GAMES"
+msgstr ""
+
+msgid "ONLINE GAMES"
+msgstr ""
+
 msgid "AVAILABLE GAMES"
 msgstr "ДОСТУПНІ ІГРИ"
 

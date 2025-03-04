@@ -2561,6 +2561,12 @@ msgstr "Rovnaký ROM"
 msgid "UNAVAILABLE CORE"
 msgstr "Nedostupné jadro"
 
+msgid "LAN GAMES"
+msgstr ""
+
+msgid "ONLINE GAMES"
+msgstr ""
+
 msgid "AVAILABLE GAMES"
 msgstr "Dostupné hry"
 

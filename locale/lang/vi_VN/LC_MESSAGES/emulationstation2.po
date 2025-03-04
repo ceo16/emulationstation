@@ -2570,6 +2570,12 @@ msgstr "CÙNG ROM"
 msgid "UNAVAILABLE CORE"
 msgstr "LÕI KHÔNG KHẢ DỤNG"
 
+msgid "LAN GAMES"
+msgstr ""
+
+msgid "ONLINE GAMES"
+msgstr ""
+
 msgid "AVAILABLE GAMES"
 msgstr "TRÒ CHƠI CÓ SẴN"
 

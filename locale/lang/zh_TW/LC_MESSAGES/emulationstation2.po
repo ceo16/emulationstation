@@ -2535,6 +2535,12 @@ msgstr "相同的 ROM"
 msgid "UNAVAILABLE CORE"
 msgstr "無法使用的核心"
 
+msgid "LAN GAMES"
+msgstr ""
+
+msgid "ONLINE GAMES"
+msgstr ""
+
 msgid "AVAILABLE GAMES"
 msgstr "可以執行的遊戲"
 
