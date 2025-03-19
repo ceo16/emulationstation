@@ -42,7 +42,7 @@
 #include "watchers/WatchersManager.h"
 #include "HttpReq.h"
 #include <thread>
-#include "EpicGamesStoreAPI.h" // Include our Epic Games Store API class
+#include "EpicGamesStore/EpicGamesStoreAPI.h" // Include our Epic Games Store API class
 
 #ifdef WIN32
 #include <Windows.h>
