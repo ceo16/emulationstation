@@ -46,7 +46,7 @@
  #include "EpicGamesStore/EpicGamesStoreAPI.h" // Include our Epic Games Store API class
  #include "FileData.h" // Include EmulationStation's FileData class
  #include <vector>
-#include <Windows.h>
+#include "es-core/src/Window.h"
 
 #ifdef WIN32
 #include <Windows.h>
@@ -785,7 +785,7 @@ int main(int argc, char* argv) {
 
   // Initialize systems
   // (Find the existing code that does this)
-  if (!SystemData::loadConfig(Window)) { 
+  if (!SystemData::loadConfig(window)) { 
   // ... error handling ...
   }
 
@@ -825,21 +825,20 @@ int main(int argc, char* argv) {
   return 0;
  }
 
- // Helper function (implementation details will vary)
  std::vector<FileData*> parseEpicGamesList(const std::string& gamesList, SystemData* system) {
-  // Parse the gamesList string (e.g., if it's JSON)
-  // and create a vector of FileData objects
-  std::vector<FileData*> games;
-  // (Use a JSON parsing library)
+    // Parse the gamesList string (e.g., if it's JSON)
+    // and create a vector of FileData objects
+    std::vector<FileData*> games;
+    // (Use a JSON parsing library)
 
-  // Example: Creating a FileData object (replace with your actual parsing logic)
-  FileData* game1 = new FileData(GAME, "/path/to/epic/game1", system);
-  game1->setMetadata(MetaDataId::Name, "Epic Game 1");
-  games.push_back(game1);
+    // Example: Creating a FileData object (replace with your actual parsing logic)
+    FileData* game1 = new FileData(GAME, "/path/to/epic/game1", system);
+    game1->getMetadata().set(MetaDataId::Name, "Epic Game 1");
+    games.push_back(game1);
 
-  FileData* game2 = new FileData(GAME, "/path/to/epic/game2", system);
-  game2->setMetadata(MetaDataId::Name, "Epic Game 2");
-  games.push_back(game2);
+    FileData* game2 = new FileData(GAME, "/path/to/epic/game2", system);
+    game2->getMetadata().set(MetaDataId::Name, "Epic Game 2");
+    games.push_back(game2);
 
-  return games;
- }
+    return games;
+}
