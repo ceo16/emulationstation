@@ -43,6 +43,7 @@
 #include "HttpReq.h"
 #include <thread>
 #include "EpicGamesStore/EpicGamesStoreAPI.h" // Include our Epic Games Store API class
+#include <vector>
 
 #ifdef WIN32
 #include <Windows.h>
