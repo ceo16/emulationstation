@@ -15,7 +15,7 @@ branches:
     - epicgame
     - stable
   except:
-    - continuous-master
+    - continuous-epicgame
     - continuous-stable
     
 environment:
