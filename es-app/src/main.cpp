@@ -43,7 +43,7 @@
 #include "HttpReq.h"
 #include <thread>
  // ... existing includes ...
- #include "EpicGamesStoreAPI.h" // Include our Epic Games Store API class
+ #include "EpicGamesStor/EpicGamesStoreAPI.h" // Include our Epic Games Store API class
  #include "FileData.h" // Include EmulationStation's FileData class
  #include <vector>
 
