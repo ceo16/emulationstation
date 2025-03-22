@@ -46,7 +46,7 @@
  #include "EpicGamesStore/EpicGamesStoreAPI.h" // Include our Epic Games Store API class
  #include "FileData.h" // Include EmulationStation's FileData class
  #include <vector>
-#include "Window.h"
+#include "../es-core/src/Window.h"  // Corrected include path
 
 #ifdef WIN32
 #include <Windows.h>
