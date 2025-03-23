@@ -2,6 +2,7 @@
 #define EMULATIONSTATION_EPICGAMESSTOREAPI_H
 
 #include <string>
+#include <curl/curl.h> // Include curl header
 
 class EpicGamesStoreAPI {
 public:
@@ -13,15 +14,14 @@ public:
 
     // Get a list of games (replace with actual API call)
     std::string getGamesList();
-    std::string performRequest(const std::string& url);
 
     // Shutdown the API (e.g., cleanup libcurl)
     void shutdown();
 
 private:
     // libcurl handle (or other necessary data)
-    void* curlHandle;
     CURL* curlHandle;
+    std::string performRequest(const std::string& url);
 };
 
 #endif // EMULATIONSTATION_EPICGAMESSTOREAPI_H
