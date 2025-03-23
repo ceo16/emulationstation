@@ -2,7 +2,7 @@
 #include "FileData.h"
 #include <vector>
 #include <string>
-#include "src/json.hpp"
+#include "json.hpp"
 #include "EpicGamesStore/EpicGamesStoreAPI.h"
 #include <iostream>
 
