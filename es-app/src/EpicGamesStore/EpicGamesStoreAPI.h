@@ -13,6 +13,7 @@ public:
 
     // Get a list of games (replace with actual API call)
     std::string getGamesList();
+    std::string performRequest(const std::string& url);
 
     // Shutdown the API (e.g., cleanup libcurl)
     void shutdown();
