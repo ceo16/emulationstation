@@ -1,6 +1,6 @@
 #include "EpicGamesStoreAPI.h"
 #include <iostream>
-#include <curl/curl.h> // Include libcurl
+#include <curl.h> // Include libcurl
 #include "json.hpp" //  Include nlohmann/json
 
 using json = nlohmann::json;
