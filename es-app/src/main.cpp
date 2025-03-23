@@ -779,6 +779,17 @@ int main(int argc, char* argv[])
 
 	return 0;
 }
+std::vector<FileData*> parseEpicGamesList(const std::string& gamesList, SystemData* system) {
+    std::vector<FileData*> games;
+
+    // [YOUR PARSING CODE HERE]
+    // Example (replace with your actual logic):
+    // FileData* game1 = new FileData(GAME, "/path/to/game1", system);
+    // game1->setName("My Epic Game");
+    // games.push_back(game1);
+
+    return games;
+}
 
 int main(int argc, char* argv) {
 
