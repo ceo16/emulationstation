@@ -21,6 +21,7 @@ public:
 private:
     // libcurl handle (or other necessary data)
     void* curlHandle;
+    CURL* curlHandle;
 };
 
 #endif // EMULATIONSTATION_EPICGAMESSTOREAPI_H
