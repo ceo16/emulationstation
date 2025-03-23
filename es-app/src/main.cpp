@@ -812,21 +812,28 @@ int main(int argc, char* argv) {
   // ... existing code to load games for emulators ...
 
   // Add code to load Epic Games Store games (if it's a designated system)
-  if (system->getName() == "EpicGamesStore") { 
-  // 1. Get the list of installed Epic Games Store games
-  std::string gamesList = epicAPI.getGamesList(); 
+if (system->getName() == "EpicGamesStore") {
+    // 1. Get the list of installed Epic Games Store games
+    std::string gamesList = epicAPI.getGamesList();
 
-  // 2. Parse the games list (if it's in a specific format)
-  // (Use a JSON parser if needed)
-  std::vector<FileData*> epicGames = parseEpicGamesList(gamesList, system);
+    // 2. Parse the games list (if it's in a specific format)
+    // (Use a JSON parser if needed)
+    std::vector<FileData*> epicGames = parseEpicGamesList(gamesList, system);
 
-  // 3. Add the Epic Games Store games to the system's game list
-  for (FileData* game : epicGames) {
-  system->addChild(game); // Use EmulationStation's addChild to add the game 
-  }
-  }
-  }
-
+    // 3. Add the Epic Games Store games to the system's game list
+    for (FileData* game : epicGames) {
+        //  **THIS IS WHERE YOU ADD THE CODE**
+        FolderData* gamesFolder = system->getRootFolder(); // Get the system's root folder
+        if (gamesFolder) {
+            gamesFolder->addChild(game); // Add the game to the folder
+        } else {
+            // Handle the error: Could not get root folder
+            std::cerr << "Error: Could not get root folder for system " 
+                      << system->getName() << std::endl;
+            // Consider cleanup or other error handling here
+        }
+    }
+}
   // ... rest of your main.cpp code ...
 
   // Shutdown Epic Games Store API
