@@ -1,6 +1,9 @@
 #include "EpicGamesStoreAPI.h"
 #include <iostream>
-#include <curl/curl.h> // Include libcurl
+#include <curl/curl.h>
+#include "json.hpp" //  Include nlohmann/json
+
+using json = nlohmann::json;
 
 EpicGamesStoreAPI::EpicGamesStoreAPI() : curlHandle(nullptr) {}
 
@@ -22,15 +25,45 @@ bool EpicGamesStoreAPI::initialize() {
     return true;
 }
 
+// Helper function to perform HTTP requests
+std::string EpicGamesStoreAPI::performRequest(const std::string& url) {
+    std::string response_string;
+    curl_easy_setopt(curlHandle, CURLOPT_URL, url.c_str());
+    curl_easy_setopt(curlHandle, CURLOPT_WRITEFUNCTION,(void* contents, size_t size, size_t nmemb, std::string* output) -> size_t {
+        size_t total_size = size * nmemb;
+        output->append((char*)contents, total_size);
+        return total_size;
+    });
+    curl_easy_setopt(curlHandle, CURLOPT_WRITEDATA, &response_string);
+
+    CURLcode res = curl_easy_perform(curlHandle);
+    if (res != CURLE_OK) {
+        std::cerr << "curl_easy_perform() failed: " << curl_easy_strerror(res) << std::endl;
+        return ""; // Or handle the error as appropriate
+    }
+    return response_string;
+}
+
 std::string EpicGamesStoreAPI::getGamesList() {
-    // In this initial stage, let's just return a placeholder
-    return "[{\"title\": \"Placeholder Game 1\"}, {\"title\": \"Placeholder Game 2\"}]";
+    // Placeholder for getting games list from Epic API
+    // Adapt this using the Playnite plugin as a guide
+
+    // Example (Conceptual - Replace with actual API calls):
+    // std::string url = "https://example.com/epic/games"; //  Replace with the correct API URL
+    // std::string response = performRequest(url);
+    // if (response.empty()) {
+    //     return ""; //  Return an empty JSON array on error
+    // }
+    // return response;
+
+    // For now, let's return a placeholder (for testing)
+    return "[{\"title\": \"Placeholder Game 1\", \"install_dir\": \"/path/1\"}, {\"title\": \"Placeholder Game 2\", \"install_dir\": \"/path/2\"}]";
 }
 
 void EpicGamesStoreAPI::shutdown() {
     if (curlHandle) {
-        curl_easy_cleanup(curlHandle); // Clean up the curl handle
+        curl_easy_cleanup(curlHandle);
         curlHandle = nullptr;
     }
-    curl_global_cleanup(); // Clean up libcurl
+    curl_global_cleanup();
 }
