@@ -2,7 +2,7 @@
 #define EMULATIONSTATION_EPICGAMESSTOREAPI_H
 
 #include <string>
-#include <curl.h> // Include curl header
+#include <curl/curl.h> // Include curl header
 
 class EpicGamesStoreAPI {
 public:
