@@ -779,14 +779,20 @@ int main(int argc, char* argv[])
 
 	return 0;
 }
-std::vector<FileData*> parseEpicGamesList(const std::string& gamesList, SystemData* system) {
+ std::vector<FileData*> parseEpicGamesList(const std::string& gamesList, SystemData* system) {
+    // Parse the gamesList string (e.g., if it's JSON)
+    // and create a vector of FileData objects
     std::vector<FileData*> games;
+    // (Use a JSON parsing library)
 
-    // [YOUR PARSING CODE HERE]
-    // Example (replace with your actual logic):
-    // FileData* game1 = new FileData(GAME, "/path/to/game1", system);
-    // game1->setName("My Epic Game");
-    // games.push_back(game1);
+    // Example: Creating a FileData object (replace with your actual parsing logic)
+    FileData* game1 = new FileData(GAME, "/path/to/epic/game1", system);
+    game1->getMetadata().set(MetaDataId::Name, "Epic Game 1");
+    games.push_back(game1);
+
+    FileData* game2 = new FileData(GAME, "/path/to/epic/game2", system);
+    game2->getMetadata().set(MetaDataId::Name, "Epic Game 2");
+    games.push_back(game2);
 
     return games;
 }
@@ -829,20 +835,4 @@ int main(int argc, char* argv) {
   return 0;
  }
 
- std::vector<FileData*> parseEpicGamesList(const std::string& gamesList, SystemData* system) {
-    // Parse the gamesList string (e.g., if it's JSON)
-    // and create a vector of FileData objects
-    std::vector<FileData*> games;
-    // (Use a JSON parsing library)
 
-    // Example: Creating a FileData object (replace with your actual parsing logic)
-    FileData* game1 = new FileData(GAME, "/path/to/epic/game1", system);
-    game1->getMetadata().set(MetaDataId::Name, "Epic Game 1");
-    games.push_back(game1);
-
-    FileData* game2 = new FileData(GAME, "/path/to/epic/game2", system);
-    game2->getMetadata().set(MetaDataId::Name, "Epic Game 2");
-    games.push_back(game2);
-
-    return games;
-}
