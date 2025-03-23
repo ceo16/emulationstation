@@ -785,7 +785,7 @@ int main(int argc, char* argv) {
 
   // Initialize systems
   // (Find the existing code that does this)
-  if (!SystemData::loadConfig(Window)) { 
+  if (!SystemData::loadConfig(&Window)) { 
   // ... error handling ...
   }
 
