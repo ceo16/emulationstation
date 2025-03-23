@@ -1,6 +1,6 @@
 #include "EpicGamesStoreAPI.h"
 #include <iostream>
-#include <curl/curl.h>
+#include <curl/curl.h> // Include libcurl
 #include "json.hpp" //  Include nlohmann/json
 
 using json = nlohmann::json;
@@ -63,8 +63,8 @@ std::string EpicGamesStoreAPI::getGamesList() {
 
 void EpicGamesStoreAPI::shutdown() {
     if (curlHandle) {
-        curl_easy_cleanup(curlHandle);
+        curl_easy_cleanup(curlHandle); // Clean up the curl handle
         curlHandle = nullptr;
     }
-    curl_global_cleanup();
+    curl_global_cleanup(); // Clean up libcurl
 }
