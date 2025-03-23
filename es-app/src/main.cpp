@@ -51,6 +51,11 @@
 #include <Windows.h>
 #include <direct.h>
 #define PATH_MAX MAX_PATH
+if (!GetConsoleWindow()) {
+    AllocConsole();
+    freopen("CONOUT$", "w", stdout);
+    freopen("CONOUT$", "w", stderr);
+}
 #endif
 
 static std::string gPlayVideo;
