@@ -51,11 +51,6 @@
 #include <Windows.h>
 #include <direct.h>
 #define PATH_MAX MAX_PATH
-if (!GetConsoleWindow()) {
-    AllocConsole();
-    freopen("CONOUT$", "w", stdout);
-    freopen("CONOUT$", "w", stderr);
-}
 #endif
 
 static std::string gPlayVideo;
@@ -802,6 +797,11 @@ int main(int argc, char* argv[])
 }
 
 int main(int argc, char* argv) {
+  if (!GetConsoleWindow()) {
+        AllocConsole();
+        freopen("CONOUT$", "w", stdout);
+        freopen("CONOUT$", "w", stderr);
+    }
 
   // Initialize Epic Games Store API
   EpicGamesStoreAPI epicAPI;
