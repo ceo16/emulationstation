@@ -46,7 +46,6 @@
  #include "EpicGamesStore/EpicGamesStoreAPI.h" // Include our Epic Games Store API class
  #include "FileData.h" // Include EmulationStation's FileData class
  #include <vector>
-#include "../../es-core/src/Window.h" 
 
 #ifdef WIN32
 #include <Windows.h>
@@ -815,10 +814,9 @@ int main(int argc, char* argv) {
 if (system->getName() == "EpicGamesStore") {
     // 1. Get the list of installed Epic Games Store games
     std::string gamesList = epicAPI.getGamesList();
-
-    // 2. Parse the games list (if it's in a specific format)
-    // (Use a JSON parser if needed)
+    std::cout << "Raw JSON from epicAPI.getGamesList():\n" << gamesList << std::endl; //  ADD THIS LINE
     std::vector<FileData*> epicGames = parseEpicGamesList(gamesList, system);
+    //  ... rest of your code ...
 
     // 3. Add the Epic Games Store games to the system's game list
     for (FileData* game : epicGames) {
