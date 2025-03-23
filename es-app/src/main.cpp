@@ -834,6 +834,7 @@ if (system->getName() == "EpicGamesStore") {
         }
     }
 }
+	  }
   // ... rest of your main.cpp code ...
 
   // Shutdown Epic Games Store API
