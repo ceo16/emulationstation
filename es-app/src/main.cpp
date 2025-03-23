@@ -781,13 +781,6 @@ int main(int argc, char* argv[])
 }
 
 int main(int argc, char* argv) {
-  // ... existing code ...
-
-  // Initialize systems
-  // (Find the existing code that does this)
-  if (!SystemData::loadConfig(&Window)) { 
-  // ... error handling ...
-  }
 
   // Initialize Epic Games Store API
   EpicGamesStoreAPI epicAPI;
