@@ -36,7 +36,7 @@ std::string EpicGamesStoreAPI::performRequest(const std::string& url) {
             return total_size;
         });
     curl_easy_setopt(curlHandle, CURLOPT_WRITEDATA, &response_string);
-
+    
     CURLcode res = curl_easy_perform(curlHandle);
     if (res != CURLE_OK) {
         std::cerr << "curl_easy_perform() failed: " << curl_easy_strerror(res) << std::endl;
