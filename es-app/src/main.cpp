@@ -46,6 +46,7 @@
  #include "EpicGamesStore/EpicGamesStoreAPI.h" // Include our Epic Games Store API class
  #include "FileData.h" // Include EmulationStation's FileData class
  #include <vector>
+ #include "EpicGamesStore/EpicGamesParser.h" // Include EpicGamesParser
 
 #ifdef WIN32
 #include <Windows.h>
@@ -59,12 +60,12 @@ static bool enable_startup_game = true;
 
 bool parseArgs(int argc, char* argv)
 {
-	Paths::setExePath(argv[0]);
+	Paths::setExePath(std::string(argv[0]));
 
 	// We need to process --home before any call to Settings::getInstance(), because settings are loaded from homepath
 	for (int i = 1; i < argc; i++)
 	{
-		if (strcmp(argv[i], "--home") == 0)
+		if (std::string(argv[i]) == "--home")
 		{
 			if (i == argc - 1)
 				continue;
@@ -73,24 +74,24 @@ bool parseArgs(int argc, char* argv)
 			if (arg.find("-") == 0)
 				continue;
 
-			Paths::setHomePath(argv[i + 1]);
+			Paths::setHomePath(std::string(argv[i + 1]));
 			break;
 		}
 	}
 
 	for(int i = 1; i < argc; i++)
 	{
-		if (strcmp(argv[i], "--videoduration") == 0)
+		if (std::string(argv[i]) == "--videoduration")
 		{
 			gPlayVideoDuration = atoi(argv[i + 1]);
 			i++; // skip the argument value
 		}
-		else if (strcmp(argv[i], "--video") == 0)
+		else if (std::string(argv[i]) == "--video")
 		{
 			gPlayVideo = argv[i + 1];
 			i++; // skip the argument value
 		}
-		else if (strcmp(argv[i], "--monitor") == 0)
+		else if (std::string(argv[i]) == "--monitor")
 		{
 			if (i >= argc - 1)
 			{
@@ -98,11 +99,11 @@ bool parseArgs(int argc, char* argv)
 				return false;
 			}
 
-			int monitorId = atoi(argv[i + 1]);
+			int monitorId = std::stoi(argv[i + 1]);
 			i++; // skip the argument value
 			Settings::getInstance()->setInt("MonitorID", monitorId);
 		}
-		else if(strcmp(argv[i], "--resolution") == 0)
+		else if(std::string(argv[i]) == "--resolution")
 		{
 			if(i >= argc - 2)
 			{
@@ -110,13 +111,13 @@ bool parseArgs(int argc, char* argv)
 				return false;
 			}
 
-			int width = atoi(argv[i + 1]);
-			int height = atoi(argv[i + 2]);
+			int width = std::stoi(argv[i + 1]);
+			int height = std::stoi(argv[i + 2]);
 			i += 2; // skip the argument value
 			Settings::getInstance()->setInt("WindowWidth", width);
 			Settings::getInstance()->setInt("WindowHeight", height);
 			Settings::getInstance()->setBool("FullscreenBorderless", false);
-		}else if(strcmp(argv[i], "--screensize") == 0)
+		}else if(std::string(argv[i]) == "--screensize")
 		{
 			if(i >= argc - 2)
 			{
@@ -124,12 +125,12 @@ bool parseArgs(int argc, char* argv)
 				return false;
 			}
 
-			int width = atoi(argv[i + 1]);
-			int height = atoi(argv[i + 2]);
+			int width = std::stoi(argv[i + 1]);
+			int height = std::stoi(argv[i + 2]);
 			i += 2; // skip the argument value
 			Settings::getInstance()->setInt("ScreenWidth", width);
 			Settings::getInstance()->setInt("ScreenHeight", height);
-		}else if(strcmp(argv[i], "--screenoffset") == 0)
+		}else if(std::string(argv[i]) == "--screenoffset")
 		{
 			if(i >= argc - 2)
 			{
@@ -137,12 +138,12 @@ bool parseArgs(int argc, char* argv)
 				return false;
 			}
 
-			int x = atoi(argv[i + 1]);
-			int y = atoi(argv[i + 2]);
+			int x = std::stoi(argv[i + 1]);
+			int y = std::stoi(argv[i + 2]);
 			i += 2; // skip the argument value
 			Settings::getInstance()->setInt("ScreenOffsetX", x);
 			Settings::getInstance()->setInt("ScreenOffsetY", y);
-		}else if (strcmp(argv[i], "--screenrotate") == 0)
+		}else if (std::string(argv[i]) == "--screenrotate")
 		{
 			if (i >= argc - 1)
 			{
@@ -150,34 +151,34 @@ bool parseArgs(int argc, char* argv)
 				return false;
 			}
 
-			int rotate = atoi(argv[i + 1]);
+			int rotate = std::stoi(argv[i + 1]);
 			++i; // skip the argument value
 			Settings::getInstance()->setInt("ScreenRotate", rotate);
-		}else if(strcmp(argv[i], "--gamelist-only") == 0)
+		}else if(std::string(argv[i]) == "--gamelist-only")
 		{
 			Settings::getInstance()->setBool("ParseGamelistOnly", true);
-		}else if(strcmp(argv[i], "--ignore-gamelist") == 0)
+		}else if(std::string(argv[i]) == "--ignore-gamelist")
 		{
 			Settings::getInstance()->setBool("IgnoreGamelist", true);
-		}else if(strcmp(argv[i], "--show-hidden-files") == 0)
+		}else if(std::string(argv[i]) == "--show-hidden-files")
 		{
 			Settings::setShowHiddenFiles(true);
-		}else if(strcmp(argv[i], "--draw-framerate") == 0)
+		}else if(std::string(argv[i]) == "--draw-framerate")
 		{
 			Settings::getInstance()->setBool("DrawFramerate", true);
-		}else if(strcmp(argv[i], "--no-exit") == 0)
+		}else if(std::string(argv[i]) == "--no-exit")
 		{
 			Settings::getInstance()->setBool("ShowExit", false);
-		}else if(strcmp(argv[i], "--exit-on-reboot-required") == 0)
+		}else if(std::string(argv[i]) == "--exit-on-reboot-required")
 		{
 			Settings::getInstance()->setBool("ExitOnRebootRequired", true);
-		}else if(strcmp(argv[i], "--no-startup-game") == 0)
+		}else if(std::string(argv[i]) == "--no-startup-game")
 		{
 		        enable_startup_game = false;
-		}else if(strcmp(argv[i], "--no-splash") == 0)
+		}else if(std::string(argv[i]) == "--no-splash")
 		{
 			Settings::getInstance()->setBool("SplashScreen", false);
-		}else if(strcmp(argv[i], "--splash-image") == 0)
+		}else if(std::string(argv[i]) == "--splash-image")
 		{
 		        if (i >= argc - 1)
 			{
@@ -186,45 +187,45 @@ bool parseArgs(int argc, char* argv)
 			}
 			Settings::getInstance()->setString("AlternateSplashScreen", argv[i+1]);
 			++i; // skip the argument value
-		}else if(strcmp(argv[i], "--debug") == 0)
+		}else if(std::string(argv[i]) == "--debug")
 		{
 			Settings::getInstance()->setBool("Debug", true);
 			Settings::getInstance()->setBool("HideConsole", false);
 		}
-		else if (strcmp(argv[i], "--fullscreen-borderless") == 0)
+		else if (std::string(argv[i]) == "--fullscreen-borderless")
 		{
 			Settings::getInstance()->setBool("FullscreenBorderless", true);
 		}
-		else if (strcmp(argv[i], "--fullscreen") == 0)
+		else if (std::string(argv[i]) == "--fullscreen")
 		{
 		Settings::getInstance()->setBool("FullscreenBorderless", false);
 		}
-		else if(strcmp(argv[i], "--windowed") == 0)
+		else if(std::string(argv[i]) == "--windowed")
 		{
 			Settings::getInstance()->setBool("Windowed", true);
-		}else if(strcmp(argv[i], "--vsync") == 0)
+		}else if(std::string(argv[i]) == "--vsync")
 		{
-			bool vsync = (strcmp(argv[i + 1], "on") == 0 || strcmp(argv[i + 1], "1") == 0) ? true : false;
+			bool vsync = (std::string(argv[i + 1]) == "on" || std::string(argv[i + 1]) == "1") ? true : false;
 			Settings::getInstance()->setBool("VSync", vsync);
 			i++; // skip vsync value
-		}else if(strcmp(argv[i], "--max-vram") == 0)
+		}else if(std::string(argv[i]) == "--max-vram")
 		{
-			int maxVRAM = atoi(argv[i + 1]);
+			int maxVRAM = std::stoi(argv[i + 1]);
 			Settings::getInstance()->setInt("MaxVRAM", maxVRAM);
 		}
-		else if (strcmp(argv[i], "--force-kiosk") == 0)
+		else if (std::string(argv[i]) == "--force-kiosk")
 		{
 			Settings::getInstance()->setBool("ForceKiosk", true);
 		}
-		else if (strcmp(argv[i], "--force-kid") == 0)
+		else if (std::string(argv[i]) == "--force-kid")
 		{
 			Settings::getInstance()->setBool("ForceKid", true);
 		}
-		else if (strcmp(argv[i], "--force-disable-filters") == 0)
+		else if (std::string(argv[i]) == "--force-disable-filters")
 		{
 			Settings::getInstance()->setBool("ForceDisableFilters", true);
 		}
-		else if (strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "-h") == 0)
+		else if (std::string(argv[i]) == "--help" || std::string(argv[i]) == "-h")
 		{
 #ifdef WIN32
 			// This is a bit of a hack, but otherwise output will go to nowhere
@@ -233,6 +234,7 @@ bool parseArgs(int argc, char* argv)
 			// the right way, please submit a pull request!
 			AttachConsole(ATTACH_PARENT_PROCESS);
 			freopen("CONOUT$", "wb", stdout);
+			freopen("CONOUT$", "wb", stderr);
 #endif
 			std::cout <<
 				"EmulationStation, a graphical front-end for ROM browsing.\n"
@@ -269,7 +271,7 @@ bool verifyHomeFolderExists()
 	std::string configDir = Paths::getUserEmulationStationPath();
 	if(!Utils::FileSystem::exists(configDir))
 	{
-		std::cout << "Creating config directory \"" << configDir << "\"\n";
+		std::cout << "Creating config directory \"" << configDir << "\n";
 		Utils::FileSystem::createDirectory(configDir);
 		if(!Utils::FileSystem::exists(configDir))
 		{
@@ -631,7 +633,7 @@ int main(int argc, char* argv)
 	AudioManager::getInstance()->init();
 
 	if (ViewController::get()->getState().viewing == ViewController::GAME_LIST || ViewController::get()->getState().viewing == ViewController::SYSTEM_SELECT)
-		AudioManager::getInstance()->changePlaylist(ViewController::get()->getState().getSystem()->getTheme());
+		AudioManager::getInstance()->changePlaylist(ViewController::get()->getState().getTheme());
 	else
 		AudioManager::getInstance()->playRandomMusic();
 
@@ -775,6 +777,9 @@ int main(int argc, char* argv)
 	Utils::Platform::processQuitMode();
 
 	LOG(LogInfo) << "EmulationStation cleanly shutting down.";
+
+    // Shutdown Epic Games Store API
+    epicAPI.shutdown();
 
 	return 0;
 }
