@@ -57,7 +57,7 @@ static std::string gPlayVideo;
 static int gPlayVideoDuration = 0;
 static bool enable_startup_game = true;
 
-bool parseArgs(int argc, char* argv[])
+bool parseArgs(int argc, char* argv)
 {
 	Paths::setExePath(argv[0]);
 
@@ -445,7 +445,7 @@ void launchStartupGame()
 
 #include "utils/MathExpr.h"
 
-int main(int argc, char* argv[])
+int main(int argc, char* argv)
 {	
 	Utils::MathExpr::performUnitTests();
 
@@ -578,7 +578,7 @@ int main(int argc, char* argv[])
 		}
 
 		// we can't handle es_systems.cfg file problems inside ES itself, so display the error message then quit
-		window.pushGui(new GuiMsgBox(&window, errorMsg, _("QUIT"), [] { Utils::Platform::quitES(); }));
+		window.pushGui(new GuiMsgBox(&window, errorMsg, _("QUIT"),{ Utils::Platform::quitES(); }));
 	}
 
 	SystemConf* systemConf = SystemConf::getInstance();
@@ -847,3 +847,5 @@ if (system->getName() == "EpicGamesStore") {
  }
 
 
+
+}
