@@ -30,22 +30,21 @@ std::string EpicGamesStoreAPI::performRequest(const std::string& url) {
     std::string response_string;
     curl_easy_setopt(curlHandle, CURLOPT_URL, url.c_str());
 
-    // Set the write data to our response_string
-    curl_easy_setopt(curlHandle, CURLOPT_WRITEDATA, &response_string);
-
-    // Set the write function
+    //  Set up the write callback (Corrected version)
     curl_easy_setopt(curlHandle, CURLOPT_WRITEFUNCTION,
-       (char* contents, size_t size, size_t nmemb, void* userdata) -> size_t {
-            std::string* output = static_cast<std::string*>(userdata); // Cast userdata
+       (char* buffer, size_t size, size_t nmemb, void* userdata) -> size_t {
+            std::string* output = static_cast<std::string*>(userdata);
             size_t total_size = size * nmemb;
-            output->append(contents, total_size);
+            output->append(buffer, total_size);
             return total_size;
         });
+
+    curl_easy_setopt(curlHandle, CURLOPT_WRITEDATA, &response_string);
 
     CURLcode res = curl_easy_perform(curlHandle);
     if (res != CURLE_OK) {
         std::cerr << "curl_easy_perform() failed: " << curl_easy_strerror(res) << std::endl;
-        return ""; // Or handle the error as appropriate
+        return "";
     }
     return response_string;
 }
