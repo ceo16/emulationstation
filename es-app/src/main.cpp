@@ -778,79 +778,53 @@ int main(int argc, char* argv)
 
 	LOG(LogInfo) << "EmulationStation cleanly shutting down.";
 
+int main(int argc, char* argv) {
+    // ... (Other main function code)
+
+    // Initialize Epic Games Store API
+    EpicGamesStoreAPI epicAPI;
+    if (!epicAPI.initialize()) {
+        // Handle error (e.g., log message, show a warning)
+        std::cerr << "Error initializing Epic Games Store integration" << std::endl;
+        // You might choose to continue or exit depending on the severity
+    }
+
+    // Load games for each system
+    for (auto system : SystemData::sSystemVector) {
+        // ... existing code to load games for emulators ...
+
+        // Add code to load Epic Games Store games (if it's a designated system)
+        if (system->getName() == "EpicGamesStore") {
+            // 1. Get the list of installed Epic Games Store games
+            std::string gamesList = epicAPI.getGamesList();
+            if (gamesList.empty()) {
+                std::cerr << "Error: Could not retrieve games list from Epic API" << std::endl;
+                continue; // Skip to the next system
+            }
+            std::cout << "Raw JSON from epicAPI.getGamesList():\n" << gamesList << std::endl;
+
+            // 2. Parse the games list (if it's in a specific format)
+            // (Use a JSON parser if needed)
+            std::vector<FileData*> epicGames = parseEpicGamesList(gamesList, system);
+
+            // 3. Add the Epic Games Store games to the system's game list
+            FolderData* gamesFolder = system->getRootFolder(); // Adapt this line based on EmulationStation's API
+            if (gamesFolder) {
+                for (FileData* game : epicGames) {
+                    gamesFolder->addChild(game); // Adapt this line
+                }
+            } else {
+                std::cerr << "Error: Could not get games folder for EpicGamesStore." << std::endl;
+                // Handle error (e.g., delete game, log message)
+            }
+        }
+    }
+
+    // ... rest of your main.cpp code ...
+
     // Shutdown Epic Games Store API
     epicAPI.shutdown();
 
-	return 0;
+    return 0;
 }
- std::vector<FileData*> parseEpicGamesList(const std::string& gamesList, SystemData* system) {
-    // Parse the gamesList string (e.g., if it's JSON)
-    // and create a vector of FileData objects
-    std::vector<FileData*> games;
-    // (Use a JSON parsing library)
-
-    // Example: Creating a FileData object (replace with your actual parsing logic)
-    FileData* game1 = new FileData(GAME, "/path/to/epic/game1", system);
-    game1->getMetadata().set(MetaDataId::Name, "Epic Game 1");
-    games.push_back(game1);
-
-    FileData* game2 = new FileData(GAME, "/path/to/epic/game2", system);
-    game2->getMetadata().set(MetaDataId::Name, "Epic Game 2");
-    games.push_back(game2);
-
-    return games;
-}
-
-int main(int argc, char* argv) {
-  if (!GetConsoleWindow()) {
-        AllocConsole();
-        freopen("CONOUT$", "w", stdout);
-        freopen("CONOUT$", "w", stderr);
-    }
-
-  // Initialize Epic Games Store API
-  EpicGamesStoreAPI epicAPI;
-  if (!epicAPI.initialize()) {
-  // Handle error (e.g., log message, show a warning)
-  std::cerr << "Error initializing Epic Games Store integration" << std::endl;
-  // You might choose to continue or exit depending on the severity
-  }
-
-  // Load games for each system
-  for (auto system : SystemData::sSystemVector) {
-  // ... existing code to load games for emulators ...
-
-  // Add code to load Epic Games Store games (if it's a designated system)
-if (system->getName() == "EpicGamesStore") {
-    // 1. Get the list of installed Epic Games Store games
-    std::string gamesList = epicAPI.getGamesList();
-    std::cout << "Raw JSON from epicAPI.getGamesList():\n" << gamesList << std::endl;
-
-    // 2. Parse the games list (if it's in a specific format)
-    // (Use a JSON parser if needed)
-    std::vector<FileData*> epicGames = parseEpicGamesList(gamesList, system);
-
-    // 3. Add the Epic Games Store games to the system's game list
-    for (FileData* game : epicGames) {
-        //  THIS IS WHERE YOU ADD THE CODE
-        FolderData* gamesFolder = system->getRootFolder(); //  Adapt this line based on EmulationStation's API
-        if (gamesFolder) {
-            gamesFolder->addChild(game); //  Adapt this line
-        } else {
-            std::cerr << "Error: Could not get games folder for EpicGamesStore." << std::endl;
-            //  Handle error (e.g., delete game, log message)
-        }
-    }
-}
-	  }
-  // ... rest of your main.cpp code ...
-
-  // Shutdown Epic Games Store API
-  epicAPI.shutdown();
-
-  return 0;
- }
-
-
-
 }
