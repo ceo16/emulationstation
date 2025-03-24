@@ -30,7 +30,8 @@ std::string EpicGamesStoreAPI::performRequest(const std::string& url) {
     std::string response_string;
     curl_easy_setopt(curlHandle, CURLOPT_URL, url.c_str());
     curl_easy_setopt(curlHandle, CURLOPT_WRITEFUNCTION,
-       (char* contents, size_t size, size_t nmemb, std::string* output) -> size_t {
+        [](char* contents, size_t size, size_t nmemb, void* userdata) -> size_t {
+            std::string* output = static_cast<std::string*>(userdata); // Cast userdata
             size_t total_size = size * nmemb;
             output->append(contents, total_size);
             return total_size;
