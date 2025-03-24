@@ -7,7 +7,7 @@
 #include <fstream>
 #include <sstream> // For stringstream
 #include <iomanip> // For setprecision
-
+#include <regex>
 using json = nlohmann::json;
 
 //  --- Constants from EpicAccountClient.cs ---
