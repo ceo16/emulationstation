@@ -1,7 +1,7 @@
 #include "EpicGamesStoreAPI.h"
 #include <iostream>
 #include <curl/curl.h>
-#include "json.hpp" //  Include nlohmann/json
+#include "src/json.hpp" //  Include nlohmann/json
 
 using json = nlohmann::json;
 
@@ -30,7 +30,7 @@ std::string EpicGamesStoreAPI::performRequest(const std::string& url) {
     std::string response_string;
     curl_easy_setopt(curlHandle, CURLOPT_URL, url.c_str());
     curl_easy_setopt(curlHandle, CURLOPT_WRITEFUNCTION,
-       (char* contents, size_t size_t, size_t nmemb, std::string* output)) -> size_t {
+       (char* contents, size_t size_t, size_t nmemb, std::string* output) -> size_t {
             size_t total_size = size_t * nmemb;
             output->append(contents, total_size);
             return total_size;
