@@ -256,9 +256,11 @@ void GuiMenu::startEpicLogin() {
     mEpicLoginCallback = [this](const std::string& authCode) {
         epicLoginCallback(authCode);
     };
-    ApiSystem::getInstance()->openUrl(loginUrl);
+    
+    // Call openUrl once
+    bool launchResult = ApiSystem::getInstance()->openUrl(loginUrl); 
 
-    if (ApiSystem::getInstance()->openUrl(loginUrl)) {
+    if (launchResult) {
         LOG(LogDebug) << "GuiMenu::startEpicLogin() - Browser launched";
     } else {
         LOG(LogDebug) << "GuiMenu::startEpicLogin() - Browser launch failed";
