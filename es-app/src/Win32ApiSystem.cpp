@@ -17,6 +17,7 @@
 #include "LocaleES.h"
 #include "Paths.h"
 #include "utils/VectorEx.h"
+#include <Shellapi.h>
 
 #include <powerbase.h>
 #include <powrprof.h>
@@ -61,7 +62,16 @@ std::string getUrlFromUpdateType(std::string url)
 
 	return url;
 }
-
+bool Win32ApiSystem::openUrl(const std::string& url) {
+    LOG(LogDebug) << "Win32ApiSystem::openUrl() - URL: " << url;
+    HINSTANCE result = ShellExecute(NULL, "open", url.c_str(), NULL, NULL, SW_SHOWNORMAL);
+    if ((int)result > 32) {
+        return true; // Success
+    } else {
+        LOG(LogError) << "Win32ApiSystem::openUrl() - ShellExecute failed with code: " << (int)result;
+        return false;
+    }
+}
 bool Win32ApiSystem::isScriptingSupported(ScriptId script)
 {
 #if _DEBUG
