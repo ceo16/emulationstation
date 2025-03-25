@@ -4882,7 +4882,7 @@ void GuiMenu::openFormatDriveSettings()
 	Window *window = mWindow;
 
 	auto s = new GuiSettings(mWindow, _("FORMAT DEVICE").c_str());
-
+}
 	//  --- Epic Games Store functions (Correctly Placed) ---
 //  The functions must be defined outside any other function's scope
 bool GuiMenu::isEpicUserLoggedIn() {
@@ -4907,7 +4907,7 @@ void GuiMenu::openEpicLoginMenu() {
     } else {
         startEpicLogin();
     }
-}
+
 
 //  --- The GuiMenu constructor starts below ---
 GuiMenu::GuiMenu(Window *window, bool animate) : GuiComponent(window), mMenu(window, _("MAIN MENU").c_str()), mVersion(window) {
