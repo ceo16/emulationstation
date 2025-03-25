@@ -212,7 +212,7 @@ GuiMenu::GuiMenu(Window *window, bool animate) : GuiComponent(window), mMenu(win
 	addEntry(_("QUIT").c_str(), true, [this] { openQuitMenu(); }, "iconQuit");
 #endif
 	//  --- Insert Epic Games Store menu entry here ---
-        addEntry(_("EPIC GAMES STORE LOGIN"), true, [this] { openEpicLoginMenu(); }, "iconEpic");
+        addEntry(_("EPIC GAMES"), true, [this] { openEpicLoginMenu(); }, "iconEpic");
 	addChild(&mMenu);
 	addVersionInfo();
 	setSize(mMenu.getSize());
@@ -245,9 +245,20 @@ bool GuiMenu::isEpicUserLoggedIn() {
 }
 
 void GuiMenu::startEpicLogin() {
-    EpicGamesStoreAPI epicApi; // Create an instance
+    LOG(LogDebug) << "GuiMenu::startEpicLogin() - Start";
+    EpicGamesStoreAPI epicApi;
     std::string loginUrl = EpicGamesStoreAPI::LOGIN_URL;
-    // ...
+
+    LOG(LogDebug) << "GuiMenu::startEpicLogin() - loginUrl: " << loginUrl;
+
+    // --- Browser launch ---
+    if (ApiSystem::getInstance()->openUrl(loginUrl)) {
+        LOG(LogDebug) << "GuiMenu::startEpicLogin() - Browser launched";
+    } else {
+        LOG(LogDebug) << "GuiMenu::startEpicLogin() - Browser launch failed";
+    }
+
+    LOG(LogDebug) << "GuiMenu::startEpicLogin() - End";
 }
 
 void GuiMenu::showEpicUserOptions() {
