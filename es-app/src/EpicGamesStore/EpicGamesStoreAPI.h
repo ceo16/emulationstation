@@ -38,7 +38,7 @@ private:
 
     // Token Storage
     bool storeTokens(const std::string& accessToken, const std::string& refreshToken, const std::string& accountId, const std::string& tokenType);
-    bool loadTokens(std::string& accessToken, const std::string& refreshToken, const std::string& accountId, const std::string& tokenType);
+    bool loadTokens(std::string& accessToken, std::string& refreshToken, std::string& accountId, std::string& tokenType);
 
     // Constants (from EpicAccountClient.cs)
     static const std::string LOGIN_URL;
