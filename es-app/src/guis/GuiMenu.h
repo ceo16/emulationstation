@@ -29,6 +29,10 @@ public:
         GuiMenu(Window* window, bool animate = true);
 
         bool input(InputConfig* config, Input input) override;
+        bool isEpicUserLoggedIn();
+        void startEpicLogin();
+        void showEpicUserOptions();
+        void openEpicLoginMenu();
         void onSizeChanged() override;
         std::vector<HelpPrompt> getHelpPrompts() override;      
         static void openQuitMenu_static(Window *window, bool quickAccessMenu = false, bool animate = true);
