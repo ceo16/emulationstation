@@ -294,6 +294,7 @@ public:
 
 	virtual std::vector<std::string> backglassThemes();
 	virtual void restartBackglass();
+        virtual bool openUrl(const std::string& url) = 0; // Pure virtual function
 
 protected:
 	ApiSystem();
