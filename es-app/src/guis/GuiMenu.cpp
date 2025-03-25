@@ -4881,6 +4881,35 @@ void GuiMenu::openFormatDriveSettings()
 
 	auto s = new GuiSettings(mWindow, _("FORMAT DEVICE").c_str());
 
+	//  --- Insert Epic Games Store functions here ---
+bool GuiMenu::isEpicUserLoggedIn() {
+    std::string accessToken = EpicGamesStoreAPI::getAccessToken();
+    return !accessToken.empty();
+}
+
+void GuiMenu::startEpicLogin() {
+    std::string loginUrl = EpicGamesStoreAPI::LOGIN_URL;
+    //  *** Platform-specific code to open browser ***
+}
+
+void GuiMenu::showEpicUserOptions() {
+    auto s = new GuiSettings(mWindow, _("Epic Games Store Account").c_str());
+    //  ... options ...
+    mWindow->pushGui(s);
+}
+
+void GuiMenu::openEpicLoginMenu() {
+    if (isEpicUserLoggedIn()) {
+        showEpicUserOptions();
+    } else {
+        startEpicLogin();
+    }
+}
+
+//  --- The GuiMenu constructor starts below ---
+GuiMenu::GuiMenu(Window *window, bool animate) : GuiComponent(window), mMenu(window, _("MAIN MENU").c_str()), mVersion(window) {
+    // ... constructor code ...
+
 	// Drive
 	auto optionsStorage = std::make_shared<OptionListComponent<std::string> >(window, _("DEVICE TO FORMAT"), false);
 
