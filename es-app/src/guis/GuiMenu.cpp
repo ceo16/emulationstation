@@ -31,6 +31,7 @@
 #include <SDL_events.h>
 #include <algorithm>
 #include "utils/Platform.h"
+#include "EpicGamesStore/EpicGamesStoreAPI.h"
 
 
 #include "SystemConf.h"
