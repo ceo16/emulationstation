@@ -135,7 +135,7 @@ set(ES_SOURCES
 	${CMAKE_CURRENT_SOURCE_DIR}/src/CustomFeatures.cpp	
         ${CMAKE_CURRENT_SOURCE_DIR}/src/EpicGamesStore/EpicGamesStoreAPI.cpp 
 	${CMAKE_CURRENT_SOURCE_DIR}/src/EpicGamesStore/EpicGamesParser.cpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/src/utils/URLEncoding.cpp 
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/URLEncoding.cpp 
 
     # GuiComponents    
     ${CMAKE_CURRENT_SOURCE_DIR}/src/components/ScraperSearchComponent.cpp	
