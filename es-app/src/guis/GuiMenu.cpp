@@ -4876,14 +4876,7 @@ std::vector<DecorationSetInfo> GuiMenu::getDecorationsSets(SystemData* system)
 	return sets;
 }
 
-
-void GuiMenu::openFormatDriveSettings()
-{
-	Window *window = mWindow;
-
-	auto s = new GuiSettings(mWindow, _("FORMAT DEVICE").c_str());
-}
-	//  --- Epic Games Store functions (Correctly Placed) ---
+//  --- Epic Games Store functions (Correctly Placed) ---
 //  The functions must be defined outside any other function's scope
 bool GuiMenu::isEpicUserLoggedIn() {
     EpicGamesStoreAPI epicApi; // Create an instance
@@ -4911,10 +4904,13 @@ void GuiMenu::openEpicLoginMenu() {
     }
 }
 
-//  --- The GuiMenu constructor starts below ---
-GuiMenu::GuiMenu(Window *window, bool animate) : GuiComponent(window), mMenu(window, _("MAIN MENU").c_str()), mVersion(window) {
-    // ... constructor code ...
+void GuiMenu::openFormatDriveSettings()
+{
+	Window *window = mWindow;
 
+	auto s = new GuiSettings(mWindow, _("FORMAT DEVICE").c_str());
+}
+	
 	// Drive
 	auto optionsStorage = std::make_shared<OptionListComponent<std::string> >(window, _("DEVICE TO FORMAT"), false);
 
