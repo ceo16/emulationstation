@@ -12,7 +12,7 @@ clone_folder: c:\src\EmulationStation
 
 branches:
   only:
-    - epicgame
+    - 2878719
     - stable
   except:
     - continuous-epicgame
