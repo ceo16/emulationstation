@@ -210,7 +210,8 @@ GuiMenu::GuiMenu(Window *window, bool animate) : GuiComponent(window), mMenu(win
 #else
 	addEntry(_("QUIT").c_str(), true, [this] { openQuitMenu(); }, "iconQuit");
 #endif
-	
+	//  --- Insert Epic Games Store menu entry here ---
+        addEntry(_("EPIC GAMES STORE LOGIN"), true, [this] { openEpicLoginMenu(); }, "iconEpic");
 	addChild(&mMenu);
 	addVersionInfo();
 	setSize(mMenu.getSize());
