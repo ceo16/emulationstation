@@ -5,9 +5,12 @@
 #include <curl/curl.h>
 #include "json.hpp"
 #include <fstream>
-#include <sstream> // For stringstream
-#include <iomanip> // For setprecision
+#include <sstream>  // For stringstream
+#include <iomanip>  // For setprecision
 #include <regex>
+#include "EpicGamesParser.h" // Include EpicGamesParser.h
+#include "ApiSystem.h" // Include ApiSystem.h
+
 using json = nlohmann::json;
 
 //  --- Constants from EpicAccountClient.cs ---
@@ -27,7 +30,8 @@ std::string EpicGamesStoreAPI::urlEncode(const std::string& value) {
     for (char c : value) {
         if (isalnum(c) || c == '-' || c == '_' || c == '.' || c == '~') {
             escaped << c;
-        } else {
+        }
+        else {
             escaped << '%' << std::setw(2) << int((unsigned char)c);
         }
     }
@@ -57,7 +61,8 @@ bool EpicGamesStoreAPI::storeTokens(const std::string& accessToken, const std::s
         std::ofstream file(TOKEN_FILE);
         file << tokens.dump(4);
         return true;
-    } catch (const std::exception& e) {
+    }
+    catch (const std::exception& e) {
         std::cerr << "Error storing tokens: " << e.what() << std::endl;
         return false;
     }
@@ -77,7 +82,8 @@ bool EpicGamesStoreAPI::loadTokens(std::string& accessToken, std::string& refres
         accountId = tokens.value("account_id", "");
         tokenType = tokens.value("token_type", "");
         return !accessToken.empty() && !refreshToken.empty() && !accountId.empty() && !tokenType.empty();
-    } catch (const std::exception& e) {
+    }
+    catch (const std::exception& e) {
         std::cerr << "Error loading tokens: " << e.what() << std::endl;
         return false;
     }
@@ -143,12 +149,14 @@ bool EpicGamesStoreAPI::authenticateUsingAuthCode(const std::string& authorizati
         if (storeTokens(accessToken, refreshToken, accountId, tokenType)) {
             std::cout << "Authentication successful!" << std::endl;
             return true;
-        } else {
+        }
+        else {
             std::cerr << "Error: Failed to store tokens" << std::endl;
             return false;
         }
 
-    } catch (json::parse_error& e) {
+    }
+    catch (json::parse_error& e) {
         std::cerr << "JSON Parse error: " << e.what() << std::endl;
         return false;
     }
@@ -236,12 +244,14 @@ bool EpicGamesStoreAPI::refreshToken() {
         if (storeTokens(newAccessToken, newRefreshToken, newAccountId, newTokenType)) {
             std::cout << "Token refresh successful!" << std::endl;
             return true;
-        } else {
+        }
+        else {
             std::cerr << "Error: Failed to store refreshed tokens" << std::endl;
             return false;
         }
 
-    } catch (json::parse_error& e) {
+    }
+    catch (json::parse_error& e) {
         std::cerr << "JSON Parse error: " << e.what() << std::endl;
         return false;
     }
@@ -276,7 +286,7 @@ std::string EpicGamesStoreAPI::performRequest(const std::string& url) {
 
     //  Set up the write callback (Correzione)
     curl_easy_setopt(curlHandle, CURLOPT_WRITEFUNCTION,
-        [](char* buffer, size_t size, size_t nmemb, void* userdata) -> size_t {
+       (char* buffer, size_t size, size_t nmemb, void* userdata) -> size_t {
             std::string* output = static_cast<std::string*>(userdata);
             size_t total_size = size * nmemb;
             output->append(buffer, total_size);
@@ -297,12 +307,61 @@ std::string EpicGamesStoreAPI::getGamesList() {
     //   the Epic Games API endpoint for retrieving the game list)
     std::string accessToken = getAccessToken();
     if (accessToken.empty()) {
+        return "";  // Return an empty JSON array on error
+    }
+
+    //  Construct the URL for the library API endpoint (This is a placeholder, you'll need the correct endpoint)
+    std::string libraryUrl = "https://your-epic-games-api-endpoint.com/library"; // Replace with the actual endpoint
+
+    //  Set headers, including the authorization header with the access token
+    setHeaders({
+        "Authorization: Bearer " + accessToken,
+        "Content-Type: application/json"
+    });
+
+    //  Perform the API request
+    std::string response = performRequest(libraryUrl);
+
+    //  Reset headers
+    curl_easy_setopt(curlHandle, CURLOPT_HTTPHEADER, nullptr);
+
+    if (response.empty()) {
+        std::cerr << "Error: Failed to retrieve games list" << std::endl;
         return ""; //  Return an empty JSON array on error
     }
 
-    //  ... (API call to get games list, using accessToken)
-    return "[{\"title\": \"Placeholder Game 1\", \"install_dir\": \"/path/1\"}, {\"title\": \"Placeholder Game 2\", \"install_dir\": \"/path/2\"}]";
+    // Parse the JSON response and use the parseEpicGamesList function
+    try {
+        json games_data = json::parse(response);
+        // Convert json data to string
+        std::string gamesListString = games_data.dump();
+        // Assuming 'system' is available in this scope or you can fetch it as needed
+        // For example, if you have a global SystemData instance:
+        // extern SystemData* currentSystem;
+        // std::vector<FileData*> games = parseEpicGamesList(gamesListString, currentSystem);
+        // For now, let's create a dummy system
+        SystemData* tempSystem = new SystemData("epic_games", "Epic Games", "", nullptr);
+        std::vector<FileData*> games = parseEpicGamesList(gamesListString, tempSystem);
+
+        //  Convert the vector<FileData*> to a JSON string
+        json json_array = json::array();
+        for (const auto& game : games) {
+            json game_json;
+            game_json["title"] = game->getName();
+            game_json["path"] = game->getPath().string();
+            // Add other relevant data from FileData as needed
+            json_array.push_back(game_json);
+        }
+
+        //  Return the json as a string
+        return json_array.dump();
+    }
+    catch (json::parse_error& e) {
+        std::cerr << "JSON Parse error: " << e.what() << std::endl;
+        return ""; //  Return an empty JSON array on error
+    }
 }
+
 
 void EpicGamesStoreAPI::shutdown() {
     if (curlHandle) {
