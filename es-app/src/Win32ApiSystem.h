@@ -47,6 +47,7 @@ public:
 
 	virtual bool isPlaneMode() override;
 	virtual bool setPlaneMode(bool enable) override;
+        virtual bool openUrl(const std::string& url) override; // Add this line
 
 protected:
 
