@@ -25,6 +25,10 @@
 #include "guis/GuiUpdate.h"
 #include "ContentInstaller.h"
 
+#include <queue>
+#include <mutex>
+#include <condition_variable>
+
 /* 
 
 Misc APIS
