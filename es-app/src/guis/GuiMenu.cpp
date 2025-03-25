@@ -118,6 +118,7 @@
 
 GuiMenu::GuiMenu(Window *window, bool animate) : GuiComponent(window), mMenu(window, _("MAIN MENU").c_str()), mVersion(window)
 {
+	mEpicLoginCallback = nullptr; // Add this line
 	// MAIN MENU
 	bool isFullUI = !UIModeController::getInstance()->isUIModeKid() && !UIModeController::getInstance()->isUIModeKiosk();
 
@@ -252,6 +253,11 @@ void GuiMenu::startEpicLogin() {
     LOG(LogDebug) << "GuiMenu::startEpicLogin() - loginUrl: " << loginUrl;
 
     // --- Browser launch ---
+    mEpicLoginCallback = [this](const std::string& authCode) {
+        epicLoginCallback(authCode);
+    };
+    ApiSystem::getInstance()->openUrl(loginUrl);
+
     if (ApiSystem::getInstance()->openUrl(loginUrl)) {
         LOG(LogDebug) << "GuiMenu::startEpicLogin() - Browser launched";
     } else {
