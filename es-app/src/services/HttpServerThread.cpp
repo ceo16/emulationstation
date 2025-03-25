@@ -823,6 +823,19 @@ void HttpServerThread::run()
     {
 
     }
+
+    // Task queue processing
+    {
+        std::unique_lock<std::mutex> lock(mQueueMutex);
+        if (mTaskQueue.empty()) {
+            mQueueCondition.wait_for(lock, std::chrono::milliseconds(100));
+        }
+        if (!mTaskQueue.empty()) {
+            auto task = mTaskQueue.front();
+            mTaskQueue.pop();
+            task();
+        }
+    }
 }
 
 void HttpServerThread::queueTask(std::function<void()> task) {
@@ -831,4 +844,41 @@ void HttpServerThread::queueTask(std::function<void()> task) {
         mTaskQueue.push(task);
     }
     mQueueCondition.notify_one();
+}
+
+void HttpServerThread::addEpicCallbackEndpoint(int port) {
+    queueTask([this, port]() {
+        mHttpServer->Get("/epic_callback", [this, port](const httplib::Request& req, httplib::Response& res) {
+            std::string url = req.path + "?" + req.body;
+            LOG(LogDebug) << "HttpServerThread received Epic callback URL: " << url;
+
+            std::string authCode = "";
+            // Parse the URL to extract the "code" parameter
+            size_t codePos = url.find("code=");
+            if (codePos != std::string::npos) {
+                size_t codeEnd = url.find('&', codePos);
+                if (codeEnd == std::string::npos)
+                    codeEnd = url.length();
+                authCode = url.substr(codePos + 5, codeEnd - codePos - 5);
+            }
+
+            if (!authCode.empty()) {
+                res.set_content("Epic Games login successful! You can close this window.", "text/plain");
+                // Pass authCode to GuiMenu
+                // (This is a placeholder - you'll need a mechanism to do this)
+                // Example: Using a callback (you'd need to define this callback)
+                // passAuthCodeToGuiMenu(authCode);
+                if (mEpicLoginCallback) {
+                    mWindow->postToUiThread([this, authCode]() {
+                        mEpicLoginCallback(authCode);
+                    });
+                }
+                LOG(LogDebug) << "Extracted auth code: " << authCode;
+                // No need to stop the server, it will keep running
+            }
+            else {
+                res.set_content("Epic Games login failed.", "text/plain");
+            }
+        });
+    });
 }
