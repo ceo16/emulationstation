@@ -120,33 +120,7 @@ GuiMenu::GuiMenu(Window *window, bool animate) : GuiComponent(window), mMenu(win
 {
 	// MAIN MENU
 	bool isFullUI = !UIModeController::getInstance()->isUIModeKid() && !UIModeController::getInstance()->isUIModeKiosk();
-//  --- Epic Games Store functions (Correctly Placed) ---
-//  The functions must be defined outside any other function's scope
-bool GuiMenu::isEpicUserLoggedIn() {
-    EpicGamesStoreAPI epicApi; // Create an instance
-    std::string accessToken = epicApi.getAccessToken(); // Call the method on the instance
-    return !accessToken.empty();
-}
 
-void GuiMenu::startEpicLogin() {
-    EpicGamesStoreAPI epicApi; // Create an instance
-    std::string loginUrl = EpicGamesStoreAPI::LOGIN_URL;
-    // ...
-}
-
-void GuiMenu::showEpicUserOptions() {
-    auto s = new GuiSettings(mWindow, _("Epic Games Store Account").c_str());
-    //  ... options ...
-    mWindow->pushGui(s);
-}
-
-void GuiMenu::openEpicLoginMenu() {
-    if (isEpicUserLoggedIn()) {
-        showEpicUserOptions();
-    } else {
-        startEpicLogin();
-    }
-}
 	// KODI >
 	// GAMES SETTINGS >
 	// CONTROLLER & BLUETOOTH >
@@ -258,7 +232,33 @@ void GuiMenu::openEpicLoginMenu() {
 			setPosition((Renderer::getScreenWidth() - mSize.x()) / 2, Renderer::getScreenHeight() * 0.15f);
 	}
 }
+//  --- Epic Games Store functions (Correctly Placed) ---
+//  The functions must be defined outside any other function's scope
+bool GuiMenu::isEpicUserLoggedIn() {
+    EpicGamesStoreAPI epicApi; // Create an instance
+    std::string accessToken = epicApi.getAccessToken(); // Call the method on the instance
+    return !accessToken.empty();
+}
 
+void GuiMenu::startEpicLogin() {
+    EpicGamesStoreAPI epicApi; // Create an instance
+    std::string loginUrl = EpicGamesStoreAPI::LOGIN_URL;
+    // ...
+}
+
+void GuiMenu::showEpicUserOptions() {
+    auto s = new GuiSettings(mWindow, _("Epic Games Store Account").c_str());
+    //  ... options ...
+    mWindow->pushGui(s);
+}
+
+void GuiMenu::openEpicLoginMenu() {
+    if (isEpicUserLoggedIn()) {
+        showEpicUserOptions();
+    } else {
+        startEpicLogin();
+    }
+}
 void GuiMenu::openScraperSettings()
 {		
 	mWindow->pushGui(new GuiScraperStart(mWindow));
