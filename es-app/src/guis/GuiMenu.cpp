@@ -4902,13 +4902,13 @@ std::vector<DecorationSetInfo> GuiMenu::getDecorationsSets(SystemData* system)
 	return sets;
 }
 
+
 void GuiMenu::openFormatDriveSettings()
 {
 	Window *window = mWindow;
 
 	auto s = new GuiSettings(mWindow, _("FORMAT DEVICE").c_str());
-}
-	
+
 	// Drive
 	auto optionsStorage = std::make_shared<OptionListComponent<std::string> >(window, _("DEVICE TO FORMAT"), false);
 
