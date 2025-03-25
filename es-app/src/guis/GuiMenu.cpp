@@ -235,9 +235,13 @@ GuiMenu::GuiMenu(Window *window, bool animate) : GuiComponent(window), mMenu(win
 //  --- Epic Games Store functions (Correctly Placed) ---
 //  The functions must be defined outside any other function's scope
 bool GuiMenu::isEpicUserLoggedIn() {
-    EpicGamesStoreAPI epicApi; // Create an instance
-    std::string accessToken = epicApi.getAccessToken(); // Call the method on the instance
-    return !accessToken.empty();
+    LOG(LogDebug) << "GuiMenu::isEpicUserLoggedIn() called";
+    EpicGamesStoreAPI epicApi;
+    std::string accessToken = epicApi.getAccessToken();
+    LOG(LogDebug) << "Access token: " << accessToken; // Log the token
+    bool loggedIn = !accessToken.empty();
+    LOG(LogDebug) << "isEpicUserLoggedIn() returning: " << loggedIn;
+    return loggedIn;
 }
 
 void GuiMenu::startEpicLogin() {
@@ -253,9 +257,12 @@ void GuiMenu::showEpicUserOptions() {
 }
 
 void GuiMenu::openEpicLoginMenu() {
+    LOG(LogDebug) << "GuiMenu::openEpicLoginMenu() called!";
     if (isEpicUserLoggedIn()) {
+        LOG(LogDebug) << "isEpicUserLoggedIn() returned true"; // Add this
         showEpicUserOptions();
     } else {
+        LOG(LogDebug) << "isEpicUserLoggedIn() returned false"; // Add this
         startEpicLogin();
     }
 }
