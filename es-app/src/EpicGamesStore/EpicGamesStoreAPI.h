@@ -28,6 +28,12 @@ public:
     // Helper function to URL encode strings
     std::string urlEncode(const std::string& value);
 
+    // Constants (from EpicAccountClient.cs)
+    static const std::string LOGIN_URL;
+    static const std::string AUTH_CODE_URL;
+    static const std::string OAUTH_URL_MASK;
+    static const std::string AUTH_ENCODED_STRING;
+
 private:
     // libcurl handle (or other necessary data)
     CURL* curlHandle;
@@ -40,11 +46,6 @@ private:
     bool storeTokens(const std::string& accessToken, const std::string& refreshToken, const std::string& accountId, const std::string& tokenType);
     bool loadTokens(std::string& accessToken, std::string& refreshToken, std::string& accountId, std::string& tokenType);
 
-    // Constants (from EpicAccountClient.cs)
-    static const std::string LOGIN_URL;
-    static const std::string AUTH_CODE_URL;
-    static const std::string OAUTH_URL_MASK;
-    static const std::string AUTH_ENCODED_STRING;
 };
 
 #endif // EMULATIONSTATION_EPICGAMESSTOREAPI_H
