@@ -34,22 +34,13 @@
 
 #define LAUNCHERURL "https://github.com/fabricecaruso/batocera-ports/releases/download/continuous/batocera-ports.zip"
 // Helper function to URL encode a string (same as before)
-std::string Win32ApiSystem::urlEncode(const std::string& value) {
-    std::ostringstream escaped;
-    escaped.fill('0');
-    escaped << std::hex;
-
-    for (char c : value) {
-        if (isalnum(c) || c == '-' || c == '_' || c == '.' || c == '~') {
-            escaped << c;
-        }
-        else {
-            escaped << '%' << std::setw(2) << int((unsigned char)c);
-        }
-    }
-    return escaped.str();
+void Win32ApiSystem::someFunction() {
+    // ... other code ...
+    std::string url = "example.com/?param=value";
+    std::string encodedUrl = urlEncode(url); // Call the function directly
+    Log::info("Encoded URL: " + encodedUrl);
+    // ...
 }
-
 std::string Win32ApiSystem::generateEpicAuthUrl(const std::string& clientId, const std::string& redirectUri, const std::string& scope) {
     std::string baseUrl = "https://www.epicgames.com/id/authorize?";
     std::string authUrl = baseUrl;
