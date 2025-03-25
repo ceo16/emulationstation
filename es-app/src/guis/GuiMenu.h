@@ -73,7 +73,7 @@ private:
         void openFormatDriveSettings();
         void exitKidMode();
         void epicLoginCallback(const std::string& authCode); // Add this line
-        std::function<void(const std::string&)> mEpicLoginCallback;
+        
 
         // windows
         void openEmulatorSettings();
