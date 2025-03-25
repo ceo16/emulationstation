@@ -266,7 +266,20 @@ void GuiMenu::startEpicLogin() {
 
     LOG(LogDebug) << "GuiMenu::startEpicLogin() - End";
 }
-
+void GuiMenu::epicLoginCallback(const std::string& authCode) {
+    LOG(LogDebug) << "GuiMenu::epicLoginCallback() - Auth code: " << authCode;
+    EpicGamesStoreAPI epicApi;
+    if (epicApi.authenticateUsingAuthCode(authCode)) {
+        LOG(LogDebug) << "Epic login successful!";
+        // Update UI, e.g., close the menu, show user info
+        mWindow->displayNotificationMessage(_("Epic Games Store login successful!"));
+        delete this; // Close the login menu
+        // ...
+    } else {
+        LOG(LogError) << "Epic login failed.";
+        mWindow->pushGui(new GuiMsgBox(mWindow, _("Epic Games Store login failed."), _("OK")));
+    }
+}
 void GuiMenu::showEpicUserOptions() {
     auto s = new GuiSettings(mWindow, _("Epic Games Store Account").c_str());
     //  ... options ...
