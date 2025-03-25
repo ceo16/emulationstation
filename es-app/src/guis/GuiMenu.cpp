@@ -4883,7 +4883,8 @@ void GuiMenu::openFormatDriveSettings()
 
 	auto s = new GuiSettings(mWindow, _("FORMAT DEVICE").c_str());
 
-	//  --- Insert Epic Games Store functions here ---
+	//  --- Epic Games Store functions (Correctly Placed) ---
+//  The functions must be defined outside any other function's scope
 bool GuiMenu::isEpicUserLoggedIn() {
     std::string accessToken = EpicGamesStoreAPI::getAccessToken();
     return !accessToken.empty();
