@@ -4907,7 +4907,7 @@ void GuiMenu::openEpicLoginMenu() {
     } else {
         startEpicLogin();
     }
-
+}
 
 //  --- The GuiMenu constructor starts below ---
 GuiMenu::GuiMenu(Window *window, bool animate) : GuiComponent(window), mMenu(window, _("MAIN MENU").c_str()), mVersion(window) {
