@@ -9,6 +9,7 @@
 #include <SystemData.h>
 #include "KeyboardMapping.h"
 #include "utils/VectorEx.h"
+#include <functional>
 
 struct DecorationSetInfo
 {
@@ -44,6 +45,7 @@ public:
 
         static void updateGameLists(Window* window, bool confirm = true);
         static void editKeyboardMappings(Window *window, IKeyboardMapContainer* mapping, bool editable);
+        std::function<void(const std::string&)> mEpicLoginCallback; // Add this line
 
 private:
         void addEntry(const std::string& name, bool add_arrow, const std::function<void()>& func, const std::string iconName = "");
