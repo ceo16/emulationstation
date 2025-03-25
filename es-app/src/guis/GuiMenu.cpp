@@ -4886,13 +4886,15 @@ void GuiMenu::openFormatDriveSettings()
 	//  --- Epic Games Store functions (Correctly Placed) ---
 //  The functions must be defined outside any other function's scope
 bool GuiMenu::isEpicUserLoggedIn() {
-    std::string accessToken = EpicGamesStoreAPI::getAccessToken();
+    EpicGamesStoreAPI epicApi; // Create an instance
+    std::string accessToken = epicApi.getAccessToken(); // Call the method on the instance
     return !accessToken.empty();
 }
 
 void GuiMenu::startEpicLogin() {
+    EpicGamesStoreAPI epicApi; // Create an instance
     std::string loginUrl = EpicGamesStoreAPI::LOGIN_URL;
-    //  *** Platform-specific code to open browser ***
+    // ...
 }
 
 void GuiMenu::showEpicUserOptions() {
