@@ -17,6 +17,9 @@ public:
 	HttpServerThread(Window * window);
 	virtual ~HttpServerThread();
 
+        void queueTask(std::function<void()> task);
+        void addEpicCallbackEndpoint(int port);
+
 	static std::string getMimeType(const std::string &path);
 
 private:
@@ -28,9 +31,12 @@ private:
 	httplib::Server* mHttpServer;
 
 	void run();
+
         std::queue<std::function<void()>> mTaskQueue;
         std::mutex mQueueMutex;
         std::condition_variable mQueueCondition;
+        std::function<void(const std::string&)> mEpicLoginCallback
+
 };
 
 
