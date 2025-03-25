@@ -17,6 +17,7 @@
 #include "LocaleES.h"
 #include "Paths.h"
 #include "utils/VectorEx.h"
+#include "URLEncoding.h"
 #include <Shellapi.h>
 #include <sstream>
 #include <iomanip>
