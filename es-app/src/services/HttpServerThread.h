@@ -2,6 +2,9 @@
 
 #include "Window.h"
 #include <thread>
+#include <queue>
+#include <mutex>
+#include <condition_variable>
 
 namespace httplib
 {
@@ -25,6 +28,9 @@ private:
 	httplib::Server* mHttpServer;
 
 	void run();
+        std::queue<std::function<void()>> mTaskQueue;
+        std::mutex mQueueMutex;
+        std::condition_variable mQueueCondition;
 };
 
 
