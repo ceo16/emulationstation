@@ -2,6 +2,7 @@
 #pragma once
 
 #include "ApiSystem.h"
+#include "EpicGamesStore/EpicGamesStoreAPI.h"
 
 class Win32ApiSystem : public ApiSystem
 {
