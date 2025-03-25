@@ -35,7 +35,7 @@ private:
         std::queue<std::function<void()>> mTaskQueue;
         std::mutex mQueueMutex;
         std::condition_variable mQueueCondition;
-        std::function<void(const std::string&)> mEpicLoginCallback
+        std::function<void(const std::string&)> mEpicLoginCallback;
 
 };
 
