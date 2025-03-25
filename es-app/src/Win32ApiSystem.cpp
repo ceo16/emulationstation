@@ -17,10 +17,7 @@
 #include "LocaleES.h"
 #include "Paths.h"
 #include "utils/VectorEx.h"
-#include "URLEncoding.h"
 #include <Shellapi.h>
-#include <sstream>
-#include <iomanip>
 
 #include <powerbase.h>
 #include <powrprof.h>
@@ -34,39 +31,7 @@
 #define UPDATEURL  "https://github.com/fabricecaruso/batocera-emulationstation/releases/download/continuous-stable/EmulationStation-Win32.zip"
 
 #define LAUNCHERURL "https://github.com/fabricecaruso/batocera-ports/releases/download/continuous/batocera-ports.zip"
-// Helper function to URL encode a string (same as before)
-void Win32ApiSystem::someFunction() {
-    // ... other code ...
-    std::string url = "example.com/?param=value";
-    std::string encodedUrl = urlEncode(url); // Call the function directly
-    Log::info("Encoded URL: " + encodedUrl);
-    // ...
-}
-std::string Win32ApiSystem::generateEpicAuthUrl(const std::string& clientId, const std::string& redirectUri, const std::string& scope) {
-    std::string baseUrl = "https://www.epicgames.com/id/authorize?";
-    std::string authUrl = baseUrl;
 
-    // Append client_id
-    authUrl += "client_id=" + urlEncode(clientId) + "&";
-
-    // Append redirect_uri
-    authUrl += "redirect_uri=" + urlEncode(redirectUri) + "&";
-
-    // Append response_type
-    authUrl += "response_type=code&";
-
-    // Append scope (if provided)
-    if (!scope.empty()) {
-        authUrl += "scope=" + urlEncode(scope) + "&";
-    }
-
-    // Remove the trailing ampersand if it exists
-    if (!authUrl.empty() && authUrl.back() == '&') {
-        authUrl.pop_back();
-    }
-
-    return authUrl;
-}
 Win32ApiSystem::Win32ApiSystem()
 {
 	m_hJob = CreateJobObject(NULL, NULL);

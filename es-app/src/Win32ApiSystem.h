@@ -2,7 +2,6 @@
 #pragma once
 
 #include "ApiSystem.h"
-#include "EpicGamesStore/EpicGamesStoreAPI.h"
 
 class Win32ApiSystem : public ApiSystem
 {
@@ -49,7 +48,6 @@ public:
 	virtual bool isPlaneMode() override;
 	virtual bool setPlaneMode(bool enable) override;
         virtual bool openUrl(const std::string& url) override; // Add this line
-        std::string generateEpicAuthUrl(const std::string& clientId, const std::string& redirectUri, const std::string& scope);
 
 protected:
 
