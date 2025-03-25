@@ -35,7 +35,7 @@ std::vector<FileData*> parseEpicGamesList(const std::string& gamesList, SystemDa
                 }
 
                 // 3. Create FileData object
-                FileData* file_data = new FileData(GAME, path, system->getRootFolder());
+                FileData* file_data = new FileData(GAME, path, system);
                 file_data->getMetadata().set(MetaDataId::Name, title);
 
                 //  Set other metadata if available (ADAPT AS NEEDED)
