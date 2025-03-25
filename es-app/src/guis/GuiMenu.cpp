@@ -256,14 +256,53 @@ void GuiMenu::startEpicLogin() {
     mEpicLoginCallback = [this](const std::string& authCode) {
         epicLoginCallback(authCode);
     };
-    
+
     // Call openUrl once
-    bool launchResult = ApiSystem::getInstance()->openUrl(loginUrl); 
+    bool launchResult = ApiSystem::getInstance()->openUrl(loginUrl);
 
     if (launchResult) {
         LOG(LogDebug) << "GuiMenu::startEpicLogin() - Browser launched";
     } else {
         LOG(LogDebug) << "GuiMenu::startEpicLogin() - Browser launch failed";
+    }
+
+    // --- Monitor URL and extract auth code ---
+    if (launchResult) {
+        std::thread urlMonitorThread([this]() {
+            std::string currentUrl;
+            int timeout = 120; // seconds
+            int pollInterval = 2; // seconds
+            while (timeout > 0) {
+                currentUrl = ApiSystem::getInstance()->getCurrentBrowserUrl();
+                LOG(LogDebug) << "Current Browser URL: " << currentUrl;
+
+                size_t codePos = currentUrl.find("?code=");
+                if (codePos != std::string::npos) {
+                    std::string authCode = currentUrl.substr(codePos + 6); // Extract the code
+                    size_t ampPos = authCode.find('&');
+                    if (ampPos != std::string::npos) {
+                        authCode = authCode.substr(0, ampPos); // Remove extra parameters
+                    }
+                    LOG(LogDebug) << "Extracted Auth Code: " << authCode;
+
+                    // Execute callback on the main thread
+                    mWindow->postToUiThread([this, authCode]() {
+                        if (mEpicLoginCallback) {
+                            mEpicLoginCallback(authCode);
+                        }
+                    });
+                    return; // Exit the thread
+                }
+                std::this_thread::sleep_for(std::chrono::seconds(pollInterval));
+                timeout -= pollInterval;
+            }
+            // Handle timeout if needed (e.g., show a message to the user)
+            mWindow->postToUiThread([this]() {
+                mWindow->pushGui(new GuiMsgBox(mWindow, _("Epic Games login timed out."), _("OK")));
+            });
+            LOG(LogDebug) << "Epic Games login timed out.";
+        });
+        urlMonitorThread.detach(); // Detach the thread, so it runs independently
     }
 
     LOG(LogDebug) << "GuiMenu::startEpicLogin() - End";
