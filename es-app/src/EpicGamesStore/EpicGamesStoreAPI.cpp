@@ -307,44 +307,21 @@ std::string EpicGamesStoreAPI::performRequest(const std::string& url) {
     return response_string;
 }
 std::string EpicGamesStoreAPI::getGamesList() {
-    //  (Implement this using the getAccessToken() method and
-    //   the Epic Games API endpoint for retrieving the game list)
-    std::string accessToken = getAccessToken();
-    if (accessToken.empty()) {
-        return "";  // Return an empty JSON array on error
-    }
-
-    //  Construct the URL for the library API endpoint (This is a placeholder, you'll need the correct endpoint)
-    std::string libraryUrl = "https://your-epic-games-api-endpoint.com/library"; // Replace with the actual endpoint
-
-    //  Set headers, including the authorization header with the access token
-    setHeaders({
-        "Authorization: Bearer " + accessToken,
-        "Content-Type: application/json"
-    });
-
-    //  Perform the API request
-    std::string response = performRequest(libraryUrl);
-
-    //  Reset headers
-    curl_easy_setopt(curlHandle, CURLOPT_HTTPHEADER, nullptr);
-
-    if (response.empty()) {
-        std::cerr << "Error: Failed to retrieve games list" << std::endl;
-        return ""; //  Return an empty JSON array on error
-    }
+    // ... (existing code)
 
     // Parse the JSON response and use the parseEpicGamesList function
     try {
         json games_data = json::parse(response);
         // Convert json data to string
         std::string gamesListString = games_data.dump();
-        // Assuming 'system' is available in this scope or you can fetch it as needed
-        // For example, if you have a global SystemData instance:
-        // extern SystemData* currentSystem;
-        // std::vector<FileData*> games = parseEpicGamesList(gamesListString, currentSystem);
+
+        // Create the SystemMetadata object here
+        SystemMetadata metadata;
+        metadata.name = "epic_games"; // Or whatever name you want to give the system
+        metadata.fullName = "Epic Games Store"; // And the full name
+
         // For now, let's create a dummy system
-        SystemData* tempSystem = new SystemData("epic_games", "Epic Games", "", nullptr);
+        SystemData* tempSystem = new SystemData(metadata, nullptr, nullptr, false, false, false, false);
         std::vector<FileData*> games = parseEpicGamesList(gamesListString, tempSystem);
 
         //  Convert the vector<FileData*> to a JSON string
