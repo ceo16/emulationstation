@@ -1,5 +1,5 @@
 //  es-app/src/WebView/WebViewGuiComponent.cpp
-#include "WebViewGuiComponent.h"
+#include "WebView/WebViewGuiComponent.h"
 #include "Window.h"
 #include "Log.h"
 #ifdef _WIN32
@@ -7,6 +7,23 @@
 #include <dwmapi.h> // DWMWA_WINDOW_CORNER_PREFERENCE
 #endif
 
+void ViewController::startEpicGamesLogin() {
+    //  ...
+
+    WebViewGuiComponent* webView = new WebViewGuiComponent(mWindow);
+
+    //  Set the size and position of the webview
+    int webViewWidth = mWindow->getWidth() * 0.8;  //  80% of window width
+    int webViewHeight = mWindow->getHeight() * 0.8; //  80% of window height
+    int webViewX = (mWindow->getWidth() - webViewWidth) / 2;
+    int webViewY = (mWindow->getHeight() - webViewHeight) / 2;
+    webView->setBounds(webViewX, webViewY, webViewWidth, webViewHeight);
+
+    mWindow->pushGui(webView);
+    webView->loadUrl(EpicGamesStoreAPI::LOGIN_URL);
+
+    //  ...
+}
 WebViewGuiComponent::WebViewGuiComponent(Window* window) : GuiComponent(window) {
 #ifdef _WIN32
     // Get the HWND of the EmulationStation window
