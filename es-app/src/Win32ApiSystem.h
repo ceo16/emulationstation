@@ -23,6 +23,7 @@ public:
 
     void setReadyFlag(bool ready = true) override;
     bool isReadyFlagSet() override;
+    std::string getCurrentBrowserUrl() override;
 
     // Bezels
     virtual std::vector<BatoceraBezel> getBatoceraBezelsList();
