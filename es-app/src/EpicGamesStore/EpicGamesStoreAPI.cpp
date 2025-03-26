@@ -13,8 +13,6 @@
 #include "SystemData.h"
 #include "FileData.h"
 
-// In Win32ApiSystem.cpp
-#include <comdef.h>  // For _bstr_t
 
 using json = nlohmann::json;
 
