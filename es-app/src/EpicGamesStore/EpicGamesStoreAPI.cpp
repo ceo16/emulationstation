@@ -10,6 +10,11 @@
 #include <regex>
 #include "EpicGamesParser.h" // Include EpicGamesParser.h
 #include "ApiSystem.h" // Include ApiSystem.h
+#include "../SystemData.h"
+#include "../FileData.h"
+
+// In Win32ApiSystem.cpp
+#include <comdef.h>  // For _bstr_t
 
 using json = nlohmann::json;
 
