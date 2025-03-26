@@ -993,6 +993,11 @@ bool ViewController::input(InputConfig* config, Input input)
 
 	if(mCurrentView)
 		return mCurrentView->input(config, input);
+	if (config->isMappedTo("select", input) &&
+      input.value != 0) {  //  Esempio: Avvia il login quando viene premuto il pulsante "select"
+    startEpicGamesLogin();
+    return true;
+  }
 
 	return false;
 }
