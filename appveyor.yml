@@ -20,6 +20,7 @@ branches:
     
 environment:
   _LINK_: /FORCE:MULTIPLE
+  - Start-FileDownload https://go.microsoft.com/fwlink/p/?LinkId=2124703 -FileName WebView2RuntimeInstaller.exe
 
 build_script:
   - cd c:\src\EmulationStation
