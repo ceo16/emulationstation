@@ -22,7 +22,7 @@ environment:
   _LINK_: /FORCE:MULTIPLE
 
 build_script:
-  - curl https://go.microsoft.com/fwlink/p/?LinkId=2124703 -FileName WebView2RuntimeInstaller.exe
+  - appveyor https://go.microsoft.com/fwlink/p/?LinkId=2124703
   - WebView2RuntimeInstaller.exe /silent /install
   - cd c:\src\EmulationStation
   - git submodule update --init --recursive
