@@ -128,6 +128,7 @@ public:
 	};
 
 	virtual bool isScriptingSupported(ScriptId script);
+        virtual std::string getCurrentBrowserUrl() { return ""; }; // Add this line
 
     static ApiSystem* getInstance();
 	virtual void deinit() { };
