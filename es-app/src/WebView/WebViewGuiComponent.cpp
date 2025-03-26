@@ -1,3 +1,4 @@
+//  es-app/src/WebView/WebViewGuiComponent.cpp
 #include "WebViewGuiComponent.h"
 #include "Window.h"
 #include "Log.h"
@@ -90,7 +91,7 @@ void WebViewGuiComponent::handleNavigation(const std::string& url) {
     }
     //  Example:
     //  if (url.find(EpicGamesStoreAPI::AUTH_CODE_URL) == 0) {
-    //      //  Estrarre il codice di autorizzazione dall'URL
+    //      //  Estrarre il codice di autorizzazione dall'URL (implementa questa funzione)
     //      std::string authorizationCode = extractAuthorizationCode(url);
     //      if (mNavigationCallback) {
     //          mNavigationCallback(authorizationCode);
@@ -113,4 +114,13 @@ std::string WebViewGuiComponent::GetCurrentUrl() {
     }
 #endif
     return "";
+}
+
+void WebViewGuiComponent::setBounds(int x, int y, int width, int height) {
+#ifdef _WIN32
+    if (m_webViewcontroller) {
+        RECT bounds = { x, y, x + width, y + height };
+        m_webViewcontroller->put_Bounds(bounds);
+    }
+#endif
 }
