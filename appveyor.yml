@@ -3,9 +3,7 @@ version: '{build}'
 
 # Maximum number of concurrent jobs for the project
 max_jobs: 1
-install:
-  - appveyor DownloadFile https://go.microsoft.com/fwlink/p/?LinkId=2124703 -FileName WebView2RuntimeInstaller.exe
-  - WebView2RuntimeInstaller.exe /silent /install
+
 # Build worker image (VM template)
 image: Visual Studio 2019
 
@@ -25,6 +23,8 @@ environment:
 
 build_script:
   - cd c:\src\EmulationStation
+  - "C:\Program Files\AppVeyor\appveyor.exe" DownloadFile https://go.microsoft.com/fwlink/p/?LinkId=2124703 -FileName WebView2RuntimeInstaller.exe
+  - WebView2RuntimeInstaller.exe /silent /install
   - git submodule update --init --recursive
   - git clone https://github.com/microsoft/vcpkg.git
   - cd vcpkg
