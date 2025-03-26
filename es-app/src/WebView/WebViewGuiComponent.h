@@ -21,6 +21,7 @@ public:
     void setCloseCallback(std::function<void()> closeCallback);
     std::string GetCurrentUrl();
 
+    void setBounds(int x, int y, int width, int height); //  Add this method
 private:
 #ifdef _WIN32
     wil::com_ptr<ICoreWebView2Environment> m_webViewEnvironment;
