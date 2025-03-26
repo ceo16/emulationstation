@@ -22,13 +22,6 @@ environment:
   _LINK_: /FORCE:MULTIPLE
 
 build_script:
-install:
-  - git config --global core.autocrlf true
-  - apt-get update -qq
-  - apt-get install -y libcurl4-openssl-dev libasound2-dev libudev-dev libxrandr-dev libgl1-mesa-dev libgles2-mesa-dev libegl1-mesa-dev libgbm-dev libvulkan-dev
-  - cmake --version
-  - gcc --version
-  - g++ --version
   - cd c:\src\EmulationStation
   - git submodule update --init --recursive
   - mkdir build
