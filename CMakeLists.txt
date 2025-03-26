@@ -432,9 +432,14 @@ option(USE_WEBVIEW2 "Abilita il supporto WebView2" OFF)
 
 if(USE_WEBVIEW2)
   find_package(unofficial-webview2 CONFIG REQUIRED) # Modifica qui
-  if(TARGET unofficial::webview2::webview2) # Modifica qui
+  if(TARGET unofficial::webview2::webview2)
+    message(STATUS "Target unofficial::webview2::webview2 found")
+else()
+    message(STATUS "Target unofficial::webview2::webview2 NOT found")
+endif()
     target_link_libraries(emulationstation unofficial::webview2::webview2) # Modifica qui (sostituisci emulationstation con il tuo target)
     target_compile_definitions(emulationstation PRIVATE USE_WEBVIEW2=1) # Modifica qui (sostituisci emulationstation con il tuo target)
+    message(STATUS "WebView2 Include Directories: ${unofficial::webview2::INCLUDE_DIRS}")
   endif()
 endif()
 
