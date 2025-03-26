@@ -283,9 +283,9 @@ bool EpicGamesStoreAPI::initialize() {
 }
 
 // Helper function to perform HTTP requests
-size_t EpicGamesStoreAPI::performRequestCallback(char* buffer, size_t size, size_t nmemb, std::string* userdata) {
+size_t EpicGamesStoreAPI::performRequestCallback(char* buffer, size_t size, size_t nmemb, std::string* response_string) {
     size_t total_size = size * nmemb;
-    userdata->append(buffer, total_size);
+    response_string->append(buffer, total_size);
     return total_size;
 }
 
