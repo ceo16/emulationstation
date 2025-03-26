@@ -6,6 +6,7 @@ option(GL "Set to ON if targeting Desktop OpenGL" ${GL})
 option(RPI "Set to ON to enable the Raspberry PI video player (omxplayer)" ${RPI})
 option(CEC "CEC" ON)
 option(BCM "BCM host" OFF)
+option(USE_WEBVIEW2 "Abilita il supporto WebView2" OFF)
 
 option(BATOCERA "Set to ON to enable BATOCERA specific code" OFF)
 option(RETROBAT "Set to ON to enable RETROBAT specific code" OFF)
@@ -426,7 +427,7 @@ if(CEC)
       )
   endif()
 endif()
-option(USE_WEBVIEW2 "Abilita il supporto WebView2" OFF)
+
 
 # ... altre configurazioni del progetto ...
 
