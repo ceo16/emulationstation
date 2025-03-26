@@ -32,7 +32,7 @@
 #include "VolumeControl.h"
 #include "guis/GuiNetPlay.h"
 #include "EpicGamesStore/EpicGamesStoreAPI.h" //  Include the EpicGamesStoreAPI
-#include "WebView/WebViewGuiComponent.h
+#include "WebView/WebViewGuiComponent.h"
 
 //  Helper function to extract the authorization code from the URL
 std::string extractAuthorizationCode(const std::string& url) {
