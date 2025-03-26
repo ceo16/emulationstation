@@ -195,7 +195,43 @@ void Win32ApiSystem::suspend()
 	LOG(LogDebug) << "Win32ApiSystem::suspend";
 	::SetSuspendState(TRUE, FALSE, FALSE);
 }
+std::string Win32ApiSystem::getCurrentBrowserUrl() {
+    LOG(LogDebug) << "Win32ApiSystem::getCurrentBrowserUrl() called";
 
+    std::string currentUrl = "";
+    CComPtr<IShellWindows> shellWindows;
+    HRESULT hr = CoCreateInstance(CLSID_ShellWindows, NULL, CLSCTX_ALL, IID_IShellWindows, (void**)&shellWindows);
+    if (SUCCEEDED(hr)) {
+        long windowCount;
+        shellWindows->get_Count(&windowCount);
+        for (long i = 0; i < windowCount; ++i) {
+            VARIANT vIndex;
+            vIndex.vt = VT_I4;
+            vIndex.lVal = i;
+            CComPtr<IDispatch> dispatch;
+            HRESULT hr2 = shellWindows->Item(vIndex, &dispatch);
+            if (SUCCEEDED(hr2)) {
+                CComPtr<IWebBrowser2> webBrowser;
+                hr2 = dispatch.QueryInterface(IID_IWebBrowser2, (void**)&webBrowser);
+                if (SUCCEEDED(hr2)) {
+                    BSTR bstrURL;
+                    webBrowser->get_LocationURL(&bstrURL);
+                    _bstr_t urlObj(bstrURL, false);
+                    currentUrl = (char*)urlObj;
+                    SysFreeString(bstrURL);
+
+                    // If we found a URL, we can exit the loop
+                    if (!currentUrl.empty()) {
+                        break;
+                    }
+                }
+            }
+        }
+    }
+
+    LOG(LogDebug) << "Win32ApiSystem::getCurrentBrowserUrl() - Current URL: " << currentUrl;
+    return currentUrl;
+}
 int Win32ApiSystem::executeCMD(const char* lpCommandLine, std::string& output, const char* lpCurrentDirectory, const std::function<void(const std::string)>& func)
 {
 	int ret = -1;
