@@ -18,7 +18,7 @@ option(USE_SYSTEM_PUGIXML "Set to ON to use system-wide pugixml library" OFF)
 
 # Win32 default platform & directory detection
 if(WIN32)
-
+add_definitions(-DUSE_WEBVIEW2)
 	if (NOT CMAKE_GENERATOR_PLATFORM)
 		set(CMAKE_GENERATOR_PLATFORM Win32)	    
 	endif()
