@@ -79,7 +79,15 @@ if(WIN32 AND CUSTOM_LIBDIR)
 	  ${CUSTOM_LIBDIR}/curl/${CUSTOM_PLATFORM}
 	)
 endif()
+# trova vcpkg
+find_path(VCPKG_PATH NAMES vcpkg.cmake PATHS "C:/src/EmulationStation/vcpkg/scripts/buildsystems")
 
+if(VCPKG_PATH)
+    get_filename_component(VCPKG_ROOT "${VCPKG_PATH}" DIRECTORY)
+    include_directories("${VCPKG_ROOT}/../installed/x86-windows/include")
+else()
+    message(WARNING "vcpkg non trovato. assicurati che sia installato e che CMAKE_TOOLCHAIN_FILE sia configurato correttamente.")
+endif()
 #-------------------------------------------------------------------------------
 #add local find scripts to CMAKE path
 LIST(APPEND CMAKE_MODULE_PATH
