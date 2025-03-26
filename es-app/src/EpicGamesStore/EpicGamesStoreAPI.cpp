@@ -12,6 +12,7 @@
 #include "ApiSystem.h" // Include ApiSystem.h
 #include "SystemData.h"
 #include "FileData.h"
+#include <string>
 
 
 using json = nlohmann::json;
@@ -344,7 +345,8 @@ std::string EpicGamesStoreAPI::getGamesList() {
         // extern SystemData* currentSystem;
         // std::vector<FileData*> games = parseEpicGamesList(gamesListString, currentSystem);
         // For now, let's create a dummy system
-        SystemData* tempSystem = new SystemData("epic_games", "Epic Games", "", nullptr);
+        SystemMetadata epicGamesMetadata("epic_games"); // Create SystemMetadata object
+        SystemData* tempSystem = new SystemData(epicGamesMetadata, "Epic Games", "", nullptr); 
         std::vector<FileData*> games = parseEpicGamesList(gamesListString, tempSystem);
 
         //  Convert the vector<FileData*> to a JSON string
