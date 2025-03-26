@@ -8,8 +8,8 @@
 #include "EmulationStation.h"
 #include "HttpReq.h"
 #include <Windows.h>
-#include <ShlDisp.h>
-#include <comutil.h> // #include for _bstr_t
+#include <ShlDisp.h>  // Include Shell API headers
+#include <comutil.h> // Include COM utility headers
 #include <thread>
 #include <direct.h>
 #include <algorithm>
@@ -34,33 +34,34 @@
 
 Win32ApiSystem::Win32ApiSystem()
 {
-	m_hJob = CreateJobObject(NULL, NULL);
-	if (m_hJob)
-	{
-		JOBOBJECT_EXTENDED_LIMIT_INFORMATION jeli = { 0 };
-		jeli.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
-		SetInformationJobObject(m_hJob, JobObjectExtendedLimitInformation, &jeli, sizeof(jeli));
-	}
+    m_hJob = CreateJobObject(NULL, NULL);
+    if (m_hJob)
+    {
+        JOBOBJECT_EXTENDED_LIMIT_INFORMATION jeli = { 0 };
+        jeli.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
+        SetInformationJobObject(m_hJob, JobObjectExtendedLimitInformation, &jeli, sizeof(jeli));
+    }
 }
 
 void Win32ApiSystem::deinit()
 {
-	if (m_hJob)
-	{
-		CloseHandle(m_hJob);
-		m_hJob = NULL;
-	}
+    if (m_hJob)
+    {
+        CloseHandle(m_hJob);
+        m_hJob = NULL;
+    }
+    CoUninitialize(); // Deinitialize COM
 }
 
 std::string getUrlFromUpdateType(std::string url)
 {
-	std::string updatesType = Settings::getInstance()->getString("updates.type");
-	if (updatesType == "beta")
-		return Utils::String::replace(url, "continuous-stable", "continuous-master");
-	else if (updatesType == "unstable")
-		return Utils::String::replace(url, "continuous-stable", "continuous-beta");
+    std::string updatesType = Settings::getInstance()->getString("updates.type");
+    if (updatesType == "beta")
+        return Utils::String::replace(url, "continuous-stable", "continuous-master");
+    else if (updatesType == "unstable")
+        return Utils::String::replace(url, "continuous-stable", "continuous-beta");
 
-	return url;
+    return url;
 }
 bool Win32ApiSystem::openUrl(const std::string& url) {
     LOG(LogDebug) << "Win32ApiSystem::openUrl() - URL: " << url;
@@ -75,126 +76,124 @@ bool Win32ApiSystem::openUrl(const std::string& url) {
 bool Win32ApiSystem::isScriptingSupported(ScriptId script)
 {
 #if _DEBUG
-	if (script == ApiSystem::DISKFORMAT)
-		return true;
+    if (script == ApiSystem::DISKFORMAT)
+        return true;
 #endif
 
-	if (script == ApiSystem::NETPLAY)
-		return !getSevenZipCommand().empty();
+    if (script == ApiSystem::NETPLAY)
+        return !getSevenZipCommand().empty();
 
-	if (script == ApiSystem::KODI)
-		return Utils::FileSystem::exists(Paths::getKodiPath());
+    if (script == ApiSystem::KODI)
+        return Utils::FileSystem::exists(Paths::getKodiPath());
 
-	if (script == ApiSystem::THEMESDOWNLOADER)
-		return true;
+    if (script == ApiSystem::THEMESDOWNLOADER)
+        return true;
 
-	if (script == ApiSystem::DECORATIONS || script == ApiSystem::THEBEZELPROJECT)
-		return Utils::FileSystem::exists(Paths::getUserDecorationsPath()) || Utils::FileSystem::exists(Paths::getDecorationsPath()) || Utils::FileSystem::exists(Paths::getUserEmulationStationPath() + "/decorations");
+    if (script == ApiSystem::DECORATIONS || script == ApiSystem::THEBEZELPROJECT)
+        return Utils::FileSystem::exists(Paths::getUserDecorationsPath()) || Utils::FileSystem::exists(Paths::getDecorationsPath()) || Utils::FileSystem::exists(Paths::getUserEmulationStationPath() + "/decorations");
 
-	if (script == ApiSystem::SHADERS)
-		return Utils::FileSystem::exists(Paths::getShadersPath()) || Utils::FileSystem::exists(Paths::getUserShadersPath());
+    if (script == ApiSystem::SHADERS)
+        return Utils::FileSystem::exists(Paths::getShadersPath()) || Utils::FileSystem::exists(Paths::getUserShadersPath());
 
-	std::vector<std::string> executables;
+    std::vector<std::string> executables;
 
-	switch (script)
-	{
-	case ApiSystem::SUSPEND:
-		return canSuspend();
-	
-	case ApiSystem::WIFI:
-		executables.push_back("batocera-wifi");
-		break;
-	case ApiSystem::RETROACHIVEMENTS:
+    switch (script)
+    {
+    case ApiSystem::SUSPEND:
+        return canSuspend();
+ 
+    case ApiSystem::WIFI:
+        executables.push_back("batocera-wifi");
+        break;
+    case ApiSystem::RETROACHIVEMENTS:
 #ifdef CHEEVOS_DEV_LOGIN
-		executables.push_back("emulatorLauncher");
+        executables.push_back("emulatorLauncher");
 #endif
-		break;
-	case ApiSystem::BLUETOOTH:
-		executables.push_back("batocera-bluetooth");
-		break;
+        break;
+    case ApiSystem::BLUETOOTH:
+        executables.push_back("batocera-bluetooth");
+        break;
 
-	case ApiSystem::RESOLUTION:
+    case ApiSystem::RESOLUTION:
 #if _DEBUG
-		executables.push_back("batocera-resolution");
+        executables.push_back("batocera-resolution");
 #endif
-		break;
-	case ApiSystem::BIOSINFORMATION:
-		executables.push_back("batocera-systems");
-		break;
-	case ApiSystem::NETPLAY:
-	case ApiSystem::GAMESETTINGS:
-	case ApiSystem::DECORATIONS:
-	case ApiSystem::SHADERS:
-		executables.push_back("emulatorLauncher");
-		break;
-	case ApiSystem::PDFEXTRACTION:
-		executables.push_back("pdftoppm");
-		executables.push_back("pdfinfo");		
-		break;
-	case ApiSystem::BATOCERASTORE:
-		executables.push_back("batocera-store");
-		break;
-	case ApiSystem::EVMAPY:
-		executables.push_back("emulatorLauncher");
-		break;
-	case ApiSystem::PADSINFO:
-		{
-			SDL_version ver;
-			SDL_GetVersion(&ver);
-			if (ver.major >= 2 && ver.minor >= 24)
-			{
-				// PADSINFO is managed with SDL_JOYBATTERYUPDATED event starting with SDL 2.24+
-				return true;
-			}
-			else
-				executables.push_back("batocera-padsinfo");
-		}
-		break;
-	case ApiSystem::UPGRADE:
-		return true;
+        break;
+    case ApiSystem::BIOSINFORMATION:
+        executables.push_back("batocera-systems");
+        break;
+    case ApiSystem::NETPLAY:
+    case ApiSystem::GAMESETTINGS:
+    case ApiSystem::DECORATIONS:
+    case ApiSystem::SHADERS:
+        executables.push_back("emulatorLauncher");
+        break;
+    case ApiSystem::PDFEXTRACTION:
+        executables.push_back("pdftoppm");
+        executables.push_back("pdfinfo");    
+        break;
+    case ApiSystem::BATOCERASTORE:
+        executables.push_back("batocera-store");
+        break;
+    case ApiSystem::EVMAPY:
+        executables.push_back("emulatorLauncher");
+        break;
+    case ApiSystem::PADSINFO:
+        {
+            SDL_version ver;
+            SDL_GetVersion(&ver);
+            if (ver.major >= 2 && ver.minor >= 24)
+            {
+                // PADSINFO is managed with SDL_JOYBATTERYUPDATED event starting with SDL 2.24+
+                return true;
+            }
+            else
+                executables.push_back("batocera-padsinfo");
+        }
+        break;
+    case ApiSystem::UPGRADE:
+        return true;
 
-	case ApiSystem::SERVICES:
-		executables.push_back("batocera-services");
-		break;
-	 case ApiSystem::READPLANEMODE:
-		return true;	 
-	}
+    case ApiSystem::SERVICES:
+        executables.push_back("batocera-services");
+        break;
+     case ApiSystem::READPLANEMODE:
+        return true;   
+    }
 
-	if (executables.size() == 0)
-		return false;
+    if (executables.size() == 0)
+        return true;
 
-	for (auto executable : executables)	
-	{
-		std::string path = Paths::findEmulationStationFile(executable + ".exe");
-		if (path.empty() || !Utils::FileSystem::exists(path))
-			return false;
-	}
+    for (auto executable : executables)
+        if (!Utils::FileSystem::exists("/usr/bin/" + executable))
+            return false;
 
-	if (script == ApiSystem::BATOCERASTORE)
-	{
-		std::string path = Paths::findEmulationStationFile("batocera-store.cfg");
-		if (path.empty() || !Utils::FileSystem::exists(path))
-			return false;
-	}
+    if (script == ApiSystem::BATOCERASTORE)
+    {
+        std::string path = Paths::findEmulationStationFile("batocera-store.cfg");
+        if (path.empty() || !Utils::FileSystem::exists(path))
+            return false;
+    }
 
-	return true;
+    return true;
 }
 
 bool Win32ApiSystem::canSuspend()
 {
-	SYSTEM_POWER_CAPABILITIES cap;
-	NTSTATUS status = ::CallNtPowerInformation(SystemPowerCapabilities, NULL, 0, &cap, sizeof(cap));
-	return (status == 0 && cap.HiberFilePresent);
+    SYSTEM_POWER_CAPABILITIES cap;
+    NTSTATUS status = ::CallNtPowerInformation(SystemPowerCapabilities, NULL, 0, &cap, sizeof(cap));
+    return (status == 0 && cap.HiberFilePresent);
 }
 
 void Win32ApiSystem::suspend()
-{	
-	if (!canSuspend())
-		return;
+{    
+    if (!canSuspend())
+        return;
 
-	LOG(LogDebug) << "Win32ApiSystem::suspend";
-	::SetSuspendState(TRUE, FALSE, FALSE);
+    LOG(LogDebug) << "Win32ApiSystem::suspend";
+    ::SetSuspendState(TRUE, FALSE, FALSE);
 }
+
 std::string Win32ApiSystem::getCurrentBrowserUrl() {
     LOG(LogDebug) << "Win32ApiSystem::getCurrentBrowserUrl() called";
 
@@ -232,613 +231,614 @@ std::string Win32ApiSystem::getCurrentBrowserUrl() {
     LOG(LogDebug) << "Win32ApiSystem::getCurrentBrowserUrl() - Current URL: " << currentUrl;
     return currentUrl;
 }
+
 int Win32ApiSystem::executeCMD(const char* lpCommandLine, std::string& output, const char* lpCurrentDirectory, const std::function<void(const std::string)>& func)
 {
-	int ret = -1;
-	output = "";
+ int ret = -1;
+ output = "";
 
-	std::string lineOutput;
+ std::string lineOutput;
 
-#define BUFSIZE		8192
+#define BUFSIZE     8192
 
-	STARTUPINFOW si;
-	SECURITY_ATTRIBUTES sa;
-	PROCESS_INFORMATION pi;
-	HANDLE g_hChildStd_IN_Rd, g_hChildStd_OUT_Wr, g_hChildStd_OUT_Rd, g_hChildStd_IN_Wr;  //pipe handles
-	char buf[BUFSIZE];           //i/o buffer
+ STARTUPINFOW si;
+ SECURITY_ATTRIBUTES sa;
+ PROCESS_INFORMATION pi;
+ HANDLE g_hChildStd_IN_Rd, g_hChildStd_OUT_Wr, g_hChildStd_OUT_Rd, g_hChildStd_IN_Wr;  //pipe handles
+ char buf[BUFSIZE];           //i/o buffer
 
-	sa.nLength = sizeof(SECURITY_ATTRIBUTES);
-	sa.bInheritHandle = TRUE;
-	sa.lpSecurityDescriptor = NULL;
+ sa.nLength = sizeof(SECURITY_ATTRIBUTES);
+ sa.bInheritHandle = TRUE;
+ sa.lpSecurityDescriptor = NULL;
 
-	if (CreatePipe(&g_hChildStd_IN_Rd, &g_hChildStd_IN_Wr, &sa, 0))   //create stdin pipe
-	{
-		if (CreatePipe(&g_hChildStd_OUT_Rd, &g_hChildStd_OUT_Wr, &sa, 0))  //create stdout pipe
-		{
-			//set startupinfo for the spawned process
-			/*The dwFlags member tells CreateProcess how to make the process.
-			STARTF_USESTDHANDLES: validates the hStd* members.
-			STARTF_USESHOWWINDOW: validates the wShowWindow member*/
-			GetStartupInfoW(&si);
+ if (CreatePipe(&g_hChildStd_IN_Rd, &g_hChildStd_IN_Wr, &sa, 0))   //create stdin pipe
+ {
+     if (CreatePipe(&g_hChildStd_OUT_Rd, &g_hChildStd_OUT_Wr, &sa, 0))  //create stdout pipe
+     {
+         //set startupinfo for the spawned process
+         /*The dwFlags member tells CreateProcess how to make the process.
+         STARTF_USESTDHANDLES: validates the hStd* members.
+         STARTF_USESHOWWINDOW: validates the wShowWindow member*/
+         GetStartupInfoW(&si);
 
-			si.dwFlags = STARTF_USESTDHANDLES | STARTF_USESHOWWINDOW;
-			si.wShowWindow = SW_HIDE;
-			//set the new handles for the child process
-			si.hStdOutput = g_hChildStd_OUT_Wr;
-			si.hStdError = g_hChildStd_OUT_Wr;
-			si.hStdInput = g_hChildStd_IN_Rd;
+         si.dwFlags = STARTF_USESTDHANDLES | STARTF_USESHOWWINDOW;
+         si.wShowWindow = SW_HIDE;
+         //set the new handles for the child process
+         si.hStdOutput = g_hChildStd_OUT_Wr;
+         si.hStdError = g_hChildStd_OUT_Wr;
+         si.hStdInput = g_hChildStd_IN_Rd;
 
-			//spawn the child process
-			std::wstring commandLineW = Utils::String::convertToWideString(lpCommandLine);
-			std::wstring directory = lpCurrentDirectory == NULL ? L"" : Utils::String::convertToWideString(lpCurrentDirectory);
-			if (CreateProcessW(NULL, (LPWSTR)commandLineW.c_str(), NULL, NULL, TRUE, CREATE_NEW_CONSOLE, NULL, lpCurrentDirectory == NULL ? NULL : (LPWSTR)directory.c_str(), &si, &pi))
-			{
-				if (m_hJob != nullptr)
-					AssignProcessToJobObject(m_hJob, pi.hProcess);
+         //spawn the child process
+         std::wstring commandLineW = Utils::String::convertToWideString(lpCommandLine);
+         std::wstring directory = lpCurrentDirectory == NULL ? L"" : Utils::String::convertToWideString(lpCurrentDirectory);
+         if (CreateProcessW(NULL, (LPWSTR)commandLineW.c_str(), NULL, NULL, TRUE, CREATE_NEW_CONSOLE, NULL, lpCurrentDirectory == NULL ? NULL : (LPWSTR)directory.c_str(), &si, &pi))
+         {
+             if (m_hJob != nullptr)
+                 AssignProcessToJobObject(m_hJob, pi.hProcess);
 
-				unsigned long bread;   //bytes read
-				unsigned long avail;   //bytes available
-				memset(buf, 0, sizeof(buf));
+             unsigned long bread;   //bytes read
+             unsigned long avail;   //bytes available
+             memset(buf, 0, sizeof(buf));
 
-				for (;;)
-				{
-					if (!PeekNamedPipe(g_hChildStd_OUT_Rd, buf, BUFSIZE-1, &bread, &avail, NULL))
-						break;
+             for (;;)
+             {
+                 if (!PeekNamedPipe(g_hChildStd_OUT_Rd, buf, BUFSIZE-1, &bread, &avail, NULL))
+                     break;
 
-					if (bread > 0)
-					{
-						if (!ReadFile(g_hChildStd_OUT_Rd, buf, BUFSIZE - 1, &bread, NULL))
-							break;
+                 if (bread > 0)
+                 {
+                     if (!ReadFile(g_hChildStd_OUT_Rd, buf, BUFSIZE - 1, &bread, NULL))
+                         break;
 
-						buf[bread] = 0;
+                     buf[bread] = 0;
 
-						std::string data = std::string(buf);
-						output += data;
+                     std::string data = std::string(buf);
+                     output += data;
 
-						if (func != nullptr)
-						{
-							lineOutput += data;
+                     if (func != nullptr)
+                     {
+                         lineOutput += data;
 
-							auto pos = lineOutput.find("\r\n");
-							while (pos != std::string::npos)
-							{
-								std::string line = Utils::String::replace(Utils::String::trim(lineOutput.substr(0, pos)), "\f", "");
-								func(line);
+                         auto pos = lineOutput.find("\r\n");
+                         while (pos != std::string::npos)
+                         {
+                             std::string line = Utils::String::replace(Utils::String::trim(lineOutput.substr(0, pos)), "\f", "");
+                             func(line);
 
-								lineOutput = lineOutput.substr(pos + 2);
-								pos = lineOutput.find("\r\n");
-							}
-						}
-					}
+                             lineOutput = lineOutput.substr(pos + 2);
+                             pos = lineOutput.find("\r\n");
+                         }
+                     }
+                 }
 
-					if (WaitForSingleObject(pi.hProcess, 10) == WAIT_OBJECT_0)
-					{
-						if (!PeekNamedPipe(g_hChildStd_OUT_Rd, buf, BUFSIZE - 1, &bread, &avail, NULL))
-							break;
+                 if (WaitForSingleObject(pi.hProcess, 10) == WAIT_OBJECT_0)
+                 {
+                     if (!PeekNamedPipe(g_hChildStd_OUT_Rd, buf, BUFSIZE - 1, &bread, &avail, NULL))
+                         break;
 
-						if (bread == 0)
-							break;
-					}
-				}
+                     if (bread == 0)
+                         break;
+                 }
+             }
 
-				DWORD exit_code = 0;
-				if (GetExitCodeProcess(pi.hProcess, &exit_code))
-					ret = exit_code;
-				else
-					ret = 0;
+             DWORD exit_code = 0;
+             if (GetExitCodeProcess(pi.hProcess, &exit_code))
+                 ret = exit_code;
+             else
+                 ret = 0;
 
-				//clean up all handles
-				CloseHandle(pi.hThread);
-				CloseHandle(pi.hProcess);
-				CloseHandle(g_hChildStd_IN_Rd);
-				CloseHandle(g_hChildStd_OUT_Wr);
-				CloseHandle(g_hChildStd_OUT_Rd);
-				CloseHandle(g_hChildStd_IN_Wr);
-			}
-			else
-			{
+             //clean up all handles
+             CloseHandle(pi.hThread);
+             CloseHandle(pi.hProcess);
+             CloseHandle(g_hChildStd_IN_Rd);
+             CloseHandle(g_hChildStd_OUT_Wr);
+             CloseHandle(g_hChildStd_OUT_Rd);
+             CloseHandle(g_hChildStd_IN_Wr);
+         }
+         else
+         {
 
-				CloseHandle(g_hChildStd_IN_Rd);
-				CloseHandle(g_hChildStd_OUT_Wr);
-				CloseHandle(g_hChildStd_OUT_Rd);
-				CloseHandle(g_hChildStd_IN_Wr);
-				ret = -1;
-			}
-		}
-		else
-		{
-			CloseHandle(g_hChildStd_IN_Rd);
-			CloseHandle(g_hChildStd_IN_Wr);
-			ret = -1;
-		}
-	}
+             CloseHandle(g_hChildStd_IN_Rd);
+             CloseHandle(g_hChildStd_OUT_Wr);
+             CloseHandle(g_hChildStd_OUT_Rd);
+             CloseHandle(g_hChildStd_IN_Wr);
+             ret = -1;
+         }
+     }
+     else
+     {
+         CloseHandle(g_hChildStd_IN_Rd);
+         CloseHandle(g_hChildStd_IN_Wr);
+         ret = -1;
+     }
+ }
 
-	return ret;
+ return ret;
 }
 
 
 bool Win32ApiSystem::executeScript(const std::string command)
 {
-	LOG(LogInfo) << "Running " << command;
+ LOG(LogInfo) << "Running " << command;
 
-	std::string executable;
-	std::string parameters;
-	Utils::FileSystem::splitCommand(command, &executable, &parameters);
+ std::string executable;
+ std::string parameters;
+ Utils::FileSystem::splitCommand(command, &executable, &parameters);
 
-	std::string path;
+ std::string path;
 
-	if (executable.find(":") != std::string::npos && Utils::FileSystem::exists(executable))
-		path = Utils::FileSystem::getPreferredPath(executable);
-	else
-		path = Paths::findEmulationStationFile(executable + ".exe");
+ if (executable.find(":") != std::string::npos && Utils::FileSystem::exists(executable))
+     path = Utils::FileSystem::getPreferredPath(executable);
+ else
+     path = Paths::findEmulationStationFile(executable + ".exe");
 
-	if (!path.empty() && Utils::FileSystem::exists(path))
-	{
-		std::string cmd = parameters.empty() ? path : path + " " + parameters;
+ if (!path.empty() && Utils::FileSystem::exists(path))
+ {
+     std::string cmd = parameters.empty() ? path : path + " " + parameters;
 
-		std::string output;
-		return executeCMD(cmd.c_str(), output) == 0;
-	}
+     std::string output;
+     return executeCMD(cmd.c_str(), output) == 0;
+ }
 
-	return false;
+ return false;
 }
 
 std::pair<std::string, int> Win32ApiSystem::executeScript(const std::string command, const std::function<void(const std::string)>& func)
-{	LOG(LogInfo) << "Running " << command;
+{    LOG(LogInfo) << "Running " << command;
 
-	std::string executable;
-	std::string parameters;
-	Utils::FileSystem::splitCommand(command, &executable, &parameters);
+ std::string executable;
+ std::string parameters;
+ Utils::FileSystem::splitCommand(command, &executable, &parameters);
 
-	std::string path;
+ std::string path;
 
-	if (executable.find(":") != std::string::npos && Utils::FileSystem::exists(executable))
-		path = Utils::FileSystem::getPreferredPath(executable);
-	else
-		path = Paths::findEmulationStationFile(executable + ".exe");
+ if (executable.find(":") != std::string::npos && Utils::FileSystem::exists(executable))
+     path = Utils::FileSystem::getPreferredPath(executable);
+ else
+     path = Paths::findEmulationStationFile(executable + ".exe");
 
-	if (!path.empty() && Utils::FileSystem::exists(path))
-	{
-		std::string cmd = parameters.empty() ? path : path + " " + parameters;
+ if (!path.empty() && Utils::FileSystem::exists(path))
+ {
+     std::string cmd = parameters.empty() ? path : path + " " + parameters;
 
-		std::string output;
-		auto ret = executeCMD(cmd.c_str(), output, nullptr, func);
-		return std::pair<std::string, int>(output, ret);
-	}
+     std::string output;
+     auto ret = executeCMD(cmd.c_str(), output, nullptr, func);
+     return std::pair<std::string, int>(output, ret);
+ }
 
-	return std::pair<std::string, int>("", -1);
+ return std::pair<std::string, int>("", -1);
 }
 
 std::vector<std::string> Win32ApiSystem::executeEnumerationScript(const std::string command)
 {
-	LOG(LogDebug) << "ApiSystem::executeEnumerationScript -> " << command;
+ LOG(LogDebug) << "ApiSystem::executeEnumerationScript -> " << command;
 
-	std::vector<std::string> res;
+ std::vector<std::string> res;
 
-	std::string executable;
-	std::string parameters;
-	Utils::FileSystem::splitCommand(command, &executable, &parameters);
+ std::string executable;
+ std::string parameters;
+ Utils::FileSystem::splitCommand(command, &executable, &parameters);
 
-	std::string path;
+ std::string path;
 
-	if (executable.find(":") != std::string::npos && Utils::FileSystem::exists(executable))
-		path = Utils::FileSystem::getPreferredPath(executable);
-	else
-		path = Paths::findEmulationStationFile(executable + ".exe");
+ if (executable.find(":") != std::string::npos && Utils::FileSystem::exists(executable))
+     path = Utils::FileSystem::getPreferredPath(executable);
+ else
+     path = Paths::findEmulationStationFile(executable + ".exe");
 
-	if (Utils::FileSystem::exists(path))
-	{
-		std::string cmd = parameters.empty() ? path : path + " " + parameters;
+ if (Utils::FileSystem::exists(path))
+ {
+     std::string cmd = parameters.empty() ? path : path + " " + parameters;
 
-		std::string output;
-		if (executeCMD(cmd.c_str(), output) == 0)
-		{
-			for (std::string all : Utils::String::splitAny(output, "\r\n"))
-				res.push_back(all);
-		}
-	}
+     std::string output;
+     if (executeCMD(cmd.c_str(), output) == 0)
+     {
+         for (std::string all : Utils::String::splitAny(output, "\r\n"))
+             res.push_back(all);
+     }
+ }
 
-	return res;
+ return res;
 }
 
 unsigned long Win32ApiSystem::getFreeSpaceGB(std::string mountpoint)
 {
-	LOG(LogDebug) << "ApiSystem::getFreeSpaceGB";
+ LOG(LogDebug) << "ApiSystem::getFreeSpaceGB";
 
-	unsigned __int64 i64FreeBytesToCaller, i64TotalBytes, i64FreeBytes;
+ unsigned __int64 i64FreeBytesToCaller, i64TotalBytes, i64FreeBytes;
 
-	std::string drive = Paths::getUserEmulationStationPath()[0] + std::string(":");
+ std::string drive = Paths::getUserEmulationStationPath()[0] + std::string(":");
 
-	BOOL  fResult = GetDiskFreeSpaceExA(drive.c_str(),
-		(PULARGE_INTEGER)&i64FreeBytesToCaller,
-		(PULARGE_INTEGER)&i64TotalBytes,
-		(PULARGE_INTEGER)&i64FreeBytes);
+ BOOL  fResult = GetDiskFreeSpaceExA(drive.c_str(),
+     (PULARGE_INTEGER)&i64FreeBytesToCaller,
+     (PULARGE_INTEGER)&i64TotalBytes,
+     (PULARGE_INTEGER)&i64FreeBytes);
 
-	if (fResult)
-		return i64FreeBytes / (1024 * 1024 * 1024);
+ if (fResult)
+     return i64FreeBytes / (1024 * 1024 * 1024);
 
-	return 0;
+ return 0;
 }
 
 std::vector<std::string> Win32ApiSystem::getSystemInformations()
 {
-	LOG(LogDebug) << "ApiSystem::getSystemInformations";
+ LOG(LogDebug) << "ApiSystem::getSystemInformations";
 
-	std::vector<std::string> res;
+ std::vector<std::string> res;
 
-	int CPUInfo[4] = { -1 };
-	unsigned   nExIds, i = 0;
-	char CPUBrandString[0x40];
-	// Get the information associated with each extended ID.
-	__cpuid(CPUInfo, 0x80000000);
-	nExIds = CPUInfo[0];
-	for (i = 0x80000000; i <= nExIds; ++i)
-	{
-		__cpuid(CPUInfo, i);
-		// Interpret CPU brand string
-		if (i == 0x80000002)
-			memcpy(CPUBrandString, CPUInfo, sizeof(CPUInfo));
-		else if (i == 0x80000003)
-			memcpy(CPUBrandString + 16, CPUInfo, sizeof(CPUInfo));
-		else if (i == 0x80000004)
-			memcpy(CPUBrandString + 32, CPUInfo, sizeof(CPUInfo));
-	}
+ int CPUInfo[4] = { -1 };
+ unsigned   nExIds, i = 0;
+ char CPUBrandString[0x40];
+ // Get the information associated with each extended ID.
+ __cpuid(CPUInfo, 0x80000000);
+ nExIds = CPUInfo[0];
+ for (i = 0x80000000; i <= nExIds; ++i)
+ {
+     __cpuid(CPUInfo, i);
+     // Interpret CPU brand string
+     if (i == 0x80000002)
+         memcpy(CPUBrandString, CPUInfo, sizeof(CPUInfo));
+     else if (i == 0x80000003)
+         memcpy(CPUBrandString + 16, CPUInfo, sizeof(CPUInfo));
+     else if (i == 0x80000004)
+         memcpy(CPUBrandString + 32, CPUInfo, sizeof(CPUInfo));
+ }
 
-	//string includes manufacturer, model and clockspeed
-	res.push_back("CPU:" + std::string(CPUBrandString));
+ //string includes manufacturer, model and clockspeed
+ res.push_back("CPU:" + std::string(CPUBrandString));
 
-	SYSTEM_INFO sysInfo;
-	GetSystemInfo(&sysInfo);
-	res.push_back("CORES:" + std::to_string(sysInfo.dwNumberOfProcessors));
+ SYSTEM_INFO sysInfo;
+ GetSystemInfo(&sysInfo);
+ res.push_back("CORES:" + std::to_string(sysInfo.dwNumberOfProcessors));
 
-	MEMORYSTATUSEX statex;
-	statex.dwLength = sizeof(statex);
-	GlobalMemoryStatusEx(&statex);
-	res.push_back("MEMORY:" + std::to_string((statex.ullTotalPhys / 1024) / 1024) + "MB");
+ MEMORYSTATUSEX statex;
+ statex.dwLength = sizeof(statex);
+ GlobalMemoryStatusEx(&statex);
+ res.push_back("MEMORY:" + std::to_string((statex.ullTotalPhys / 1024) / 1024) + "MB");
 
-	return res;
+ return res;
 }
 
 std::vector<std::string> Win32ApiSystem::getAvailableStorageDevices()
 {
-	std::vector<std::string> res;
-	return res;
+ std::vector<std::string> res;
+ return res;
 }
 
 std::vector<BatoceraBezel> Win32ApiSystem::getBatoceraBezelsList()
 {
-	LOG(LogDebug) << "ApiSystem::getBatoceraBezelsList";
+ LOG(LogDebug) << "ApiSystem::getBatoceraBezelsList";
 
-	std::vector<BatoceraBezel> res;
+ std::vector<BatoceraBezel> res;
 
-	HttpReq request(getUpdateUrl() + "/bezels.txt");
-	if (request.wait())
-	{
-		auto lines = Utils::String::split(request.getContent(), '\n');
-		for (auto line : lines)
-		{
-			auto parts = Utils::String::splitAny(line, " \t");
-			if (parts.size() < 2)
-				continue;
+ HttpReq request(getUpdateUrl() + "/bezels.txt");
+ if (request.wait())
+ {
+     auto lines = Utils::String::split(request.getContent(), '\n');
+     for (auto line : lines)
+     {
+         auto parts = Utils::String::splitAny(line, " \t");
+         if (parts.size() < 2)
+             continue;
 
-			BatoceraBezel bz;
-			bz.name = parts[0];
-			bz.url = parts[1];
-			bz.folderPath = parts.size() < 3 ? "" : parts[2];
+         BatoceraBezel bz;
+         bz.name = parts[0];
+         bz.url = parts.size() < 3 ? "" : (parts[2] == "-" ? parts[3] : parts[2]);
+         bz.folderPath = parts.size() < 4 ? "" : parts[3];
 
-			std::string theBezelProject = Paths::getUserDecorationsPath() + "/thebezelproject/games/" + parts[0];
-			bz.isInstalled = Utils::FileSystem::exists(theBezelProject);
-			
-			if (bz.name != "?")
-				res.push_back(bz);
-		}
-	}
+         std::string theBezelProject = Paths::getUserDecorationsPath() + "/thebezelproject/games/" + parts[0];
+         bz.isInstalled = Utils::FileSystem::exists(theBezelProject);
+         
+         if (bz.name != "?")
+             res.push_back(bz);
+     }
+ }
 
-	return res;
+ return res;
 }
 
 std::pair<std::string, int> Win32ApiSystem::installBatoceraBezel(std::string bezelsystem, const std::function<void(const std::string)>& func)
 {
-	LOG(LogDebug) << "ApiSystem::installBatoceraBezel";
+ LOG(LogDebug) << "ApiSystem::installBatoceraBezel";
 
-	for (auto bezel : getBatoceraBezelsList())
-	{		
-		if (bezel.name == bezelsystem)
-		{
-			std::string themeUrl = bezel.url;
-			std::string subFolder = bezel.folderPath;
+ for (auto bezel : getBatoceraBezelsList())
+ {        
+     if (bezel.name == bezelsystem)
+     {
+         std::string themeUrl = bezel.url;
+         std::string subFolder = bezel.folderPath;
 
-			std::string themeFileName = Utils::FileSystem::getFileName(themeUrl);
-			std::string zipFile = Utils::FileSystem::getCanonicalPath(Paths::getUserDecorationsPath() + "/" + themeFileName + ".zip");
+         std::string themeFileName = Utils::FileSystem::getFileName(themeUrl);
+         std::string zipFile = Utils::FileSystem::getCanonicalPath(Paths::getUserDecorationsPath() + "/" + themeFileName + ".zip");
 
-			if (downloadGitRepository(themeUrl, "master", zipFile, bezelsystem, func))
-			{
-				std::string theBezelProject = Paths::getUserDecorationsPath() + "/thebezelproject/games/"+ bezelsystem;
-				Utils::FileSystem::createDirectory(theBezelProject);
+         if (downloadGitRepository(themeUrl, "master", zipFile, bezelsystem, func, bezel.size * 1024LL * 1024))
+         {
+             std::string theBezelProject = Paths::getUserDecorationsPath() + "/thebezelproject/games/"+ bezelsystem;
+             Utils::FileSystem::createDirectory(theBezelProject);
 
-				std::string tmp = Paths::getUserDecorationsPath() + "/thebezelproject/games/" + bezelsystem + "/tmp";
-				Utils::FileSystem::createDirectory(tmp);
+             std::string tmp = Paths::getUserDecorationsPath() + "/thebezelproject/games/" + bezelsystem + "/tmp";
+             Utils::FileSystem::createDirectory(tmp);
 
-				if (func != nullptr)
-					func(_("Extracting") + " " + bezelsystem+ " bezels");
-				
-				auto shouldProcessFile = [subFolder](const std::string name)
-				{
-					std::string ext = Utils::FileSystem::getExtension(name);
-					if (ext != ".cfg" && ext != ".png")
-						return false;
+             if (func != nullptr)
+                 func(_("Extracting") + " " + bezelsystem+ " bezels");
+             
+             auto shouldProcessFile = [subFolder](const std::string name)
+             {
+                 std::string ext = Utils::FileSystem::getExtension(name);
+                 if (ext != ".cfg" && ext != ".png")
+                     return false;
 
-					if (!subFolder.empty() && Utils::FileSystem::getGenericPath(name).find(subFolder.c_str()) == std::string::npos)
-						return false;
+                 if (!subFolder.empty() && Utils::FileSystem::getGenericPath(name).find(subFolder.c_str()) == std::string::npos)
+                     return false;
 
-					if (subFolder.empty() && name.find("/overlay/GameBezels/") == std::string::npos)
-						return false;
+                 if (subFolder.empty() && name.find("/overlay/GameBezels/") == std::string::npos)
+                     return false;
 
-					return true;
-				};				
+                 return true;
+             };                
 
-				unzipFile(zipFile, tmp, shouldProcessFile);
+             unzipFile(zipFile, tmp, shouldProcessFile);
 
-				Utils::FileSystem::removeFile(zipFile);
+             Utils::FileSystem::removeFile(zipFile);
 
-				auto files = Utils::FileSystem::getDirContent(tmp, true, true);
-				for (auto file : files)
-				{
-					if (!shouldProcessFile(file))
-						continue;
-					
-					std::string dest = theBezelProject + "/" + Utils::FileSystem::getFileName(file);
-					Utils::FileSystem::renameFile(file, dest);
-				}
+             auto files = Utils::FileSystem::getDirContent(tmp, true, true);
+             for (auto file : files)
+             {
+                 if (!shouldProcessFile(file))
+                     continue;
+                 
+                 std::string dest = theBezelProject + "/" + Utils::FileSystem::getFileName(file);
+                 Utils::FileSystem::renameFile(file, dest);
+             }
 
-				Utils::FileSystem::deleteDirectoryFiles(tmp, true);
+             Utils::FileSystem::deleteDirectoryFiles(tmp, true);
 
-				return std::pair<std::string, int>(std::string("OK"), 0);
-			}
+             return std::pair<std::string, int>(std::string("OK"), 0);
+         }
 
-			break;
-		}
-	}
+         break;
+     }
+ }
 
-	return std::pair<std::string, int>("", 1);
+ return std::pair<std::string, int>("", 1);
 }
 
 std::pair<std::string, int> Win32ApiSystem::uninstallBatoceraBezel(std::string bezelsystem, const std::function<void(const std::string)>& func)
 {
-	std::string theBezelProject = Paths::getUserDecorationsPath() + "/thebezelproject/games/" + bezelsystem;
-	Utils::FileSystem::deleteDirectoryFiles(theBezelProject, true);
+ std::string theBezelProject = Paths::getUserDecorationsPath() + "/thebezelproject/games/" + bezelsystem;
+ Utils::FileSystem::deleteDirectoryFiles(theBezelProject, true);
 
-	return std::pair<std::string, int>("OK", 0);
+ return std::pair<std::string, int>("OK", 0);
 }
 
 
 std::string Win32ApiSystem::getFreeSpaceUserInfo() 
 {
-  return getFreeSpaceInfo(Paths::getUserEmulationStationPath()[0] + std::string(":"));
+return getFreeSpaceInfo(Paths::getUserEmulationStationPath()[0] + std::string(":"));
 }
 
 std::string Win32ApiSystem::getFreeSpaceSystemInfo() 
-{	
-	TCHAR winDir[MAX_PATH];
-	GetWindowsDirectory(winDir, MAX_PATH);
-	return getFreeSpaceInfo(winDir[0] + std::string(":"));
+{    
+ TCHAR winDir[MAX_PATH];
+ GetWindowsDirectory(winDir, MAX_PATH);
+ return getFreeSpaceInfo(winDir[0] + std::string(":"));
 }
 
 std::string Win32ApiSystem::getFreeSpaceInfo(const std::string drive)
 {
-	LOG(LogDebug) << "ApiSystem::getFreeSpaceInfo";
+ LOG(LogDebug) << "ApiSystem::getFreeSpaceInfo";
 
-	unsigned __int64 i64FreeBytesToCaller, i64TotalBytes, i64FreeBytes;
+ unsigned __int64 i64FreeBytesToCaller, i64TotalBytes, i64FreeBytes;
 
-	BOOL  fResult = GetDiskFreeSpaceExA(drive.c_str(),
-		(PULARGE_INTEGER)&i64FreeBytesToCaller,
-		(PULARGE_INTEGER)&i64TotalBytes,
-		(PULARGE_INTEGER)&i64FreeBytes);
+ BOOL  fResult = GetDiskFreeSpaceExA(drive.c_str(),
+     (PULARGE_INTEGER)&i64FreeBytesToCaller,
+     (PULARGE_INTEGER)&i64TotalBytes,
+     (PULARGE_INTEGER)&i64FreeBytes);
 
-	if (fResult)
-	{
-		unsigned long long total = i64TotalBytes;
-		unsigned long long free = i64FreeBytes;
-		unsigned long long used = total - free;
-		unsigned long percent = 0;
-		std::ostringstream oss;
-		if (total != 0) 
-		{  //for small SD card ;) with share < 1GB
-			percent = used * 100 / total;
-			oss << Utils::FileSystem::megaBytesToString(used / (1024L * 1024L)) << "/" << Utils::FileSystem::megaBytesToString(total / (1024L * 1024L)) << " (" << percent << "%)";
-		}
-		else
-			oss << "N/A";
+ if (fResult)
+ {
+     unsigned long long total = i64TotalBytes;
+     unsigned long long free = i64FreeBytes;
+     unsigned long long used = total - free;
+     unsigned long percent = 0;
+     std::ostringstream oss;
+     if (total != 0) 
+     {  //for small SD card ;) with share < 1GB
+         percent = used * 100 / total;
+         oss << Utils::FileSystem::megaBytesToString(used / (1024L * 1024L)) << "/" << Utils::FileSystem::megaBytesToString(total / (1024L * 1024L)) << " (" << percent << "%)";
+     }
+     else
+         oss << "N/A";
 
-		return oss.str();
-	}
+     return oss.str();
+ }
 
-	return "N/A";
+ return "N/A";
 }
 
 
 bool Win32ApiSystem::ping()
 {
-	LOG(LogDebug) << "ApiSystem::ping";
+ LOG(LogDebug) << "ApiSystem::ping";
 
-	bool connected = false;
+ bool connected = false;
 
-	HMODULE hWinInet = LoadLibrary("WININET.DLL");
-	if (hWinInet != NULL)
-	{
-		typedef BOOL(WINAPI *PF_INETGETCONNECTEDSTATE)(LPDWORD, DWORD);
-		PF_INETGETCONNECTEDSTATE pfInternetGetConnectedState;
+ HMODULE hWinInet = LoadLibrary("WININET.DLL");
+ if (hWinInet != NULL)
+ {
+     typedef BOOL(WINAPI *PF_INETGETCONNECTEDSTATE)(LPDWORD, DWORD);
+     PF_INETGETCONNECTEDSTATE pfInternetGetConnectedState;
 
-		pfInternetGetConnectedState = (PF_INETGETCONNECTEDSTATE) ::GetProcAddress(hWinInet, "InternetGetConnectedState");
-		// affectation du pointeur sur la fonction
-		if (pfInternetGetConnectedState != NULL)
-		{
-			DWORD TypeCon;
-			if (pfInternetGetConnectedState(&TypeCon, 0))
-				connected = true;
-		}
+     pfInternetGetConnectedState = (PF_INETGETCONNECTEDSTATE) ::GetProcAddress(hWinInet, "InternetGetConnectedState");
+     // affectation du pointeur sur la fonction
+     if (pfInternetGetConnectedState != NULL)
+     {
+         DWORD TypeCon;
+         if (pfInternetGetConnectedState(&TypeCon, 0))
+             connected = true;
+     }
 
-		FreeLibrary(hWinInet);
-	}
+     FreeLibrary(hWinInet);
+ }
 
-	return connected;
+ return connected;
 }
 
 static std::string getScriptPath(const std::string& name)
 {
-	std::vector<std::string> paths = 
-	{
-		Paths::getEmulationStationPath(),
-		Paths::getUserEmulationStationPath(),
-		Utils::FileSystem::getParent(Paths::getUserEmulationStationPath())
-	};
+ std::vector<std::string> paths = 
+ {
+     Paths::getEmulationStationPath(),
+     Paths::getUserEmulationStationPath(),
+     Utils::FileSystem::getParent(Paths::getUserEmulationStationPath())
+ };
 
-	for (auto path : paths)
-	{
-		std::string esUpdatePath = Utils::FileSystem::combine(path, name + ".cmd");
-		if (Utils::FileSystem::exists(esUpdatePath))
-			return Utils::FileSystem::getPreferredPath(esUpdatePath);
+ for (auto path : paths)
+ {
+     std::string esUpdatePath = Utils::FileSystem::combine(path, name + ".cmd");
+     if (Utils::FileSystem::exists(esUpdatePath))
+         return Utils::FileSystem::getPreferredPath(esUpdatePath);
 
-		esUpdatePath = Utils::FileSystem::combine(path, name + ".bat");
-		if (Utils::FileSystem::exists(esUpdatePath))
-			return Utils::FileSystem::getPreferredPath(esUpdatePath);
+     esUpdatePath = Utils::FileSystem::combine(path, name + ".bat");
+     if (Utils::FileSystem::exists(esUpdatePath))
+         return Utils::FileSystem::getPreferredPath(esUpdatePath);
 
-		esUpdatePath = Utils::FileSystem::combine(path, name + ".exe");
-		if (Utils::FileSystem::exists(esUpdatePath))
-			return Utils::FileSystem::getPreferredPath(esUpdatePath);
-	}
+     esUpdatePath = Utils::FileSystem::combine(path, name + ".exe");
+     if (Utils::FileSystem::exists(esUpdatePath))
+         return Utils::FileSystem::getPreferredPath(esUpdatePath);
+ }
 
-	return "";
+ return "";
 }
 
 void Win32ApiSystem::installEmulationStationZip(const std::string& zipFile)
 {
-	std::string path = Paths::getUserEmulationStationPath() + "/update";
+ std::string path = Paths::getUserEmulationStationPath() + "/update";
 
-	if (Utils::FileSystem::exists(path))
-		Utils::FileSystem::deleteDirectoryFiles(path);
-	else
-		Utils::FileSystem::createDirectory(path);
+ if (Utils::FileSystem::exists(path))
+     Utils::FileSystem::deleteDirectoryFiles(path);
+ else
+     Utils::FileSystem::createDirectory(path);
 
-	unzipFile(zipFile, path);
-	Utils::FileSystem::removeFile(zipFile);
+ unzipFile(zipFile, path);
+ Utils::FileSystem::removeFile(zipFile);
 
-	auto files = Utils::FileSystem::getDirContent(path, true, true);
+ auto files = Utils::FileSystem::getDirContent(path, true, true);
 
-	auto pluginFolder = Paths::getEmulationStationPath() + "/plugins";
-	for (auto pluginFile : Utils::FileSystem::getDirContent(pluginFolder, true))
-	{
-		if (Utils::FileSystem::isDirectory(pluginFile))
-			continue;
+ auto pluginFolder = Paths::getEmulationStationPath() + "/plugins";
+ for (auto pluginFile : Utils::FileSystem::getDirContent(pluginFolder, true))
+ {
+     if (Utils::FileSystem::isDirectory(pluginFile))
+         continue;
 
-		Utils::FileSystem::removeFile(pluginFile + ".old");
+     Utils::FileSystem::removeFile(pluginFile + ".old");
 
-		std::string pluginRelativeFile = Utils::FileSystem::createRelativePath(pluginFile, pluginFolder, false);
-		if (Utils::String::startsWith(pluginRelativeFile, "./"))
-			pluginRelativeFile = pluginRelativeFile.substr(2);
+     std::string pluginRelativeFile = Utils::FileSystem::createRelativePath(pluginFile, pluginFolder, false);
+     if (Utils::String::startsWith(pluginRelativeFile, "./"))
+         pluginRelativeFile = pluginRelativeFile.substr(2);
 
-		bool existsInArchive = false;
+     bool existsInArchive = false;
 
-		for (auto installedFile : files)
-		{
-			if (Utils::FileSystem::isDirectory(installedFile))
-				continue;
+     for (auto installedFile : files)
+     {
+         if (Utils::FileSystem::isDirectory(installedFile))
+             continue;
 
-			std::string relative = Utils::FileSystem::createRelativePath(installedFile, path, false);
-			if (Utils::String::startsWith(relative, "./"))
-				relative = relative.substr(2);
+         std::string relative = Utils::FileSystem::createRelativePath(installedFile, path, false);
+         if (Utils::String::startsWith(relative, "./"))
+             relative = relative.substr(2);
 
-			if (relative == pluginRelativeFile)
-			{
-				existsInArchive = true;
-				break;
-			}
-		}
+         if (relative == pluginRelativeFile)
+         {
+             existsInArchive = true;
+             break;
+         }
+     }
 
-		if (!existsInArchive)
-		{
-			Utils::FileSystem::removeFile(pluginFile);
-			Utils::FileSystem::renameFile(pluginFile, pluginFile + ".old");
-		}
-	}
+     if (!existsInArchive)
+     {
+         Utils::FileSystem::removeFile(pluginFile);
+         Utils::FileSystem::renameFile(pluginFile, pluginFile + ".old");
+     }
+ }
 
-	for (auto file : files)
-	{
-		std::string relative = Utils::FileSystem::createRelativePath(file, path, false);
-		if (Utils::String::startsWith(relative, "./"))
-			relative = relative.substr(2);
+ for (auto file : files)
+ {
+     std::string relative = Utils::FileSystem::createRelativePath(file, path, false);
+     if (Utils::String::startsWith(relative, "./"))
+         relative = relative.substr(2);
 
-		std::string localPath = Paths::getEmulationStationPath() + "/" + relative;
+     std::string localPath = Paths::getEmulationStationPath() + "/" + relative;
 
-		if (Utils::FileSystem::isDirectory(file))
-		{
-			if (!Utils::FileSystem::exists(localPath))
-				Utils::FileSystem::createDirectory(localPath);
-		}
-		else
-		{
-			// Avoid replacing development exe/lib
-			if ((Utils::String::containsIgnoreCase(localPath, "/RelWithDebInfo/") || Utils::String::containsIgnoreCase(localPath, "/Debug/")) &&
-				(Utils::FileSystem::getExtension(localPath) == ".exe" || Utils::FileSystem::getExtension(localPath) == ".lib"))
-				continue;
+     if (Utils::FileSystem::isDirectory(file))
+     {
+         if (!Utils::FileSystem::exists(localPath))
+             Utils::FileSystem::createDirectory(localPath);
+     }
+     else
+     {
+         // Avoid replacing development exe/lib
+         if ((Utils::String::containsIgnoreCase(localPath, "/RelWithDebInfo/") || Utils::String::containsIgnoreCase(localPath, "/Debug/")) &&
+             (Utils::FileSystem::getExtension(localPath) == ".exe" || Utils::FileSystem::getExtension(localPath) == ".lib"))
+             continue;
 
-			if (Utils::FileSystem::exists(localPath))
-			{
-				Utils::FileSystem::removeFile(localPath + ".old");
-				Utils::FileSystem::renameFile(localPath, localPath + ".old");
-			}
+         if (Utils::FileSystem::exists(localPath))
+         {
+             Utils::FileSystem::removeFile(localPath + ".old");
+             Utils::FileSystem::renameFile(localPath, localPath + ".old");
+         }
 
-			if (Utils::FileSystem::copyFile(file, localPath))
-			{
-				Utils::FileSystem::removeFile(localPath + ".old");
-				Utils::FileSystem::removeFile(file);
-			}
-		}
-	}
+         if (Utils::FileSystem::copyFile(file, localPath))
+         {
+             Utils::FileSystem::removeFile(localPath + ".old");
+             Utils::FileSystem::removeFile(file);
+         }
+     }
+ }
 
-	Utils::FileSystem::deleteDirectoryFiles(path);
+ Utils::FileSystem::deleteDirectoryFiles(path);
 }
 
 std::pair<std::string, int> Win32ApiSystem::updateSystem(const std::function<void(const std::string)>& func)
 {
-	std::string esUpdateScript = getScriptPath("es-update");
-	if (!esUpdateScript.empty())
-	{
-		std::string esUpdateDirectory = Utils::FileSystem::getPreferredPath(Utils::FileSystem::getParent(esUpdateScript));
+ std::string esUpdateScript = getScriptPath("es-update");
+ if (!esUpdateScript.empty())
+ {
+     std::string esUpdateDirectory = Utils::FileSystem::getPreferredPath(Utils::FileSystem::getParent(esUpdateScript));
 
-		std::string updatesType = Settings::getInstance()->getString("updates.type");
-		if (updatesType == "beta" || updatesType == "unstable")
-			esUpdateScript += " -branch " + updatesType;
+     std::string updatesType = Settings::getInstance()->getString("updates.type");
+     if (updatesType == "beta" || updatesType == "unstable")
+         esUpdateScript += " -branch " + updatesType;
 
-		std::string output;
-		auto ret = executeCMD(esUpdateScript.c_str(), output, esUpdateDirectory.c_str(), func);
-		if (ret != 0)
-		{
-			auto lines = Utils::String::split(Utils::String::replace(output, "\r", ""), '\n', true);
-			if (lines.size() > 0)
-				return std::pair<std::string, int>(lines[lines.size() - 1], ret);
+     std::string output;
+     auto ret = executeCMD(esUpdateScript.c_str(), output, esUpdateDirectory.c_str(), func);
+     if (ret != 0)
+     {
+         auto lines = Utils::String::split(Utils::String::replace(output, "\r", ""), '\n', true);
+         if (lines.size() > 0)
+             return std::pair<std::string, int>(lines[lines.size() - 1], ret);
 
-			return std::pair<std::string, int>("error", ret);
-		}
-		else
-		{
-			auto lines = Utils::String::split(Utils::String::replace(output, "\r", ""), '\n', true);
-			if (lines.size() > 0)
-			{			
-				std::string lastLine = Utils::String::trim(Utils::String::replace(lines[lines.size() - 1], "\f", ""));
-				if (lastLine.find(".zip") != std::string::npos && Utils::FileSystem::exists(lastLine))
-				{
-					if (func != nullptr)
-						func(std::string("Updating EmulationStation"));
+         return std::pair<std::string, int>("error", ret);
+     }
+     else
+     {
+         auto lines = Utils::String::split(Utils::String::replace(output, "\r", ""), '\n', true);
+         if (lines.size() > 0)
+         {            
+             std::string lastLine = Utils::String::trim(Utils::String::replace(lines[lines.size() - 1], "\f", ""));
+             if (lastLine.find(".zip") != std::string::npos && Utils::FileSystem::exists(lastLine))
+             {
+                 if (func != nullptr)
+                     func(std::string("Updating EmulationStation"));
 
-					installEmulationStationZip(lastLine);
-					return std::pair<std::string, int>("done.", ret);
-				}
-			}
+                 installEmulationStationZip(lastLine);
+                 return std::pair<std::string, int>("done.", ret);
+             }
+         }
 
-			return std::pair<std::string, int>("done.", ret);
-		}
-	}
+         return std::pair<std::string, int>("done.", ret);
+     }
+ }
 
 	std::string url = getUrlFromUpdateType(UPDATEURL);
 
