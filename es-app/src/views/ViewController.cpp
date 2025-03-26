@@ -31,7 +31,78 @@
 #include "TextToSpeech.h"
 #include "VolumeControl.h"
 #include "guis/GuiNetPlay.h"
+#include "EpicGamesStore/EpicGamesStoreAPI.h" //  Include the EpicGamesStoreAPI
+#include "WebView/WebViewGuiComponent.h
 
+//  Helper function to extract the authorization code from the URL
+std::string extractAuthorizationCode(const std::string& url) {
+    std::string code;
+    std::string authCodeUrl = EpicGamesStoreAPI::AUTH_CODE_URL;
+    size_t pos = url.find(authCodeUrl);
+    if (pos != std::string::npos) {
+        size_t code_start = url.find("code=", pos);
+        if (code_start != std::string::npos) {
+            code_start += 5; //  Length of "code="
+            size_t code_end = url.find('&', code_start);
+            if (code_end == std::string::npos) {
+                code = url.substr(code_start);
+            } else {
+                code = url.substr(code_start, code_end - code_start);
+            }
+        }
+    }
+    return code;
+}
+
+void ViewController::startEpicGamesLogin() {
+    Log::info("Starting Epic Games login...");
+
+    WebViewGuiComponent* webView = new WebViewGuiComponent(mWindow);
+
+    //  Set the size and position of the webview
+    int webViewWidth = mWindow->getWidth() * 0.8;  //  80% of window width
+    int webViewHeight = mWindow->getHeight() * 0.8; //  80% of window height
+    int webViewX = (mWindow->getWidth() - webViewWidth) / 2;
+    int webViewY = (mWindow->getHeight() - webViewHeight) / 2;
+    webView->setBounds(webViewX, webViewY, webViewWidth, webViewHeight);
+
+    webView->setNavigationCallback([webView, this](const std::string& url) {
+        //  Gestisci gli eventi di navigazione qui
+        //  Esempio:
+        if (url.find(EpicGamesStoreAPI::AUTH_CODE_URL) != std::string::npos) {
+            //  Estrarre il codice di autorizzazione dall'URL (implementa questa funzione)
+            std::string authorizationCode = extractAuthorizationCode(url);
+            webView->setCloseCallback([this, authorizationCode, webView]() {
+                //  Chiudi la visualizzazione web e procedi con l'autenticazione
+                mWindow->removeGui(webView);
+                delete webView;
+                if (!authorizationCode.empty()) {
+                    if (epicGamesAPI.authenticateUsingAuthCode(authorizationCode)) {
+                        //  Autenticazione riuscita
+                        Log::info("Epic Games authentication successful.");
+                        //  Aggiungi qui la logica per aggiornare l'interfaccia utente,
+                        //  caricare i giochi, ecc.
+                    } else {
+                        //  Autenticazione fallita
+                        Log::error("Epic Games authentication failed.");
+                        mWindow->pushGui(new GuiMsgBox(mWindow,
+                            "Epic Games authentication failed.",
+                            "OK"));
+                    }
+                }
+            });
+            webView->handleClose(); // Trigger close callback
+        }
+    });
+
+    webView->setCloseCallback([this, webView]() {
+        mWindow->removeGui(webView);
+        delete webView;
+    });
+
+    mWindow->pushGui(webView);
+    webView->loadUrl(EpicGamesStoreAPI::LOGIN_URL);
+}
 ViewController* ViewController::sInstance = nullptr;
 
 ViewController* ViewController::get()
