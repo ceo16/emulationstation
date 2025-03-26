@@ -22,8 +22,6 @@ environment:
   _LINK_: /FORCE:MULTIPLE
 
 build_script:
-  - appveyor https://go.microsoft.com/fwlink/p/?LinkId=2124703
-  - WebView2RuntimeInstaller.exe /silent /install
   - cd c:\src\EmulationStation
   - git submodule update --init --recursive
   - git clone https://github.com/microsoft/vcpkg.git
