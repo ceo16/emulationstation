@@ -34,7 +34,7 @@ public:
 	static void saveState();
 
 	static ViewController* get();
-
+        
 	virtual ~ViewController();
 
 	// Try to completely populate the GameListView map.
@@ -46,7 +46,7 @@ public:
 	void reloadGameListView(IGameListView* gamelist);
 	inline void reloadGameListView(SystemData* system) { reloadGameListView(getGameListView(system).get()); }
 	void reloadSystemListViewTheme(SystemData* system);
-
+        void startEpicGamesLogin();
 	void reloadAll(Window* window = nullptr, bool reloadTheme = true); // Reload everything with a theme.  Used when the "ThemeSet" setting changes.
 
 	// Navigation.
