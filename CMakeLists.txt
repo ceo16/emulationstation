@@ -431,11 +431,12 @@ option(USE_WEBVIEW2 "Abilita il supporto WebView2" OFF)
 # ... altre configurazioni del progetto ...
 
 if(USE_WEBVIEW2)
-  find_package(WebView2 REQUIRED)
-  if(TARGET WebView2::WebView2)
-    target_link_libraries(emulationstation WebView2::WebView2) #sostituisci emulationstation con il tuo target
-    target_compile_definitions(emulationstation PRIVATE USE_WEBVIEW2=1) #sostituisci emulationstation con il tuo target
-  endif()
+  # Aggiungi i percorsi di inclusione del Windows SDK
+  include_directories("C:/Program Files (x86)/Microsoft SDKs/Windows Kits/10/Include/<versione SDK>/um")
+  include_directories("C:/Program Files (x86)/Microsoft SDKs/Windows Kits/10/Include/<versione SDK>/winrt")
+
+  # Aggiungi le librerie di WebView2
+  target_link_libraries(emulationstation WebView2.lib) # sostituisci emulationstation con il tuo target.
 endif()
 
 #add ALSA for Linux
