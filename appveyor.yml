@@ -24,7 +24,7 @@ environment:
 build_script:
   - cd c:\src\EmulationStation
   - git submodule update --init --recursive
-    - git clone https://github.com/microsoft/vcpkg.git
+  - git clone https://github.com/microsoft/vcpkg.git
   - cd vcpkg
   - bootstrap-vcpkg.bat
   - vcpkg integrate install
