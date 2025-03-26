@@ -5,6 +5,12 @@
 #include <string>
 #include <functional>
 
+#ifdef _WIN32
+#include <wrl.h>
+#include <wil/com.h>
+#include <Microsoft.Web.WebView2.Core.h>
+#endif
+
 class WebViewGuiComponent : public GuiComponent {
 public:
     WebViewGuiComponent(Window* window);
@@ -13,12 +19,15 @@ public:
     void loadUrl(const std::string& url);
     void setNavigationCallback(std::function<void(const std::string&)> callback);
     void setCloseCallback(std::function<void()> closeCallback);
-    std::string GetCurrentUrl(); // to get current URL
+    std::string GetCurrentUrl();
 
 private:
-    //  ... (Membri per gestire la libreria di visualizzazione web)
-    //  Esempio:
-    //  QtWebEngineView* webView; // Se si usa Qt WebEngine
+#ifdef _WIN32
+    wil::com_ptr<ICoreWebView2Environment> m_webViewEnvironment;
+    wil::com_ptr<ICoreWebView2Controller> m_webViewcontroller;
+    wil::com_ptr<ICoreWebView2> m_webView;
+    HWND m_hwnd; // Handle to the WebView2 window
+#endif
 
     std::function<void(const std::string&)> mNavigationCallback;
     std::function<void()> mCloseCallback;
