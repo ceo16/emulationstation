@@ -1,30 +1,79 @@
 #include "WebViewGuiComponent.h"
 #include "Window.h"
-// #include <QtWebEngineWidgets/QWebEngineView> // Esempio per Qt WebEngine
+#include "Log.h"
+#ifdef _WIN32
+#include <Windows.h>
+#include <dwmapi.h> // DWMWA_WINDOW_CORNER_PREFERENCE
+#endif
 
 WebViewGuiComponent::WebViewGuiComponent(Window* window) : GuiComponent(window) {
-    // Inizializza la visualizzazione web (Qt WebEngine example)
-    // webView = new QWebEngineView(this);
-    // webView->resize(Renderer::getScreenWidth() * 0.8, Renderer::getScreenHeight() * 0.8); // Adjust size as needed
-    // QObject::connect(webView, &QWebEngineView::urlChanged, [this](const QUrl& url) {
-    //     handleNavigation(url.toString().toStdString());
-    // });
-    // QObject::connect(webView, &QWebEngineView::destroyed, [this]() {
-    //     handleClose();
-    // });
+#ifdef _WIN32
+    // Get the HWND of the EmulationStation window
+    HWND hwnd = (HWND)window->getHwnd();
+    m_hwnd = hwnd;
 
-    // Add the webview to the GuiComponent
-    // this->addChild(webView);
+    // Create a WebView2 Environment
+    HRESULT env_result = CreateCoreWebView2EnvironmentWithOptions(nullptr, nullptr, nullptr, Callback<ICoreWebView2EnvironmentCreationCompletedHandler>(
+        [this](HRESULT errorCode, ICoreWebView2Environment* environment) -> HRESULT {
+            if (errorCode != S_OK) {
+                LOG(LogError) << "Failed to create WebView2 Environment: " << errorCode;
+                return E_FAIL;
+            }
+
+            m_webViewEnvironment = environment;
+            // Create a WebView2 Controller
+            HRESULT controller_result = m_webViewEnvironment->CreateCoreWebView2Controller(hwnd, Callback<ICoreWebView2CreateCoreWebView2ControllerCompletedHandler>(
+                [this](HRESULT errorCode, ICoreWebView2Controller* controller) -> HRESULT {
+                    if (errorCode != S_OK) {
+                        LOG(LogError) << "Failed to create WebView2 Controller: " << errorCode;
+                        return E_FAIL;
+                    }
+                    m_webViewcontroller = controller;
+                    m_webViewcontroller->get_CoreWebView2(&m_webView);
+
+                    // Resize WebView2 to match GuiComponent
+                    RECT bounds;
+                    GetClientRect(m_hwnd, &bounds);
+                    m_webViewcontroller->put_Bounds(bounds);
+
+                    // Register event handlers
+                    EventRegistrationToken token;
+                    m_webView->AddNavigationCompleted(Callback<ICoreWebView2NavigationCompletedEventHandler>(
+                        [this](ICoreWebView2*, ICoreWebView2NavigationCompletedEventArgs* args) -> HRESULT {
+                            BOOL is_success;
+                            args->get_IsSuccess(&is_success);
+                            if (is_success) {
+                                wil::unique_cotaskmem_string uri;
+                                m_webView->get_Source(&uri);
+                                handleNavigation(std::wstring(uri.get()).begin(), std::wstring(uri.get()).end());
+                            }
+                            return S_OK;
+                        }).Get(), &token);
+
+                    return S_OK;
+                }).Get());
+            return S_OK;
+        }).Get());
+#endif
 }
 
 WebViewGuiComponent::~WebViewGuiComponent() {
-    // Pulisci la visualizzazione web
-    // delete webView;
+#ifdef _WIN32
+    if (m_webViewcontroller) {
+        m_webViewcontroller->Close();
+        m_webViewcontroller = nullptr;
+    }
+    m_webViewEnvironment = nullptr;
+    m_webView = nullptr;
+#endif
 }
 
 void WebViewGuiComponent::loadUrl(const std::string& url) {
-    // Carica l'URL nella visualizzazione web
-    // webView->load(QUrl(QString::fromStdString(url)));
+#ifdef _WIN32
+    if (m_webView) {
+        m_webView->Navigate(std::wstring(url.begin(), url.end()).c_str());
+    }
+#endif
 }
 
 void WebViewGuiComponent::setNavigationCallback(std::function<void(const std::string&)> callback) {
@@ -56,6 +105,12 @@ void WebViewGuiComponent::handleClose() {
 }
 
 std::string WebViewGuiComponent::GetCurrentUrl() {
-    // return webView->url().toString().toStdString();
+#ifdef _WIN32
+    if (m_webView) {
+        wil::unique_cotaskmem_string uri;
+        m_webView->get_Source(&uri);
+        return std::wstring(uri.get()).begin(), std::wstring(uri.get()).end();
+    }
+#endif
     return "";
 }
