@@ -18,6 +18,7 @@
 #include "Paths.h"
 #include "utils/VectorEx.h"
 #include <Shellapi.h>
+#include <comdef.h>  // For _bstr_t
 
 #include <powerbase.h>
 #include <powrprof.h>
