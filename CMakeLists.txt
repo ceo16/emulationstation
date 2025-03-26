@@ -431,10 +431,10 @@ option(USE_WEBVIEW2 "Abilita il supporto WebView2" OFF)
 # ... altre configurazioni del progetto ...
 
 if(USE_WEBVIEW2)
-  find_package(WebView2 REQUIRED)
-  if(TARGET WebView2::WebView2)
-    target_link_libraries(emulationstation WebView2::WebView2) #sostituisci emulationstation con il tuo target
-    target_compile_definitions(emulationstation PRIVATE USE_WEBVIEW2=1) #sostituisci emulationstation con il tuo target
+  find_package(unofficial-webview2 CONFIG REQUIRED) # Modifica qui
+  if(TARGET unofficial::webview2::webview2) # Modifica qui
+    target_link_libraries(emulationstation unofficial::webview2::webview2) # Modifica qui (sostituisci emulationstation con il tuo target)
+    target_compile_definitions(emulationstation PRIVATE USE_WEBVIEW2=1) # Modifica qui (sostituisci emulationstation con il tuo target)
   endif()
 endif()
 
