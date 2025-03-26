@@ -31,6 +31,7 @@ build_script:
   - bootstrap-vcpkg.bat
   - vcpkg integrate install
   - vcpkg install wil:x86-windows
+  - vcpkg install microsoft-webview2:x86-windows
   - cd c:\src\EmulationStation
   - mkdir build
   - cd build
