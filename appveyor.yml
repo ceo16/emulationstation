@@ -31,7 +31,7 @@ build_script:
   - vcpkg install wil:x86-windows
   - mkdir build
   - cd build
-  - cmake -G "Visual Studio 16 2019" -T v142 .. -DCMAKE_GENERATOR_PLATFORM=Win32 -DRETROBAT=1 -DSCREENSCRAPER_DEV_LOGIN="devid=ceo16&devpassword=jS2TYbBqkYU" -DGAMESDB_APIKEY="7da2165a59d0df87d0bc611454215184ca6dcf0b24895691a158f9caaf29119c" -DCHEEVOS_DEV_LOGIN="z=ceo16&y=4pxVzi8i41XCSgfrmm3NnxjWF6bmEqs0" -DHFS_DEV_LOGIN="Retrobat:nJuHagHR8NkEz96" -DCMAKE_TOOLCHAIN_FILE=C:/src/EmulationStation/vcpkg/scripts/buildsystems/vcpkg.cmake
+  - cmake -G "Visual Studio 16 2019" -T v142 .. -DCMAKE_GENERATOR_PLATFORM=Win32 -DRETROBAT=1 -DSCREENSCRAPER_DEV_LOGIN="devid=ceo16&devpassword=jS2TYbBqkYU" -DGAMESDB_APIKEY="7da2165a59d0df87d0bc611454215184ca6dcf0b24895691a158f9caaf29119c" -DCHEEVOS_DEV_LOGIN="z=ceo16&y=4pxVzi8i41XCSgfrmm3NnxjWF6bmEqs0" -DHFS_DEV_LOGIN="Retrobat:nJuHagHR8NkEz96" -DCMAKE_TOOLCHAIN_FILE="C:/src/EmulationStation/vcpkg/scripts/buildsystems/vcpkg.cmake"
   - '"C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\MSBuild\Current\Bin\MSBuild" emulationstation-all.sln /p:Configuration=Release /p:Platform="Win32"'
   - cd c:\src\EmulationStation
   - IF EXIST locale\lang ( xcopy locale\lang resources\locale /S /Y /I )
