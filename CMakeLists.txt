@@ -21,7 +21,17 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # Win32 default platform & directory detection
 if(WIN32)
-add_definitions(-DUSE_WEBVIEW2)
+option(USE_WEBVIEW2 "Abilita il supporto WebView2" OFF)
+
+# ... altre configurazioni del progetto ...
+
+if(USE_WEBVIEW2)
+  find_package(WebView2 REQUIRED)
+  if(TARGET WebView2::WebView2)
+    target_link_libraries(emulationstation WebView2::WebView2) #sostituisci emulationstation con il tuo target
+    target_compile_definitions(emulationstation PRIVATE USE_WEBVIEW2=1) #sostituisci emulationstation con il tuo target
+  endif()
+endif()
 	if (NOT CMAKE_GENERATOR_PLATFORM)
 		set(CMAKE_GENERATOR_PLATFORM Win32)	    
 	endif()
