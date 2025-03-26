@@ -15,7 +15,7 @@ branches:
     - 2878719
     - stable
   except:
-    - continuous-epicgame
+    - continuous-2878719
     - continuous-stable
     
 environment:
