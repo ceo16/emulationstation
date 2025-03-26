@@ -27,6 +27,7 @@ public:
 
     // Helper function to URL encode strings
     std::string urlEncode(const std::string& value);
+    static size_t performRequestCallback(char* buffer, size_t size, size_t nmemb, std::string* response_string);
 
     // Constants (from EpicAccountClient.cs)
     static const std::string LOGIN_URL;
