@@ -283,18 +283,19 @@ bool EpicGamesStoreAPI::initialize() {
 }
 
 // Helper function to perform HTTP requests
+size_t EpicGamesStoreAPI::performRequestCallback(char* buffer, size_t size, size_t nmemb, std::string* userdata) {
+    size_t total_size = size * nmemb;
+    userdata->append(buffer, total_size);
+    return total_size;
+}
+
 std::string EpicGamesStoreAPI::performRequest(const std::string& url) {
     std::string response_string;
     curl_easy_setopt(curlHandle, CURLOPT_URL, url.c_str());
 
     //  Set up the write callback (Correzione)
     curl_easy_setopt(curlHandle, CURLOPT_WRITEFUNCTION,
-       (char* buffer, size_t size, size_t nmemb, void* userdata) -> size_t {
-            std::string* output = static_cast<std::string*>(userdata);
-            size_t total_size = size * nmemb;
-            output->append(buffer, total_size);
-            return total_size;
-        });
+       EpicGamesStoreAPI::performRequestCallback);
 
     curl_easy_setopt(curlHandle, CURLOPT_WRITEDATA, &response_string);
 
