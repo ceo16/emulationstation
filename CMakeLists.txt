@@ -83,6 +83,8 @@ if(WIN32 AND CUSTOM_LIBDIR)
 	  ${CUSTOM_LIBDIR}/curl/${CUSTOM_PLATFORM}
 	)
 endif()
+LIST(APPEND COMMON_INCLUDE_DIRS "C:/src/EmulationStation/vcpkg/installed/x86-windows/include" # Adjust this path!
+)
 # trova vcpkg
 find_path(VCPKG_PATH NAMES vcpkg.cmake PATHS "C:/src/EmulationStation/vcpkg/scripts/buildsystems")
 
