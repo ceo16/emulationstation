@@ -12,7 +12,7 @@ clone_folder: c:\src\EmulationStation
 
 branches:
   only:
-    - master
+    - epic2
     - stable
   except:
     - continuous-master
