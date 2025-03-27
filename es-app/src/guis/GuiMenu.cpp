@@ -31,6 +31,8 @@
 #include <SDL_events.h>
 #include <algorithm>
 #include "utils/Platform.h"
+#include "EpicGamesStore/EpicGamesStoreAPI.h"
+#include "Settings.h"
 
 
 #include "SystemConf.h"
@@ -117,6 +119,7 @@
 
 GuiMenu::GuiMenu(Window *window, bool animate) : GuiComponent(window), mMenu(window, _("MAIN MENU").c_str()), mVersion(window)
 {
+	mEpicLoginCallback = nullptr; // Add this line
 	// MAIN MENU
 	bool isFullUI = !UIModeController::getInstance()->isUIModeKid() && !UIModeController::getInstance()->isUIModeKiosk();
 
@@ -210,7 +213,8 @@ GuiMenu::GuiMenu(Window *window, bool animate) : GuiComponent(window), mMenu(win
 #else
 	addEntry(_("QUIT").c_str(), true, [this] { openQuitMenu(); }, "iconQuit");
 #endif
-	
+	//  --- Insert Epic Games Store menu entry here ---
+        addEntry(_("EPIC GAMES"), true, [this] { openEpicLoginMenu(); }, "iconEpic");
 	addChild(&mMenu);
 	addVersionInfo();
 	setSize(mMenu.getSize());
@@ -230,7 +234,84 @@ GuiMenu::GuiMenu(Window *window, bool animate) : GuiComponent(window), mMenu(win
 			setPosition((Renderer::getScreenWidth() - mSize.x()) / 2, Renderer::getScreenHeight() * 0.15f);
 	}
 }
+//  --- Epic Games Store functions (Correctly Placed) ---
+//  The functions must be defined outside any other function's scope
+bool GuiMenu::isEpicUserLoggedIn() {
+    LOG(LogDebug) << "GuiMenu::isEpicUserLoggedIn() called";
+    EpicGamesStoreAPI epicApi;
+    std::string accessToken;
+    std::string refreshToken;
+    std::string accountId;
+    std::string tokenType;
 
+    // Attempt to load tokens
+    bool tokensLoaded = epicApi.loadTokens(accessToken, refreshToken, accountId, tokenType);
+    LOG(LogDebug) << "Tokens loaded: " << (tokensLoaded ? "true" : "false");
+
+    bool loggedIn = tokensLoaded && !accessToken.empty();
+    LOG(LogDebug) << "isEpicUserLoggedIn() returning: " << loggedIn;
+    return loggedIn;
+}
+
+void GuiMenu::startEpicLogin() {
+    LOG(LogDebug) << "GuiMenu::startEpicLogin() - Start";
+    EpicGamesStoreAPI epicApi;
+    std::string loginUrl = EpicGamesStoreAPI::LOGIN_URL;
+
+    LOG(LogDebug) << "GuiMenu::startEpicLogin() - loginUrl: " << loginUrl;
+
+    // --- Browser launch ---
+    mEpicLoginCallback = [this](const std::string& authCode) {
+        epicLoginCallback(authCode);
+    };
+    
+    // Call openUrl once
+    bool launchResult = ApiSystem::getInstance()->openUrl(loginUrl); 
+
+    if (launchResult) {
+        LOG(LogDebug) << "GuiMenu::startEpicLogin() - Browser launched";
+    } else {
+        LOG(LogDebug) << "GuiMenu::startEpicLogin() - Browser launch failed";
+    }
+
+    LOG(LogDebug) << "GuiMenu::startEpicLogin() - End";
+}
+void GuiMenu::epicLoginCallback(const std::string& authCode) {
+    LOG(LogDebug) << "GuiMenu::epicLoginCallback() - Auth code: " << authCode;
+    EpicGamesStoreAPI epicApi;
+    if (epicApi.authenticateUsingAuthCode(authCode)) {
+        LOG(LogDebug) << "Epic login successful!";
+
+        //  --- Token Storage ---
+        Settings::getInstance()->setString("EpicAccessToken", epicApi.getAccessToken());
+        Settings::getInstance()->setString("EpicRefreshToken", epicApi.getRefreshToken());
+        Settings::getInstance()->saveFile(); // Save the settings to disk
+
+        // Update UI, e.g., close the menu, show user info
+        mWindow->displayNotificationMessage(_("Epic Games Store login successful!"));
+        delete this; // Close the login menu
+        // ...
+    } else {
+        LOG(LogError) << "Epic login failed.";
+        mWindow->pushGui(new GuiMsgBox(mWindow, _("Epic Games Store login failed."), _("OK")));
+    }
+}
+void GuiMenu::showEpicUserOptions() {
+    auto s = new GuiSettings(mWindow, _("Epic Games Store Account").c_str());
+    //  ... options ...
+    mWindow->pushGui(s);
+}
+
+void GuiMenu::openEpicLoginMenu() {
+    LOG(LogDebug) << "GuiMenu::openEpicLoginMenu() called!";
+    if (isEpicUserLoggedIn()) {
+        LOG(LogDebug) << "isEpicUserLoggedIn() returned true"; // Add this
+        showEpicUserOptions();
+    } else {
+        LOG(LogDebug) << "isEpicUserLoggedIn() returned false"; // Add this
+        startEpicLogin();
+    }
+}
 void GuiMenu::openScraperSettings()
 {		
 	mWindow->pushGui(new GuiScraperStart(mWindow));

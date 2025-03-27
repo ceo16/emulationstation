@@ -9,6 +9,8 @@
 #include <SystemData.h>
 #include "KeyboardMapping.h"
 #include "utils/VectorEx.h"
+#include <functional>
+#include "Settings.h"
 
 struct DecorationSetInfo
 {
@@ -29,6 +31,10 @@ public:
         GuiMenu(Window* window, bool animate = true);
 
         bool input(InputConfig* config, Input input) override;
+        bool isEpicUserLoggedIn();
+        void startEpicLogin();
+        void showEpicUserOptions();
+        void openEpicLoginMenu();
         void onSizeChanged() override;
         std::vector<HelpPrompt> getHelpPrompts() override;      
         static void openQuitMenu_static(Window *window, bool quickAccessMenu = false, bool animate = true);
@@ -40,6 +46,7 @@ public:
 
         static void updateGameLists(Window* window, bool confirm = true);
         static void editKeyboardMappings(Window *window, IKeyboardMapContainer* mapping, bool editable);
+        std::function<void(const std::string&)> mEpicLoginCallback; // Add this line
 
 private:
         void addEntry(const std::string& name, bool add_arrow, const std::function<void()>& func, const std::string iconName = "");
@@ -66,6 +73,8 @@ private:
         void openMissingBiosSettings();
         void openFormatDriveSettings();
         void exitKidMode();
+        void epicLoginCallback(const std::string& authCode); // Add this line
+        
 
         // windows
         void openEmulatorSettings();
