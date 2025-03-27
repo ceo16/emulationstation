@@ -31,7 +31,9 @@ build_script:
   - bootstrap-vcpkg.bat
   - vcpkg integrate install
   - vcpkg install wil:x86-windows
-  - vcpkg install webview2
+  - dotnet add package Microsoft.Web.WebView2 --version 1.0.3124.44
+  - dotnet restore #Ristora tutte le dipendenze del progetto.
+  - dotnet build #Compila il progetto.
   - cd c:\src\EmulationStation
   - mkdir build
   - cd build
