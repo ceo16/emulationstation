@@ -20,11 +20,11 @@ branches:
     
 environment:
   _LINK_: /FORCE:MULTIPLE
-
+install:
+  - dotnet add package Microsoft.Web.WebView2 --version 1.0.3124.44 --project YourProjectDirectory\YourProject.csproj
+  - dotnet restore
+  - dotnet build
 build_script:
-  - dotnet add package Microsoft.Web.WebView2 --version 1.0.3124.44
-  - dotnet restore #Ristora tutte le dipendenze del progetto.
-  - dotnet build #Compila il progetto.
   - cd c:\src\EmulationStation
   - powershell -Command "(New-Object System.Net.WebClient).DownloadFile('https://go.microsoft.com/fwlink/p/?LinkId=2124703', 'WebView2RuntimeInstaller.exe')"
   - WebView2RuntimeInstaller.exe /silent /install
