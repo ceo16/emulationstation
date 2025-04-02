@@ -234,3 +234,5 @@ By default, EmulationStation will use ES-Carbon. Additional themes can be instal
 
 If you want to know more about making your own themes (or editing existing ones), read [THEMES.md](THEMES.md) or check out the [wiki page](https://wiki.batocera.org/write_themes_for_emulationstation).
 
+#   e m u l a t i o n s t a t i o n - e p i c  
+ 
