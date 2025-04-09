@@ -645,27 +645,24 @@ std::string FileData::getlaunchCommand(LaunchGameOptions& options, bool includeC
 
 		command = options.saveStateInfo->setupSaveState(this, command);		
 	}
-  if (Utils::String::toLower(systemName) == "epicgamestore") {
+  if (Utils::String::toLower(systemName) == "epicgamestore")
+  {
   std::string gamePath = getPath();
-  LOG(LogDebug) << "epicgamestore - EpicGamesStore path: " << gamePath;
+  LOG(LogDebug) << "getlaunchCommand: EpicGamesStore path: " << gamePath;
   std::string gameProductId = EpicGamesStore::getEpicGameId(gamePath);
-  LOG(LogDebug) << "epicgamestore - EpicGamesStore::getEpicGameId returned: " << gameProductId;
-  if (!gameProductId.empty()) {
-  command = "\"C:/Users/ceo16/Desktop/lumaca-setup-BETA/build/emulationstation/emulatorLauncher.exe\" -system epicgamestore -gameid \"" + gameProductId + "\" -rom " + Utils::FileSystem::getEscapedPath(getPath());  //  Construct full command WITHOUT extra quotes
-  LOG(LogDebug) << "epicgamestore - Updated command: " << command;
-  } else {
+  LOG(LogDebug) << "getlaunchCommand: EpicGamesStore::getEpicGameId returned: " << gameProductId;
+  if (!gameProductId.empty())
+  {
+  // Construct command to launch the .url file
+  command = "\"" + Utils::Platform::getEsLaunchCommand() + "\" -system epicgamestore -rom \"" + Utils::FileSystem::getEscapedPath(getPath()) + "\"";
+  LOG(LogDebug) << "Epic Launch Command: " << command;
+  }
+  else
+  {
   LOG(LogError) << "getlaunchCommand: Could not retrieve Epic Games ID for path: " << getPath();
-  command = "\"C:/Users/ceo16/Desktop/lumaca-setup-BETA/build/emulationstation/emulatorLauncher.exe\" -system " + systemName + " -rom " + Utils::FileSystem::getEscapedPath(getPath());  //  Basic default (with rom)
-  LOG(LogWarning) << "epicgamestore - Using default command: " << command;
+  return ""; // Or handle the error appropriately
   }
   LOG(LogDebug) << "epicgamestore - Command before return: " << command;
- }
- 
-
-  //  Ensure we always have a command, even if the Epic ID retrieval failed.
-  if (command.empty()) {
-  command = "\"C:/Users/ceo16/Desktop/lumaca-setup-BETA/build/emulationstation/emulatorLauncher.exe\" -system " + systemName + " -rom \"" + Utils::FileSystem::getEscapedPath(getPath()) + "\"";  //  Basic default (with rom)
-  LOG(LogWarning) << "epicgamestore - Using fallback default command: " << command;
   }
  
 
