@@ -15,7 +15,7 @@ branches:
     - master
     - stable
   except:
-    - continuous-epic2
+    - continuous-master
     - continuous-stable
     
 environment:
