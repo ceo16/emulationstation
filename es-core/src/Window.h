@@ -10,6 +10,8 @@
 #include <memory>
 #include <functional>
 
+
+class SystemData;
 class FileData;
 class Font;
 class GuiComponent;
@@ -70,6 +72,7 @@ public:
 	bool getAllowSleep();
 	void setAllowSleep(bool sleep);
 	
+	
 	// Splash screen
 	std::string getCustomSplashScreenImage();
 	void setCustomSplashScreen(std::string imagePath, std::string customText, IBindable* bindable = nullptr);
@@ -109,7 +112,10 @@ public:
 	void setMouseCapture(GuiComponent* mouseCapture) { mMouseCapture = mouseCapture; }
 	bool hasMouseCapture(GuiComponent* mouseCapture) { return mMouseCapture == mouseCapture; }
 
+     SystemData* getCurrentSystem() { return mCurrentSystem; }
+    void setCurrentSystem(SystemData* system) { mCurrentSystem = system; }
 private:
+
 	std::vector<GuiComponent*> hitTest(int x, int y);
 
 	void processPostedFunctions();
@@ -185,6 +191,7 @@ private:
 	void renderMenuBackgroundShader();
 	void resetMenuBackgroundShader();
 	unsigned int mMenuBackgroundShaderTextureCache;
+	SystemData* mCurrentSystem;
 };
 
 #endif // ES_CORE_WINDOW_H

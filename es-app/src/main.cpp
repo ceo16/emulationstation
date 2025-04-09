@@ -42,6 +42,7 @@
 #include "watchers/WatchersManager.h"
 #include "HttpReq.h"
 #include <thread>
+#include "GameStore/EpicGames/EpicGamesStore.h"
 
 #ifdef WIN32
 #include <Windows.h>
@@ -258,7 +259,20 @@ bool parseArgs(int argc, char* argv[])
 
 	return true;
 }
-
+int main() {
+    EpicGamesStore store;
+    // We're not actually using a Window object in this minimal example
+    // so we'll just pass nullptr.
+    store.init(nullptr);
+    store.showStoreUI(nullptr);
+    std::string name = store.getStoreName();
+    std::cout << "Store name: " << name << std::endl;
+    store.getGamesList();
+    store.installGame("Game123");
+    store.uninstallGame("Game123");
+    store.updateGame("Game123");
+    return 0;
+}
 bool verifyHomeFolderExists()
 {
 	//make sure the config directory exists	
@@ -602,15 +616,18 @@ int main(int argc, char* argv[])
 
 	// preload what we can right away instead of waiting for the user to select it
 	// this makes for no delays when accessing content, but a longer startup time
-	ViewController::get()->preload();
 
+	ViewController::get()->preload();
 	// Initialize input
 	InputConfig::AssignActionButtons();
 	InputManager::getInstance()->init();
 	SDL_StopTextInput();
 
 	NetworkThread* nthread = new NetworkThread(&window);
-	HttpServerThread httpServer(&window);
+	 std::function<void(const std::string&)> dummySetStateCallback = [](const std::string& state) {
+  // Do nothing or log if needed
+  };
+	HttpServerThread httpServer(&window, dummySetStateCallback); // 
 
 	// tts
 	TextToSpeech::getInstance()->enable(Settings::getInstance()->getBool("TTS"), false);

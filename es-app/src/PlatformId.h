@@ -119,6 +119,7 @@ namespace PlatformIds
 		// Windows Specific
 		VISUALPINBALL,
 		FUTUREPINBALL,
+		EPIC_GAMES_STORE,
 
 		// Misc systems
 		CHANNELF,

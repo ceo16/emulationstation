@@ -59,6 +59,7 @@
 #include "Gamelist.h"
 #include "TextToSpeech.h"
 #include "Paths.h"
+#include "GameStore/EpicGames/GameStoreManager.h" // Include this!
 
 #if WIN32
 #include "Win32ApiSystem.h"
@@ -204,7 +205,13 @@ GuiMenu::GuiMenu(Window *window, bool animate) : GuiComponent(window), mMenu(win
 		addEntry(_("INFORMATION").c_str(), true, [this] { openSystemInformations(); }, "iconSystem");
 		addEntry(_("UNLOCK USER INTERFACE MODE").c_str(), true, [this] { exitKidMode(); }, "iconAdvanced");
 	}
+     mMenu.addEntry("Game Store", true, [window] { // Changed '->' to '.'
+        GameStoreManager::get()->showStoreSelectionUI(window);
+    }, "iconFolder");
 
+    mMenu.addEntry("Epic Games Store", true, [window] { // Changed '->' to '.'
+        GameStoreManager::get()->getStore("EpicGamesStore")->showStoreUI(window);
+    }, "iconGames");
 #ifdef WIN32
 	addEntry(_("QUIT"), !Settings::getInstance()->getBool("ShowOnlyExit") || !Settings::getInstance()->getBool("ShowExit"), [this] { openQuitMenu(); }, "iconQuit");
 #else

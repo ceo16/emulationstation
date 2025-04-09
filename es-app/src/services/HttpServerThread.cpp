@@ -19,11 +19,16 @@
 #include "HttpApi.h"
 #include "Settings.h"
 #include "ApiSystem.h"
+#include <future> // Per std::async
 
 #include "ThreadedHasher.h"
 #include "scrapers/ThreadedScraper.h"
 #include "guis/GuiUpdate.h"
 #include "ContentInstaller.h"
+
+#include <queue>
+#include <mutex>
+#include <condition_variable>
 
 /* 
 
@@ -61,32 +66,45 @@ GET /resources/{path relative to resources}"					-> any file in resources
 GET /{path relative to resources/services}"						-> any other file in resources/services
 
 */
-HttpServerThread::HttpServerThread(Window* window) : mWindow(window)
-{
-	LOG(LogDebug) << "HttpServerThread : Starting";
+HttpServerThread::HttpServerThread(Window* window, std::function<void(const std::string&)> setStateCallback) : mWindow(window),
+  mAuthCallback([this](const std::string& state) { mExpectedState = state; }),
+  mAuth(setStateCallback)
+  //mStore(mAuthCallback)
+ {
+  LOG(LogDebug) << "HttpServerThread : Starting. Instance: " << this;
+  LOG(LogDebug) << "  mAuthCallback initialized";
+  LOG(LogDebug) << "  mAuth instance: " << &mAuth;
+  LOG(LogDebug) << "  setStateCallback in Constructor: " << (setStateCallback ? "NOT NULL" : "NULL")
+              << "  Address of setStateCallback: " << &setStateCallback;  // Added log for address
+  mHttpServer = nullptr;
+  mFirstRun = true;
+  mRunning = true;
+  mThread = new std::thread(&HttpServerThread::run, this);
 
-	mHttpServer = nullptr;
+  mGameStoreManager = GameStoreManager::get();
+  mGameStoreManager->setSetStateCallback(setStateCallback);
+  mStore = new EpicGamesStore(&mAuth); // Pass mAuth instead of setStateCallback
+  mGameStoreManager->registerStore(mStore);
+  mEpicLoginCallback = nullptr;
+ }
 
-	// creer le thread
-	mFirstRun = true;
-	mRunning = true;
-	mThread = new std::thread(&HttpServerThread::run, this);
+void HttpServerThread::setExpectedState(const std::string& state) {
+    mExpectedState = state;
 }
 
 HttpServerThread::~HttpServerThread()
 {
-	LOG(LogDebug) << "HttpServerThread : Exit";
+    LOG(LogDebug) << "HttpServerThread : Exit. Instance: " << this; // Added instance address
+    if (mHttpServer != nullptr)
+    {
+        mHttpServer->stop();
+        delete mHttpServer;
+        mHttpServer = nullptr;
+    }
 
-	if (mHttpServer != nullptr)
-	{
-		mHttpServer->stop();
-		delete mHttpServer;
-		mHttpServer = nullptr;
-	}
-
-	mRunning = false;
-	mThread->join();
-	delete mThread;
+    mRunning = false;
+    mThread->join();
+    delete mThread;
 }
 
 static std::map<std::string, std::string> mimeTypes = 
@@ -138,7 +156,9 @@ static bool isAllowed(const httplib::Request& req, httplib::Response& res)
 }
 
 void HttpServerThread::run()
+
 {
+	LOG(LogDebug) << "HttpServerThread::run - Starting HTTP server thread. Instance: " << this; // Added instance address
 	mHttpServer = new httplib::Server();
 
 	mHttpServer->Get("/", [=](const httplib::Request & req, httplib::Response &res) 
@@ -211,6 +231,87 @@ void HttpServerThread::run()
 			"</body>\r\n</html>", "text/html");
 	});
 
+mHttpServer->Get("/epic_login", [this](const httplib::Request& req, httplib::Response& res) {
+  std::string state;
+  std::string clientId = Settings::getInstance()->getString("EpicGames.ClientId"); // Load from settings!
+  if (clientId.empty()) {
+   clientId = "YOUR_EPIC_GAMES_CLIENT_ID"; // Provide a default
+  }
+  std::string redirectUri = Settings::getInstance()->getString("EpicGames.RedirectUri"); // Load from settings!
+  if (redirectUri.empty()) {
+   redirectUri = "http://localhost:1234/epic_callback"; // Provide a default
+  }
+  std::string authUrl = mAuth.getAuthorizationUrl(state); // Get the auth URL, which also sets mAuth's state
+
+  if (authUrl.empty()) {
+   res.set_content("Error generating authorization URL.", "text/plain");
+   res.status = 500;
+   return;
+  }
+
+  res.set_redirect(authUrl.c_str());
+ });
+
+ mHttpServer->Get("/epic_callback", [this](const httplib::Request& req, httplib::Response& res) {
+  LOG(LogDebug) << "HttpServerThread received Epic callback. EpicGamesAuth Instance: " << &mAuth;
+  // ... (Log the request information)
+
+  std::string authCode;
+  std::string receivedState;
+  if (req.has_param("code")) {
+   authCode = req.get_param_value("code");
+   LOG(LogDebug) << "  Extracted code: " << authCode;
+  } else {
+   authCode = "";
+   LOG(LogWarning) << "  Code parameter not found in request.";
+   res.set_content("Epic Games login failed: Authorization code not provided.", "text/plain");
+   res.status = 400;
+   return;
+  }
+
+  if (req.has_param("state")) {
+   receivedState = req.get_param_value("state");
+   LOG(LogDebug) << "  Received state: " << receivedState;
+  }  else {
+   receivedState = "";
+   LOG(LogWarning) << "  State parameter not found in request.";
+   res.set_content("Epic Games login failed: State parameter not found.", "text/plain");
+   res.status = 400;
+   return;
+  }
+
+  if (receivedState != mAuth.getCurrentState()) { // Use the getter method
+   LOG(LogError) << "State mismatch! Received: " << receivedState << ", Expected: " << mAuth.getCurrentState() << ". EpicGamesAuth Instance: " << &mAuth;
+   res.set_content("Epic Games login failed: State mismatch.", "text/plain");
+   res.status = 400;
+   return;
+  }
+
+  if (!authCode.empty()) {
+   res.set_content("Epic Games login in progress. Please wait...", "text/plain");
+
+   std::async(std::launch::async, [this, authCode]() {
+    std::string accessToken;
+    if (mAuth.getAccessToken(authCode, accessToken)) {
+     mWindow->postToUiThread([this, accessToken]() {
+      if (mEpicLoginCallback) {
+       mEpicLoginCallback(accessToken);
+      }
+     });
+    } else {
+     mWindow->postToUiThread([this]() {
+      mWindow->pushGui(new GuiMsgBox(mWindow, "Failed to get access token from Epic Games.", "OK"));
+     });
+    }
+   });
+  } else {
+   LOG(LogError) << "  Authorization code is empty.";
+   res.set_content("Epic Games login failed: Empty authorization code.", "text/plain");
+   res.status = 400;
+  }
+ });
+  
+ 
 	mHttpServer->Get("/quit", [this](const httplib::Request& req, httplib::Response& res)
 	{
 		if (!isAllowed(req, res))

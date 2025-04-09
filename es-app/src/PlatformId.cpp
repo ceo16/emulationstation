@@ -126,6 +126,7 @@ namespace PlatformIds
 		{ "vpinball",				VISUALPINBALL },
 		{ "fpinball",				FUTUREPINBALL },
 		{ "o2em",					VIDEOPAC_ODYSSEY2 },
+		{ "epic",                   EPIC_GAMES_STORE }, //  Definisci la nuova piattaforma
 
 		// Misc systems
 		{ "channelf",				CHANNELF },

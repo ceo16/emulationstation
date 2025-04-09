@@ -40,9 +40,8 @@ public:
 
         static void updateGameLists(Window* window, bool confirm = true);
         static void editKeyboardMappings(Window *window, IKeyboardMapContainer* mapping, bool editable);
-
-private:
         void addEntry(const std::string& name, bool add_arrow, const std::function<void()>& func, const std::string iconName = "");
+private:
         void addVersionInfo();
         void openCollectionSystemSettings();
         void openConfigInput(); 

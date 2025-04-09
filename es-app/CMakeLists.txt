@@ -28,6 +28,14 @@ set(ES_HEADERS
 	${CMAKE_CURRENT_SOURCE_DIR}/src/SaveStateRepository.h
     ${CMAKE_CURRENT_SOURCE_DIR}/src/SaveStateConfigFile.h    
 	${CMAKE_CURRENT_SOURCE_DIR}/src/CustomFeatures.h
+       #gamestore
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/GameStore/EpicGames/GameStoreManager.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/GameStore/EpicGames/EpicGamesUI.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/GameStore/EpicGames/EpicGamesStore.h     
+	${CMAKE_CURRENT_SOURCE_DIR}/src/GameStore/EpicGames/EpicGamesAuth.h
+	${CMAKE_CURRENT_SOURCE_DIR}/src/GameStore/EpicGames/EpicGamesStoreAPI.h
+	${CMAKE_CURRENT_SOURCE_DIR}/src/GameStore/GameStore.h
+	${CMAKE_CURRENT_SOURCE_DIR}/src/GameStore/EpicGames/PlaceholderStore.h
 
     # GuiComponents    
     ${CMAKE_CURRENT_SOURCE_DIR}/src/components/ScraperSearchComponent.h    
@@ -74,6 +82,7 @@ set(ES_HEADERS
 	${CMAKE_CURRENT_SOURCE_DIR}/src/guis/GuiGameAchievements.h		
 	${CMAKE_CURRENT_SOURCE_DIR}/src/guis/GuiSaveState.h
 	${CMAKE_CURRENT_SOURCE_DIR}/src/guis/GuiFileBrowser.h	
+                  
 	
     # Scrapers
     ${CMAKE_CURRENT_SOURCE_DIR}/src/scrapers/Scraper.h
@@ -132,7 +141,15 @@ set(ES_SOURCES
 	${CMAKE_CURRENT_SOURCE_DIR}/src/SaveState.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/src/SaveStateRepository.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/SaveStateConfigFile.cpp
-	${CMAKE_CURRENT_SOURCE_DIR}/src/CustomFeatures.cpp	
+	${CMAKE_CURRENT_SOURCE_DIR}/src/CustomFeatures.cpp
+ #  GamesStore	
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/GameStore/EpicGames/GameStoreManager.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/GameStore/EpicGames/EpicGamesStore.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/GameStore/EpicGames/EpicGamesAuth.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/GameStore/EpicGames/EpicGamesUI.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/src/GameStore/EpicGames/EpicGamesStoreAPI.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/src/GameStore/GameStore.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/src/GameStore/EpicGames/PlaceholderStore.cpp
 
     # GuiComponents    
     ${CMAKE_CURRENT_SOURCE_DIR}/src/components/ScraperSearchComponent.cpp	
@@ -175,6 +192,7 @@ set(ES_SOURCES
 	${CMAKE_CURRENT_SOURCE_DIR}/src/guis/GuiGameAchievements.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/src/guis/GuiSaveState.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/src/guis/GuiFileBrowser.cpp
+                  
 
     # Scrapers
     ${CMAKE_CURRENT_SOURCE_DIR}/src/scrapers/Scraper.cpp
@@ -228,7 +246,12 @@ endif()
 
 #-------------------------------------------------------------------------------
 # define target
-include_directories(${COMMON_INCLUDE_DIRS} ${CMAKE_CURRENT_SOURCE_DIR}/src)
+include_directories(
+    ${COMMON_INCLUDE_DIRS}
+    ${CMAKE_CURRENT_SOURCE_DIR}/src
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/GamesStore
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/GamesStore/EpicGames  # Add this line
+)
 add_executable(emulationstation ${ES_SOURCES} ${ES_HEADERS})
 target_link_libraries(emulationstation ${COMMON_LIBRARIES} es-core)
 

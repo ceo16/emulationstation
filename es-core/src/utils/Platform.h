@@ -17,6 +17,7 @@ namespace Utils
 {
 	namespace Platform
 	{
+                         void openUrl(const std::string& url);
 		enum QuitMode
 		{
 			QUIT = 0,

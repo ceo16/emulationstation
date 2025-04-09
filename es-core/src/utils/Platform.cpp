@@ -30,6 +30,16 @@ namespace Utils
 {
 	namespace Platform
 	{
+		void openUrl(const std::string& url)
+        {
+#ifdef _WIN32
+            ShellExecuteA(NULL, "open", url.c_str(), NULL, NULL, SW_SHOWNORMAL);
+#else
+            std::string cmd = "xdg-open \"" + url + "\"";
+            system(cmd.c_str());
+#endif
+        }
+		
 		ProcessStartInfo::ProcessStartInfo()
 		{ 			
 			window = nullptr; 

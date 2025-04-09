@@ -96,7 +96,7 @@ namespace Utils
 		private:
 			static int mReferenceCount;
 		};
-
+         std::string getEsConfigPath();
 	} // FileSystem::
 
 } // Utils::

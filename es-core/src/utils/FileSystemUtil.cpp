@@ -1,6 +1,7 @@
 #define _FILE_OFFSET_BITS 64
 
 #include "utils/FileSystemUtil.h"
+ #include "Log.h" // for errors
 #include "utils/StringUtil.h"
 #include "utils/ZipFile.h"
 #include "utils/md5.h"
@@ -15,6 +16,7 @@
 // because windows...
 #include <direct.h>
 #include <Windows.h>
+#include <shlobj.h> // Include this for SHGetFolderPath
 #include <mutex>
 #include <io.h> 
 #define getcwd _getcwd
@@ -437,7 +439,29 @@ namespace Utils
 			return contentList;
 
 		} // getDirectoryFiles
-
+	 std::string getEsConfigPath()
+  {
+ #ifdef WIN32
+  char path[MAX_PATH];
+  if (SHGetFolderPath(NULL, CSIDL_COMMON_APPDATA, NULL, 0, path) != S_OK) {
+   LOG(LogError) << "FileSystem::getEsConfigPath() - SHGetFolderPath failed!";
+   // Fallback to current directory or something safer
+   return "."; 
+  }
+  return std::string(path) + "\\EmulationStation";
+ #else
+  const char* envHome = getenv("XDG_CONFIG_HOME");
+  if (envHome != nullptr && envHome[0] != '\0')
+  return envHome;
+ 
+  struct passwd *pw = getpwuid(getuid());
+  if(pw == nullptr) {
+  LOG(LogError) << "FileSystem::getEsConfigPath() - getpwuid() returned NULL!";
+  return "/etc/emulationstation";
+  }
+  return std::string(pw->pw_dir) + "/.emulationstation";
+ #endif
+  }
 		std::vector<std::string> getPathList(const std::string& _path)
 		{
 			std::vector<std::string>  pathList;
@@ -1162,6 +1186,7 @@ namespace Utils
 
 		unsigned long long getFileSize(const std::string& _path)
 		{
+
 			std::string path = getGenericPath(_path);
 			struct stat64 info;
 

@@ -33,6 +33,7 @@
 #include "guis/GuiMsgBox.h"
 #include "Paths.h"
 #include "resources/TextureData.h"
+#include "GameStore/EpicGames/EpicGamesStore.h"
 
 using namespace Utils::Platform;
 
@@ -562,7 +563,10 @@ std::string FileData::getlaunchCommand(LaunchGameOptions& options, bool includeC
 	command = Utils::String::replace(command, "%ROM_RAW%", rom_raw);
 	command = Utils::String::replace(command, "%EMULATOR%", emulator);
 	command = Utils::String::replace(command, "%CORE%", core);
-	command = Utils::String::replace(command, "%HOME%", Paths::getHomePath());
+	 command = Utils::String::replace(command, "%HOME%", Paths::getHomePath());
+     if (systemName == "epicgamestore") {
+     LOG(LogDebug) << "epicgamestore - After %HOME% replacement: " << command;
+    }
 	command = Utils::String::replace(command, "%GAMENAME%", formatCommandLineArgument(gameToUpdate->getName()));
 	command = Utils::String::replace(command, "%SYSTEMNAME%", formatCommandLineArgument(system->getFullName()));
 
@@ -641,9 +645,32 @@ std::string FileData::getlaunchCommand(LaunchGameOptions& options, bool includeC
 
 		command = options.saveStateInfo->setupSaveState(this, command);		
 	}
+  if (Utils::String::toLower(systemName) == "epicgamestore") {
+  std::string gamePath = getPath();
+  LOG(LogDebug) << "epicgamestore - EpicGamesStore path: " << gamePath;
+  std::string gameProductId = EpicGamesStore::getEpicGameId(gamePath);
+  LOG(LogDebug) << "epicgamestore - EpicGamesStore::getEpicGameId returned: " << gameProductId;
+  if (!gameProductId.empty()) {
+  command = "\"C:/Users/ceo16/Desktop/lumaca-setup-BETA/build/emulationstation/emulatorLauncher.exe\" -system epicgamestore -gameid \"" + gameProductId + "\" -rom " + Utils::FileSystem::getEscapedPath(getPath());  //  Construct full command WITHOUT extra quotes
+  LOG(LogDebug) << "epicgamestore - Updated command: " << command;
+  } else {
+  LOG(LogError) << "getlaunchCommand: Could not retrieve Epic Games ID for path: " << getPath();
+  command = "\"C:/Users/ceo16/Desktop/lumaca-setup-BETA/build/emulationstation/emulatorLauncher.exe\" -system " + systemName + " -rom " + Utils::FileSystem::getEscapedPath(getPath());  //  Basic default (with rom)
+  LOG(LogWarning) << "epicgamestore - Using default command: " << command;
+  }
+  LOG(LogDebug) << "epicgamestore - Command before return: " << command;
+ }
+ 
 
-	return command;
-}
+  //  Ensure we always have a command, even if the Epic ID retrieval failed.
+  if (command.empty()) {
+  command = "\"C:/Users/ceo16/Desktop/lumaca-setup-BETA/build/emulationstation/emulatorLauncher.exe\" -system " + systemName + " -rom \"" + Utils::FileSystem::getEscapedPath(getPath()) + "\"";  //  Basic default (with rom)
+  LOG(LogWarning) << "epicgamestore - Using fallback default command: " << command;
+  }
+ 
+
+  return command;
+ }
 
 std::string FileData::getMessageFromExitCode(int exitCode)
 {
@@ -1299,6 +1326,7 @@ std::vector<FileData*> FolderData::getFilesRecursive(unsigned int typeMask, bool
 
 void FolderData::addChild(FileData* file, bool assignParent)
 {
+	LOG(LogDebug) << "FolderData::addChild() - Adding: " << file->getPath() << " to " << this->getPath();
 #if DEBUG
 	assert(file->getParent() == nullptr || !assignParent);
 #endif

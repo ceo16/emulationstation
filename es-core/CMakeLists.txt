@@ -120,6 +120,7 @@ set(CORE_HEADERS
 	# Utils
 	${CMAKE_CURRENT_SOURCE_DIR}/src/utils/FileSystemUtil.h
 	${CMAKE_CURRENT_SOURCE_DIR}/src/utils/StringUtil.h
+	${CMAKE_CURRENT_SOURCE_DIR}/src/utils/RandomString.h
 	${CMAKE_CURRENT_SOURCE_DIR}/src/utils/StringListLock.h
 	${CMAKE_CURRENT_SOURCE_DIR}/src/utils/TimeUtil.h
 	${CMAKE_CURRENT_SOURCE_DIR}/src/utils/ThreadPool.h
@@ -132,6 +133,7 @@ set(CORE_HEADERS
 	${CMAKE_CURRENT_SOURCE_DIR}/src/utils/Randomizer.h
 	${CMAKE_CURRENT_SOURCE_DIR}/src/utils/VectorEx.h
 	${CMAKE_CURRENT_SOURCE_DIR}/src/utils/HtmlColor.h
+	${CMAKE_CURRENT_SOURCE_DIR}/src/utils/base64.h
 
 	# Watchers
 	${CMAKE_CURRENT_SOURCE_DIR}/src/watchers/WatchersManager.h
@@ -252,6 +254,7 @@ set(CORE_SOURCES
 	# Utils
 	${CMAKE_CURRENT_SOURCE_DIR}/src/utils/FileSystemUtil.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/src/utils/StringUtil.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/src/utils/RandomString.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/src/utils/StringListLock.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/src/utils/TimeUtil.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/src/utils/ThreadPool.cpp	
@@ -261,6 +264,7 @@ set(CORE_SOURCES
 	${CMAKE_CURRENT_SOURCE_DIR}/src/utils/md5.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/src/utils/Randomizer.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/src/utils/HtmlColor.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/src/utils/base64.cpp
 
 	# Watchers
 	${CMAKE_CURRENT_SOURCE_DIR}/src/watchers/WatchersManager.cpp
@@ -283,6 +287,9 @@ if(MSVC)
 	endforeach()  	
 endif()
 
-include_directories(${COMMON_INCLUDE_DIRS})
+include_directories(${COMMON_INCLUDE_DIRS}
+     ${CMAKE_CURRENT_SOURCE_DIR}/src
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../es-app/src  # Add this line
+	)
 add_library(es-core STATIC ${CORE_SOURCES} ${CORE_HEADERS})
 target_link_libraries(es-core ${COMMON_LIBRARIES})

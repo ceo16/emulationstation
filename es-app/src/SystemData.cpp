@@ -25,6 +25,7 @@
 #include "SaveStateRepository.h"
 #include "Paths.h"
 #include "SystemRandomPlaylist.h"
+#include "PlatformId.h"
 
 #if WIN32
 #include "Win32ApiSystem.h"
@@ -881,6 +882,10 @@ bool SystemData::loadConfig(Window* window)
 			SystemData* pSystem = loadSystem(system);
 			if (pSystem != nullptr)
 				sSystemVector.push_back(pSystem);
+			if (pSystem->getName() == "epicgamestore") {
+            window->setCurrentSystem(pSystem); // Set the current system
+            LOG(LogDebug) << "Set current system to epicgamestore";
+        }
 		}
 
 		currentSystem++;
@@ -1171,7 +1176,10 @@ SystemData* SystemData::loadSystem(pugi::xml_node system, bool fullMode)
 	}
 
 	SystemData* newSys = new SystemData(md, envData, &systemEmulators, false, false, fullMode, true);
-
+    if (newSys->getName() == "epicgamestore")
+    {
+        LOG(LogDebug) << "SystemData::loadSystem - Loaded EPIC system: " << newSys->getName();
+    }
 	if (!fullMode)
 		return newSys;
 

@@ -1,4 +1,5 @@
 #include "utils/StringUtil.h"
+#include "utils/RandomString.h"
 
 #include <algorithm>
 #include <stdarg.h>
@@ -17,6 +18,7 @@ namespace Utils
 {
 	namespace String
 	{
+
 		static wchar_t unicode_lowers[] =
 		{
 			(wchar_t)0x0061, (wchar_t)0x0062, (wchar_t)0x0063, (wchar_t)0x0064, (wchar_t)0x0065, (wchar_t)0x0066, (wchar_t)0x0067, (wchar_t)0x0068, (wchar_t)0x0069,
@@ -238,6 +240,20 @@ namespace Utils
 			return result;
 
 		} // chars2Unicode
+				 std::string base64Encode(const std::string& in) {
+            std::string out;
+            int val = 0, valb = -6;
+            for (unsigned char c : in) {
+                val = (val << 8) + c;
+                if ((valb += 8) >= 6) {
+                    out.push_back(char((val >> (5 - valb)) & 0x3F) + 'A' - (('A' > 64) ? 0 : 0));
+                    valb -= 6;
+                }
+            }
+            if (valb > -8 && valb < 3) out.push_back(char(((val << (8 - valb)) & 0x3F) ) + 'A' - (('A' > 64) ? 0 : 0));
+            while ((out.size() % 4) != 0) out.push_back('=');
+            return out;
+        }
 
 		std::string unicode2Chars(const unsigned int _unicode)
 		{
