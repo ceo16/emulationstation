@@ -645,24 +645,21 @@ std::string FileData::getlaunchCommand(LaunchGameOptions& options, bool includeC
 
 		command = options.saveStateInfo->setupSaveState(this, command);		
 	}
-  if (Utils::String::toLower(systemName) == "epicgamestore")
-  {
-  std::string gamePath = getPath();
-  LOG(LogDebug) << "getlaunchCommand: EpicGamesStore path: " << gamePath;
-  std::string gameProductId = EpicGamesStore::getEpicGameId(gamePath);
-  LOG(LogDebug) << "getlaunchCommand: EpicGamesStore::getEpicGameId returned: " << gameProductId;
-  if (!gameProductId.empty())
-  {
-  // Construct command to launch the .url file
-  command = "\"" + Utils::Platform::getEsLaunchCommand() + "\" -system epicgamestore -rom \"" + Utils::FileSystem::getEscapedPath(getPath()) + "\"";
-  LOG(LogDebug) << "Epic Launch Command: " << command;
-  }
-  else
-  {
-  LOG(LogError) << "getlaunchCommand: Could not retrieve Epic Games ID for path: " << getPath();
-  return ""; // Or handle the error appropriately
-  }
-  LOG(LogDebug) << "epicgamestore - Command before return: " << command;
+if (Utils::String::toLower(systemName) == "epicgamestore") {
+   std::string gamePath = getPath();
+   LOG(LogDebug) << "getlaunchCommand: EpicGamesStore path: " << gamePath;
+   std::string gameProductId = EpicGamesStore::getEpicGameId(gamePath);
+   LOG(LogDebug) << "getlaunchCommand: EpicGamesStore::getEpicGameId returned: " << gameProductId;
+   if (!gameProductId.empty()) {
+    //  Construct command using %HOME%
+    command = "\"%HOME%/emulatorLauncher.exe\" -system epicgamestore -gameid %EPIC_GAME_ID% -rom " + Utils::FileSystem::getEscapedPath(getPath());
+    command = Utils::String::replace(command, "%EPIC_GAME_ID%", gameProductId);
+    LOG(LogDebug) << "Epic Launch Command: " << command;
+    return command;
+   } else {
+    LOG(LogError) << "getlaunchCommand: Could not retrieve Epic Games ID for path: " << getPath();
+    return "";
+   }
   }
  
 
