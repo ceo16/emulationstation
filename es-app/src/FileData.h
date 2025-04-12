@@ -141,7 +141,7 @@ public:
 	std::string getlaunchCommand(bool includeControllers = true) { LaunchGameOptions options; return getlaunchCommand(options, includeControllers); };
 	std::string getlaunchCommand(LaunchGameOptions& options, bool includeControllers = true);
 
-	bool		launchGame(Window* window, LaunchGameOptions options = LaunchGameOptions());
+	bool       launchGame(Window* window, LaunchGameOptions options = LaunchGameOptions());
 
 	static void resetSettings();
 	
@@ -176,7 +176,7 @@ public:
 	std::set<std::string> getContentFiles();
 
 	void setSelectedGame();
-
+	void launch();
 	std::pair<int, int> parsePlayersRange();
 
 	// IBindable

@@ -13,10 +13,13 @@
  class GameStore {
  public:
   virtual ~GameStore() = default;
+  virtual bool isInitialized() const { return _initialized; }
   virtual bool init(Window* window) = 0;
   virtual void showStoreUI(Window* window) = 0;
   virtual std::string getStoreName() const = 0;
   virtual void shutdown() = 0;
+  protected:
+  bool _initialized = false;
  
 
   virtual std::vector<FileData*> getGamesList() = 0; // Changed return type to std::vector<FileData*>

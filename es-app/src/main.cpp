@@ -43,6 +43,7 @@
 #include "HttpReq.h"
 #include <thread>
 #include "GameStore/EpicGames/EpicGamesStore.h"
+#include "GameStore/EpicGames/GameStoreManager.h"
 
 #ifdef WIN32
 #include <Windows.h>
@@ -259,20 +260,7 @@ bool parseArgs(int argc, char* argv[])
 
 	return true;
 }
-int main() {
-    EpicGamesStore store;
-    // We're not actually using a Window object in this minimal example
-    // so we'll just pass nullptr.
-    store.init(nullptr);
-    store.showStoreUI(nullptr);
-    std::string name = store.getStoreName();
-    std::cout << "Store name: " << name << std::endl;
-    store.getGamesList();
-    store.installGame("Game123");
-    store.uninstallGame("Game123");
-    store.updateGame("Game123");
-    return 0;
-}
+
 bool verifyHomeFolderExists()
 {
 	//make sure the config directory exists	
@@ -294,6 +282,7 @@ bool verifyHomeFolderExists()
 // Returns true if everything is OK,
 bool loadSystemConfigFile(Window* window, const char** errorString)
 {
+	
 	*errorString = NULL;
 
 	StopWatch stopWatch("loadSystemConfigFile :", LogDebug);
@@ -317,9 +306,11 @@ bool loadSystemConfigFile(Window* window, const char** errorString)
 			"VISIT EMULATIONSTATION.ORG FOR MORE INFORMATION.";
 		return false;
 	}
+	
 
 	return true;
 }
+
 
 //called on exit, assuming we get far enough to have the log initialized
 void onExit()
@@ -454,6 +445,95 @@ void launchStartupGame()
 }
 
 #include "utils/MathExpr.h"
+ void initEpicGamesStore(Window& window) {
+  LOG(LogDebug) << "--- EPIC GAMES STORE INIT START ---";
+ 
+
+  GameStoreManager* gsm = GameStoreManager::get();
+  LOG(LogDebug) << "GameStoreManager::get() returned: " << gsm;
+  if (gsm) {
+  LOG(LogDebug) << "GameStoreManager instance is valid.";
+  gsm->initAllStores(&window);
+  LOG(LogDebug) << "gsm->initAllStores() completed.";
+  } else {
+  LOG(LogError) << "Error: GameStoreManager::get() returned a null pointer!";
+  return;
+  }
+ 
+
+  EpicGamesStore* epicGamesStore = nullptr;
+  LOG(LogDebug) << "Finding EpicGamesStore...";
+  for (auto const& [storeName, store] : gsm->getStores()) {
+  LOG(LogDebug) << "  Checking store: " << storeName;
+  if (storeName == "EpicGamesStore") {
+  epicGamesStore = static_cast<EpicGamesStore*>(store);
+  LOG(LogDebug) << "  Found EpicGamesStore: " << epicGamesStore;
+  break;
+  }
+  }
+ 
+
+  if (!epicGamesStore) {
+  LOG(LogError) << "EpicGamesStore not found by GameStoreManager!";
+  return;
+  }
+ 
+
+  LOG(LogDebug) << "Creating SystemData...";
+  SystemMetadata epicSystemMetadata;
+  epicSystemMetadata.name = "epicgamestore";
+  epicSystemMetadata.fullName = "Epic Games Store";
+  epicSystemMetadata.themeFolder = "epicgamestore";
+ 
+
+  SystemEnvironmentData* epicSystemEnvData = new SystemEnvironmentData();
+  epicSystemEnvData->mStartPath = "";
+  epicSystemEnvData->mSearchExtensions = {};
+  epicSystemEnvData->mPlatformIds = { PlatformIds::PC };
+  epicSystemEnvData->mLaunchCommand = "";
+ 
+
+  std::vector<EmulatorData> epicEmulators;
+ 
+
+  SystemData* epicSystem = new SystemData(epicSystemMetadata, epicSystemEnvData, &epicEmulators);
+  LOG(LogDebug) << "Created epicSystem: " << epicSystem << " (name: " << epicSystem->getName() << ")";
+ 
+
+  LOG(LogDebug) << "Getting Epic Games list...";
+  try {
+  std::vector<EpicGamesStore::EpicGameInfo> epicGames = epicGamesStore->getInstalledEpicGamesWithDetails();
+  LOG(LogDebug) << "Found " << epicGames.size() << " Epic Games";
+  for (const auto& game : epicGames) {
+  LOG(LogDebug) << "  Processing game: " << game.name;
+  FileData* gameFileData = new FileData(GAME, game.installDir, epicSystem);
+  LOG(LogDebug) << "  Created FileData: " << gameFileData << " for " << game.name << " (path: " << gameFileData->getPath() << ")";
+  gameFileData->setMetadata(MetaDataId::Name, game.name);
+  gameFileData->setMetadata(MetaDataId::launchCommand, game.launchCommand);
+  LOG(LogDebug) << "  Name: " << gameFileData->getMetadata(MetaDataId::Name) << ", Launch Command: " << gameFileData->getMetadata(MetaDataId::launchCommand);
+  epicSystem->getRootFolder()->addChild(gameFileData);
+  LOG(LogDebug) << "  Added FileData to root folder, now has " << epicSystem->getRootFolder()->getChildren().size() << " children";
+  }
+  } catch (const std::exception& e) {
+  LOG(LogError) << "Exception while getting game list: " << e.what();
+  return;
+  }
+  //  5.5 Logging to inspect epicSystem's children
+  LOG(LogDebug) << "epicSystem root folder has " << epicSystem->getRootFolder()->getChildren().size() << " children.";
+  for (auto child : epicSystem->getRootFolder()->getChildren()) {
+  LOG(LogDebug) << "  Child: " << child->getName() << " (" << child->getPath() << ")";
+  }
+ 
+
+  //  6. Add the System to EmulationStation
+  LOG(LogDebug) << "SystemData::sSystemVector size before: " << SystemData::sSystemVector.size();
+  SystemData::sSystemVector.push_back(epicSystem);
+  LOG(LogDebug) << "Added system: " << epicSystem->getName() << " to SystemData::sSystemVector, new size: " << SystemData::sSystemVector.size();
+  //  *** END EPIC GAMES STORE INTEGRATION ***
+ 
+
+  LOG(LogDebug) << "--- EPIC GAMES STORE INIT END ---";
+ }
 
 int main(int argc, char* argv[])
 {	
@@ -548,9 +628,13 @@ int main(int argc, char* argv[])
 
 	Window window;
 	SystemScreenSaver screensaver(&window);
-	ViewController::init(&window);
+    ViewController::init(&window);
+	LOG(LogDebug) << "main - ViewController::init() called (ViewController address: " << ViewController::get() << ")";
 	CollectionSystemManager::init(&window);
-	VideoVlcComponent::init();
+  LOG(LogDebug) << "main - CollectionSystemManager::init() called";
+
+  VideoVlcComponent::init();
+  LOG(LogDebug) << "main - VideoVlcComponent::init() called";
 
 	window.pushGui(ViewController::get());
 	if(!window.init(true, false))
@@ -572,8 +656,26 @@ int main(int argc, char* argv[])
 
 		window.renderSplashScreen(progressText);
 	}
+    NetworkThread* nthread = new NetworkThread(&window);
+	 std::function<void(const std::string&)> dummySetStateCallback = [](const std::string& state) {
+  // Do nothing or log if needed
+  };
 
 	MameNames::init();
+	HttpServerThread httpServer(&window, dummySetStateCallback); // 
+	initEpicGamesStore(window);
+	LOG(LogDebug) << "main - SystemData::sSystemVector after loading:";
+ for (auto sys : SystemData::sSystemVector) {
+ LOG(LogDebug) << "  - " << sys->getName() << " (address: " << sys << ")"
+               << ", isCollection: " << sys->isCollection()
+               << ", isGameSystem: " << sys->isGameSystem();
+			   // --- SYSTEM VECTOR LOGGING (AFTER EPIC STORE INIT) ---
+  LOG(LogDebug) << "main - SystemData::sSystemVector after initEpicGamesStore:";
+  for (auto sys : SystemData::sSystemVector) {
+  LOG(LogDebug) << "   - System: " << sys->getName() << " (address: " << sys << ")";
+  }
+  // --- END SYSTEM VECTOR LOGGING ---
+ }
 
 
 	const char* errorMsg = NULL;
@@ -592,6 +694,7 @@ int main(int argc, char* argv[])
 	}
 
 	SystemConf* systemConf = SystemConf::getInstance();
+
 
 #ifdef _ENABLE_KODI_
 	if (systemConf->getBool("kodi.enabled", true) && systemConf->getBool("kodi.atstartup"))
@@ -623,14 +726,11 @@ int main(int argc, char* argv[])
 	InputManager::getInstance()->init();
 	SDL_StopTextInput();
 
-	NetworkThread* nthread = new NetworkThread(&window);
-	 std::function<void(const std::string&)> dummySetStateCallback = [](const std::string& state) {
-  // Do nothing or log if needed
-  };
-	HttpServerThread httpServer(&window, dummySetStateCallback); // 
+	
 
 	// tts
 	TextToSpeech::getInstance()->enable(Settings::getInstance()->getBool("TTS"), false);
+
 	
 	if (errorMsg == NULL)
 		ViewController::get()->goToStart(true);

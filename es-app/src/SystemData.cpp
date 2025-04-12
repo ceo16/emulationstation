@@ -27,6 +27,7 @@
 #include "SystemRandomPlaylist.h"
 #include "PlatformId.h"
 
+
 #if WIN32
 #include "Win32ApiSystem.h"
 #endif
@@ -1183,12 +1184,16 @@ SystemData* SystemData::loadSystem(pugi::xml_node system, bool fullMode)
 	if (!fullMode)
 		return newSys;
 
-	if (!UIModeController::LoadEmptySystems() && newSys->getRootFolder()->getChildren().size() == 0)
-	{
-		LOG(LogWarning) << "System \"" << md.name << "\" has no games! Ignoring it.";
-		delete newSys;
-		return nullptr;
-	}	
+	//  [MODIFIED]  Remove or comment out this block!
+  /*
+  if (!UIModeController::LoadEmptySystems() && newSys->getRootFolder()->getChildren().size() == 0)
+  {
+   LOG(LogWarning) << "System \"" << md.name << "\" has no games! Ignoring it.";
+   delete newSys;
+   return nullptr;
+  }
+  */
+	
 
 	if (!newSys->mIsCollectionSystem && newSys->mIsGameSystem && !md.manufacturer.empty() && !IsManufacturerSupported)
 		IsManufacturerSupported = true;
@@ -1253,21 +1258,34 @@ std::string SystemData::getConfigPath()
 
 bool SystemData::isVisible()
 {
-	if (mIsCollectionSystem)
-	{
-		if (mMetadata.name != "favorites" && !UIModeController::getInstance()->isUIModeFull() && getGameCountInfo()->totalGames == 0)
-			return false;
+    bool visible = true; // Initialize to true for clarity
 
-		return true;
-	}
+    if (mIsCollectionSystem)
+    {
+        if (mMetadata.name != "favorites" && !UIModeController::getInstance()->isUIModeFull() && getGameCountInfo()->totalGames == 0)
+            visible = false;  // Set visible to false if this condition is met
+    }
+    else if (isGroupChildSystem())
+    {
+        visible = false; // Set visible to false if this is a group child
+    }
+    else if (!mHidden && !mIsCollectionSystem && (UIModeController::LoadEmptySystems() || getGameCountInfo()->totalGames > 0))
+    {
+        visible = true; // Redundant, but makes logic clear
+    }
+    else
+    {
+        visible = !mHidden; // The corrected logic: base visibility on mHidden
+    }
 
-	if (isGroupChildSystem())
-		return false;
+    // --- LOGGING ---
+    LOG(LogDebug) << "System " << getName() << " isVisible(): " << visible
+                  << ", mIsCollectionSystem: " << mIsCollectionSystem
+                  << ", mHidden: " << mHidden
+                  << ", gameCount: " << (getGameCountInfo() ? getGameCountInfo()->totalGames : 0);
+    // --- END LOGGING ---
 
-	if (!mHidden && !mIsCollectionSystem && (UIModeController::LoadEmptySystems() || getGameCountInfo()->totalGames > 0))
-		return true;
-
-	return false;
+    return visible;
 }
 
 SystemData* SystemData::getNext() const

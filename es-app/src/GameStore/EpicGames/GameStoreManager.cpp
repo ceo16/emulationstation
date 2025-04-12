@@ -15,8 +15,8 @@ GameStoreManager* GameStoreManager::get() {
 
 GameStoreManager::GameStoreManager(std::function<void(const std::string&)> setStateCallback) : setStateCallback(setStateCallback) {
     LOG(LogDebug) << "GameStoreManager: Constructor (with callback)";
-    registerStore(new PlaceholderStore());
-    //registerStore(new EpicGamesStore(setStateCallback));
+  //  registerStore(new PlaceholderStore());
+  //  registerStore(new EpicGamesStore(setStateCallback));
 }
 
 GameStoreManager::~GameStoreManager() {
@@ -77,13 +77,15 @@ void GameStoreManager::showIndividualStoreUI(Window* window) {
 }
 
 void GameStoreManager::initAllStores(Window* window) {
-    LOG(LogDebug) << "GameStoreManager: Initializing all stores";
-    for (auto& pair : mStores) {
-        if (pair.second && !pair.second->init(window)) {
-            LOG(LogError) << "GameStoreManager: Failed to initialize store " << pair.first;
-        }
+  LOG(LogDebug) << "GameStoreManager: Initializing all stores";
+  for (auto& pair : mStores) {
+   if (pair.second) {
+    if (!pair.second->init(window)) {
+     LOG(LogError) << "GameStoreManager: Failed to initialize store " << pair.first;
     }
-}
+   }
+  }
+ }
 
 void GameStoreManager::shutdownAllStores() {
     LOG(LogDebug) << "GameStoreManager: Shutting down all stores";

@@ -94,34 +94,68 @@ ViewController::~ViewController()
 	sInstance = nullptr;
 }
 
-void ViewController::goToStart(bool forceImmediate)
-{
-	bool startOnGamelist = Settings::getInstance()->getBool("StartupOnGameList");
+ void ViewController::goToStart(bool forceImmediate)
+ {
+  LOG(LogDebug) << "ViewController::goToStart - START";
+  bool startOnGamelist = Settings::getInstance()->getBool("StartupOnGameList");
+  LOG(LogDebug) << "  startOnGamelist: " << startOnGamelist;
 
-	// If specific system is requested, go directly to the game list
-	auto requestedSystem = Settings::getInstance()->getString("StartupSystem");
-	if (requestedSystem == "lastsystem")
-		requestedSystem = Settings::getInstance()->getString("LastSystem");
+  auto requestedSystem = Settings::getInstance()->getString("StartupSystem");
+  LOG(LogDebug) << "  StartupSystem setting: " << requestedSystem;
+  if (requestedSystem == "lastsystem") {
+  requestedSystem = Settings::getInstance()->getString("LastSystem");
+  LOG(LogDebug) << "  LastSystem setting: " << requestedSystem;
+  }
 
-	if("" != requestedSystem && "retropie" != requestedSystem)
-	{
-		auto system = SystemData::getSystem(requestedSystem);
-		if (system != nullptr && !system->isGroupChildSystem())
-		{
-			if (startOnGamelist)
-				goToGameList(system, forceImmediate);
-			else
-				goToSystemView(system, forceImmediate);
+  LOG(LogDebug) << "  Requested system: " << requestedSystem;
 
-			return;
-		}
-	}
+  if ("" != requestedSystem && "retropie" != requestedSystem)
+  {
+  auto system = SystemData::getSystem(requestedSystem);
+  if (system != nullptr && !system->isGroupChildSystem())
+  {
+  LOG(LogDebug) << "  Found system: " << system->getName();
+  if (startOnGamelist) {
+  LOG(LogDebug) << "  Going to game list.";
+  goToGameList(system, forceImmediate);
+  } else {
+  LOG(LogDebug) << "  Going to system view.";
+  goToSystemView(system, forceImmediate);
+  }
 
-	if (startOnGamelist)
-		goToGameList(SystemData::getFirstVisibleSystem(), forceImmediate);
-	else
-		goToSystemView(SystemData::getFirstVisibleSystem());
-}
+  LOG(LogDebug) << "ViewController::goToStart - Early return after finding requested system.";
+  return;
+  }
+  else
+  {
+  LOG(LogWarning) << "  Requested system \"" << requestedSystem << "\" not found or is a group child system.";
+  }
+  }
+
+  LOG(LogDebug) << "ViewController::goToStart - Going to default start.";
+
+  // --- DETAILED SYSTEM VECTOR LOGGING ---
+  LOG(LogDebug) << "ViewController::goToStart - SystemData::sSystemVector contents:";
+  for (auto sys : SystemData::sSystemVector) {
+  LOG(LogDebug) << "  - System: " << sys->getName()
+  << ", isVisible(): " << sys->isVisible()
+  << ", isGameSystem(): " << sys->isGameSystem()
+  << ", isCollection(): " << sys->isCollection()
+  << ", group: " << (sys->getSystemEnvData() ? sys->getSystemEnvData()->mGroup : "")
+  << ", themeFolder: " << sys->getSystemMetadata().themeFolder;
+  }
+  // --- END DETAILED SYSTEM VECTOR LOGGING ---
+
+  if (startOnGamelist) {
+  LOG(LogDebug) << "ViewController::goToStart - Going to first visible game list.";
+  goToGameList(SystemData::getFirstVisibleSystem(), forceImmediate);
+  } else {
+  LOG(LogDebug) << "ViewController::goToStart - Going to first visible system view.";
+  goToSystemView(SystemData::getFirstVisibleSystem());
+  }
+
+  LOG(LogDebug) << "ViewController::goToStart - END";
+ }
 
 void ViewController::ReloadAndGoToStart()
 {

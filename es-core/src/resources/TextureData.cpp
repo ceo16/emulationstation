@@ -71,10 +71,7 @@ bool TextureData::initSVGFromMemory(const unsigned char* fileData, size_t length
 	}
 
 	if (svgImage->width == 0 || svgImage->height == 0)
-	{
-		nsvgDelete(svgImage);
 		return false;
-	}
 
 	float sourceWidth = svgImage->width;
 	float sourceHeight = svgImage->height;

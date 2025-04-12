@@ -75,7 +75,10 @@ enum MetaDataId
 	Magazine = 38,
 	GenreIds = 39,
 	Family = 40,
-	Bezel = 41
+	Bezel = 41,
+	InstallDir = 42,
+    Executable = 43,
+	launchCommand = 44
 };
 
 namespace MetaDataImportType

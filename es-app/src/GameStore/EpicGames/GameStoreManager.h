@@ -18,6 +18,7 @@ public:
 
     void registerStore(GameStore* store); // Back to raw pointer
     GameStore* getStore(const std::string& storeName);
+	std::map<std::string, GameStore*> getStores() const { return mStores; } //  Add this method
     void showStoreSelectionUI(Window* window);
     void showIndividualStoreUI(Window* window);
     void initAllStores(Window* window);

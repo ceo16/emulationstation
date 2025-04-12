@@ -1,5 +1,6 @@
 #include "FileData.h"
 
+
 #include "utils/FileSystemUtil.h"
 #include "utils/StringUtil.h"
 #include "utils/TimeUtil.h"
@@ -35,7 +36,10 @@
 #include "resources/TextureData.h"
 #include "GameStore/EpicGames/EpicGamesStore.h"
 
+
+
 using namespace Utils::Platform;
+
 
 static std::map<std::string, std::function<BindableProperty(FileData*)>> properties =
 {
@@ -645,22 +649,42 @@ std::string FileData::getlaunchCommand(LaunchGameOptions& options, bool includeC
 
 		command = options.saveStateInfo->setupSaveState(this, command);		
 	}
-if (Utils::String::toLower(systemName) == "epicgamestore") {
-  std::string gamePath = getPath();
-  LOG(LogDebug) << "epicgamestore - EpicGamesStore path: " << gamePath;
-  std::string gameProductId = EpicGamesStore::getEpicGameId(gamePath);
-  LOG(LogDebug) << "epicgamestore - EpicGamesStore::getEpicGameId returned: " << gameProductId;
-  if (!gameProductId.empty()) {
-  command = Utils::String::replace(command, "-system epicgamestore -gameid %EPIC_GAME_ID%", "-system epicgamestore -gameid " + gameProductId);
-  LOG(LogDebug) << "epicgamestore - Updated command: " << command;
-  } else {
-  LOG(LogError) << "epicgamestore - Could not retrieve Epic Games ID for path: " << getPath();
-  return "";
-  }
- }
+
  
 
   return command;
+ }
+ 
+ void FileData::launch() {
+  if (mType == FOLDER) {
+  //  ... folder launch logic ...
+  return;
+  }
+ 
+  std::string command;
+  if (mSystem->getName() == "epicgamestore") {
+  command = getMetadata(MetaDataId::launchCommand);
+  LOG(LogDebug) << "Retrieved launchCommand: " << command;
+  if (command.empty()) {
+  LOG(LogError) << "Epic Games launch command is empty! Falling back to system.cfg command.";
+   command = getSystem()->getLaunchCommand(getEmulator(), getCore());  //  Correct!  //  Get the command from system.cfg
+  if (command.empty()) {
+  LOG(LogError) << "system.cfg launch command is also empty!";
+  return;
+  }
+  }
+  LOG(LogInfo) << "Launching Epic Games game: " << command;
+  Utils::Platform::openUrl(command);
+  }
+  else {
+  LaunchGameOptions options;  //  For regular games
+  command = getlaunchCommand(options);  //  Use getlaunchCommand for emulator/ROMs
+  if (command.empty()) {
+  LOG(LogError) << "Launch command is empty!";
+  return;
+  }
+  //  ... existing emulator/rom launch logic ...
+  }
  }
 
 std::string FileData::getMessageFromExitCode(int exitCode)
@@ -1832,288 +1856,349 @@ std::string FileData::getGenre()
 	return genre;
 }
 
-BindableProperty FileData::getProperty(const std::string& name)
-{
-	auto it = properties.find(name);
-	if (it != properties.cend())
-		return it->second(this);
+ BindableProperty FileData::getProperty(const std::string& name)
+  {
+  auto it = properties.find(name);
+  if (it != properties.cend())
+  return it->second(this);
+ 
 
-	if (name == "nameShort")
-	{
-		auto name = getName();
+  if (name == "nameShort")
+  {
+  auto name = getName();
+ 
 
-		for (int i = 0; i < name.size(); i++)
-			if (name[i] == '(' || name[i] == '[')
-				return name.substr(0, i);
+  for (int i = 0; i < name.size(); i++)
+  if (name[i] == '(' || name[i] == '[')
+  return BindableProperty(name.substr(0, i), BindablePropertyType::String);
+ 
 
-		return name;
-	}
+  return BindableProperty(name, BindablePropertyType::String);
+  }
+ 
 
-	if (name == "nameExtra")
-	{
-		auto name = getName();
+  if (name == "nameExtra")
+  {
+  auto name = getName();
+ 
 
-		for (int i = 0; i < name.size(); i++)
-			if (name[i] == '(' || name[i] == '[')
-				return name.substr(i);
+  for (int i = 0; i < name.size(); i++)
+  if (name[i] == '(' || name[i] == '[')
+  return BindableProperty(name.substr(i), BindablePropertyType::String);
+ 
 
-		return "";
-	}	
+  return BindableProperty(std::string(), BindablePropertyType::String);
+  } 
+ 
 
-	if (name == "collection")
-	{
-		if (getSystem()->isCollection() || getSystem()->isGroupChildSystem())
-		{
-			FolderData* parent = getParent();
+  if (name == "collection")
+  {
+  if (getSystem()->isCollection() || getSystem()->isGroupChildSystem())
+  {
+  FolderData* parent = getParent();
+ 
 
-			if (getType() == FOLDER)
-			{				
-				if (parent != nullptr && (parent->getSystem()->isCollection() || getSystem()->isGroupChildSystem() || getSystem()->isGroupSystem()))
-					return BindableProperty(parent->getSystem());
-			}
+  if (getType() == FOLDER)
+  {  
+  if (parent != nullptr && (parent->getSystem()->isCollection() || getSystem()->isGroupChildSystem() || getSystem()->isGroupSystem()))
+  return BindableProperty(parent->getSystem());
+  }
+ 
 
-			if (getSystem()->isGroupChildSystem() && parent != nullptr)
-			{
-				auto group = getSystem()->getParentGroupSystem();
-				if (group != nullptr)
-				{
-					std::string showFoldersMode = group->getFolderViewMode();
-					if (showFoldersMode == "never")
-						return BindableProperty(getBindableParent());
-					else if (showFoldersMode == "having multiple games" && parent && parent->findUniqueGameForFolder() != nullptr)
-						return BindableProperty(getBindableParent());
-				}
-			}
+  if (getSystem()->isGroupChildSystem() && parent != nullptr)
+  {
+  auto group = getSystem()->getParentGroupSystem();
+  if (group != nullptr)
+  {
+  std::string showFoldersMode = group->getFolderViewMode();
+  if (showFoldersMode == "never")
+  return BindableProperty(getBindableParent());
+  else if (showFoldersMode == "having multiple games" && parent && parent->findUniqueGameForFolder() != nullptr)
+  return BindableProperty(getBindableParent());
+  }
+  }
+ 
 
-			if (getSystem()->isCollection() || getSystem()->isGroupChildSystem() || getSystem()->isGroupSystem())
-				return BindableProperty(getSystem());
-		}
-			
-		return BindableProperty::Null; // getProperty("system");
-	}
+  if (getSystem()->isCollection() || getSystem()->isGroupChildSystem() || getSystem()->isGroupSystem())
+  return BindableProperty(getSystem());
+  }
+  
+  return BindableProperty::Null; // getProperty("system");
+  }
+ 
 
-	if (name == "system")
-	{
-		auto sys = getSourceFileData()->getSystem();
-		if (mPath == ".." && sys->isGroupChildSystem())
-		{
-			SystemData* group = sys->getParentGroupSystem();
-			if (group != nullptr)
-				sys = group;
-		}
+  if (name == "system")
+  {
+  auto sys = getSourceFileData()->getSystem();
+  if (mPath == ".." && sys->isGroupChildSystem())
+  {
+  SystemData* group = sys->getParentGroupSystem();
+  if (group != nullptr)
+  sys = group;
+  }
+ 
 
-		return BindableProperty(sys);
-	}
+  return BindableProperty(sys);
+  }
+ 
 
-	if (name == "directory")
-	{				
-		if (!getSystem()->isCollection() && getSystem()->isGroupChildSystem())
-		{
-			SystemData* group = getSystem()->getParentGroupSystem();
-			if (group != nullptr)
-				return BindableProperty::EmptyString;
-		}
+  if (name == "directory")
+  {  
+  if (!getSystem()->isCollection() && getSystem()->isGroupChildSystem())
+  {
+  SystemData* group = getSystem()->getParentGroupSystem();
+  if (group != nullptr)
+  return BindableProperty::EmptyString;
+  }
+ 
 
-		std::string showFoldersMode = getSystem()->getFolderViewMode();
-		if (showFoldersMode == "never")
-			return BindableProperty::EmptyString;
-		
-		auto parent = getParent();
-		if (parent != nullptr)
-		{
-			if (showFoldersMode == "having multiple games")
-			{
-				auto fd = parent->findUniqueGameForFolder();
-				if (fd != nullptr) 
-					return BindableProperty::EmptyString;
-			}
+  std::string showFoldersMode = getSystem()->getFolderViewMode();
+  if (showFoldersMode == "never")
+  return BindableProperty::EmptyString;
+  
+  auto parent = getParent();
+  if (parent != nullptr)
+  {
+  if (showFoldersMode == "having multiple games")
+  {
+  auto fd = parent->findUniqueGameForFolder();
+  if (fd != nullptr) 
+  return BindableProperty::EmptyString;
+  }
+ 
 
-			if (getSystem()->isCollection() && parent == getSystem()->getRootFolder())
-				return BindableProperty::EmptyString;
+  if (getSystem()->isCollection() && parent == getSystem()->getRootFolder())
+  return BindableProperty::EmptyString;
+ 
 
-			if (!parent->isVirtualFolderDisplay())
-				return parent->getBreadCrumbPath();
-		}
+  if (!parent->isVirtualFolderDisplay())
+  return BindableProperty(parent->getBreadCrumbPath(), BindablePropertyType::String);
+  }
+ 
 
-		return BindableProperty::EmptyString;
-	}
+  return BindableProperty::EmptyString;
+  }
+ 
 
-	if (name == "type")
-	{
-		switch (getType())
-		{
-		case FOLDER: return BindableProperty("folder", BindablePropertyType::String);
-		case PLACEHOLDER: return BindableProperty("placeholder", BindablePropertyType::String);
-		default: return BindableProperty("game", BindablePropertyType::String);
-		}
-	}
+  if (name == "type")
+  {
+  switch (getType())
+  {
+  case FOLDER: return BindableProperty("folder", BindablePropertyType::String);
+  case PLACEHOLDER: return BindableProperty("placeholder", BindablePropertyType::String);
+  default: return BindableProperty("game", BindablePropertyType::String);
+  }
+  }
+ 
 
-	if (name == "stars")
-	{
-		#define RATINGSTAR _U("\uF005")
+  if (name == "stars")
+  {
+  #define RATINGSTAR _U("\uF005")
+ 
 
-		int stars = (int)Math::round(Math::clamp(0.0f, 1.0f, Utils::String::toFloat(getMetadata(MetaDataId::Rating))) * 5.0);
+  int stars = (int)Math::round(Math::clamp(0.0f, 1.0f, Utils::String::toFloat(getMetadata(MetaDataId::Rating))) * 5.0);
+ 
 
-		std::string str;
-		for (int i = 0; i < stars; i++)
-			str += RATINGSTAR;
+  std::string str;
+  for (int i = 0; i < stars; i++)
+  str += RATINGSTAR;
+ 
 
-		return str;
-	}
+  return BindableProperty(str, BindablePropertyType::String);
+  }
+ 
 
-	if (name == "folder" || name == "isFolder")
-		return getType() == FOLDER; 
+  if (name == "folder" || name == "isFolder")
+  {
+  return BindableProperty(getType() == FOLDER ? "true" : "false", BindablePropertyType::String); //  MODIFIED
+  }
+ 
 
-	if (name == "virtualfolder")
-		return getType() == FOLDER && (getPath() == ".." || ((FolderData*)this)->isVirtualFolderDisplay());
+  if (name == "virtualfolder")
+  {
+  return BindableProperty((getType() == FOLDER && (getPath() == ".." || ((FolderData*)this)->isVirtualFolderDisplay())) ? "true" : "false", BindablePropertyType::String); //  MODIFIED
+  }
+ 
 
-	if (name == "placeHolder" || name == "isPlaceHolder" || name == "placeholder")
-		return getType() == PLACEHOLDER;
+  if (name == "placeHolder" || name == "isPlaceHolder" || name == "placeholder")
+  {
+  return BindableProperty(getType() == PLACEHOLDER ? "true" : "false", BindablePropertyType::String); //  MODIFIED
+  }
+ 
 
-	if (name == "playerCount" || name == "playercount")
-	{
-		std::string value = getMetadata().get("players");
-		auto split = value.rfind("+");
-		if (split != std::string::npos)
-			return value.substr(0, split);
+  if (name == "playerCount" || name == "playercount")
+  {
+  std::string value = getMetadata().get("players");
+  auto split = value.rfind("+");
+  if (split != std::string::npos)
+  return BindableProperty(value.substr(0, split), BindablePropertyType::String);
+ 
 
-		split = value.rfind("-");
-		if (split != std::string::npos)
-			return value.substr(split + 1);
+  split = value.rfind("-");
+  if (split != std::string::npos)
+  return BindableProperty(value.substr(split + 1), BindablePropertyType::String);
+ 
 
-		return (int) Math::clamp(Utils::String::toInteger(value), 1, 9);
-	}
+  return BindableProperty(std::to_string((int) Math::clamp(Utils::String::toInteger(value), 1, 9)), BindablePropertyType::String); //  MODIFIED
+  }
+ 
 
-	if (name == "hasManual" || name == "hasmanual")
-	{
-		if (Settings::getInstance()->getBool("PreloadMedias"))
-			return !getMetadata(MetaDataId::Manual).empty() || !getMetadata(MetaDataId::Magazine).empty(); // ? _("YES") : _("NO");
-		
-		return Utils::FileSystem::exists(getMetadata(MetaDataId::Manual)) || Utils::FileSystem::exists(getMetadata(MetaDataId::Magazine)); // ? _("YES") : _("NO");
-	}
+  if (name == "hasManual" || name == "hasmanual")
+  {
+  if (Settings::getInstance()->getBool("PreloadMedias"))
+  return BindableProperty((!getMetadata(MetaDataId::Manual).empty() || !getMetadata(MetaDataId::Magazine).empty()) ? "true" : "false", BindablePropertyType::String); //  MODIFIED
+  
+  return BindableProperty((Utils::FileSystem::exists(getMetadata(MetaDataId::Manual)) || Utils::FileSystem::exists(getMetadata(MetaDataId::Magazine))) ? "true" : "false", BindablePropertyType::String); //  MODIFIED
+  }
+ 
 
-	if (name == "hasSaveState" || name == "hassavestate" || name == "savestate")
-	{
-		bool hasSaveState = SaveStateRepository::isEnabled(this) && getSourceFileData()->getSystem()->getSaveStateRepository()->hasSaveStates(this);
-		return hasSaveState;
-	}
+  if (name == "hasSaveState" || name == "hassavestate" || name == "savestate")
+  {
+  bool hasSaveState = SaveStateRepository::isEnabled(this) && getSourceFileData()->getSystem()->getSaveStateRepository()->hasSaveStates(this);
+  return BindableProperty(hasSaveState ? "true" : "false", BindablePropertyType::String); //  MODIFIED
+  }
+ 
 
-	if (name == "releaseyear" || name == "releaseYear")
-	{
-		std::string releaseDateMeta = getMetadata(MetaDataId::ReleaseDate);
-		if (releaseDateMeta.empty())
-			return releaseDateMeta;
+  if (name == "releaseyear" || name == "releaseYear")
+  {
+  std::string releaseDateMeta = getMetadata(MetaDataId::ReleaseDate);
+  if (releaseDateMeta.empty())
+  return BindableProperty::EmptyString;
+ 
 
-		Utils::Time::DateTime date = releaseDateMeta;
-		if (!date.isValid())
-			return std::string();
+  Utils::Time::DateTime date = releaseDateMeta;
+  if (!date.isValid())
+  return BindableProperty::EmptyString;
+ 
 
-		return Utils::Time::timeToString(date.getTime(), "%Y");
-	}
+  return BindableProperty(Utils::Time::timeToString(date.getTime(), "%Y"), BindablePropertyType::String);
+  }
+ 
 
-	MetaDataList& md = getMetadata();
+  MetaDataList& md = getMetadata();
+ 
 
-	if (!md.exists(name))
-		return BindableProperty::Null;
+  if (!md.exists(name))
+  return BindableProperty::Null;
+ 
 
-	std::string finalValue = md.get(name);
+  std::string finalValue = md.get(name);
+ 
 
-	auto type = md.getType(name);
+  auto type = md.getType(name);
+ 
 
-	switch (type)
-	{
-	case MetaDataType::MD_PATH:				
-		return BindableProperty(finalValue, BindablePropertyType::Path);
-	case MetaDataType::MD_INT:
-		return Utils::String::toInteger(finalValue);
-	case MetaDataType::MD_RATING:
-		return Utils::String::toFloat(finalValue);
-	case MetaDataType::MD_BOOL:
-		return finalValue == "1" || finalValue == "true";
-	case MetaDataType::MD_DATE:
-	case MetaDataType::MD_TIME:
-		return finalValue.empty() ? "" : Utils::Time::timeToString(Utils::Time::DateTime(finalValue).getTime(), Utils::Time::getSystemDateFormat());
-	}
+  switch (type)
+  {
+  case MetaDataType::MD_PATH:    
+  return BindableProperty(finalValue, BindablePropertyType::Path);
+  case MetaDataType::MD_INT:
+  return BindableProperty(finalValue, BindablePropertyType::String);  //  MODIFIED
+  case MetaDataType::MD_RATING:
+  return BindableProperty(finalValue, BindablePropertyType::String);  //  MODIFIED
+  case MetaDataType::MD_BOOL:
+  return BindableProperty(finalValue, BindablePropertyType::String);
+  case MetaDataType::MD_DATE:
+  case MetaDataType::MD_TIME:
+  return finalValue.empty() ? BindableProperty::EmptyString : BindableProperty(Utils::Time::timeToString(Utils::Time::DateTime(finalValue).getTime(), Utils::Time::getSystemDateFormat()), BindablePropertyType::String);
+  }
+ 
 
-	return finalValue;
-}
+  return BindableProperty(finalValue, BindablePropertyType::String);
+ }
 
-std::pair<int, int> FileData::parsePlayersRange()
-{
-	std::string players = getMetadata(MetaDataId::Players);
-	if (players.empty())
-		return std::pair<int, int>(-1,-1);
+ std::pair<int, int> FileData::parsePlayersRange()
+ {
+  std::string players = getMetadata(MetaDataId::Players);
+  if (players.empty())
+  return std::pair<int, int>(-1,-1);
+ 
 
-	auto key = players;
+  auto key = players;
+ 
 
-	int min = 1;
+  int min = 1;
+ 
 
-	auto split = key.rfind("+");
-	if (split != std::string::npos)
-		key = Utils::String::replace(key, "+", "-99999");
+  auto split = key.rfind("+");
+  if (split != std::string::npos)
+  key = Utils::String::replace(key, "+", "-99999");
+ 
 
-	split = key.rfind("-");
-	if (split != std::string::npos)
-	{
-		min = Utils::String::toInteger(key.substr(0, split));
-		key = key.substr(split + 1);
-	}
+  split = key.rfind("-");
+  if (split != std::string::npos)
+  {
+  min = Utils::String::toInteger(key.substr(0, split));
+  key = key.substr(split + 1);
+  }
+ 
 
-	int max = Utils::String::toInteger(key);
+  int max = Utils::String::toInteger(key);
+ 
 
-	return std::pair<int, int>(min, max);
-}
+  return std::pair<int, int>(min, max);
+ }
+ 
 
-IBindable* FileData::getBindableParent()
-{ 
-	SystemData* sys = getSystem();
+ IBindable* FileData::getBindableParent()
+ { 
+  SystemData* sys = getSystem();
+ 
 
-	SystemData* group = sys->getParentGroupSystem();
+  SystemData* group = sys->getParentGroupSystem();
+ 
 
-	if (group != nullptr && sys->isGroupChildSystem())
-		return group;
+  if (group != nullptr && sys->isGroupChildSystem())
+  return group;
+ 
 
-	if (group != nullptr && group != sys)
-	{
-		std::string showFoldersMode = group->getFolderViewMode();
-		if (showFoldersMode == "never")
-			return group;
+  if (group != nullptr && group != sys)
+  {
+  std::string showFoldersMode = group->getFolderViewMode();
+  if (showFoldersMode == "never")
+  return group;
+ 
 
-		if (showFoldersMode == "having multiple games")
-		{
-			for (auto child : group->getRootFolder()->getChildren())
-			{
-				if (child->getType() == FOLDER && ((FolderData*)child)->getChildren().size() == 1)
-					if (((FolderData*)child)->getChildren()[0] == this)
-						return group;
-			}
-		}
-	}
+  if (showFoldersMode == "having multiple games")
+  {
+  for (auto child : group->getRootFolder()->getChildren())
+  {
+  if (child->getType() == FOLDER && ((FolderData*)child)->getChildren().size() == 1)
+  if (((FolderData*)child)->getChildren()[0] == this)
+  return group;
+  }
+  }
+  }
+ 
 
-	FolderData* parent = getParent();	
-	
-	if (mPath == "..")
-	{
-		if (sys->isCollection())
-		{
-			parent = sys->getRootFolder()->getParent();
-			if (parent != nullptr)
-				return parent->getSystem();
-		}
+  FolderData* parent = getParent(); 
+  
+  if (mPath == "..")
+  {
+  if (sys->isCollection())
+  {
+  parent = sys->getRootFolder()->getParent();
+  if (parent != nullptr)
+  return parent->getSystem();
+  }
+ 
 
-		if (group != nullptr && sys->isGroupChildSystem())
-			return group;		
-	}
-	
-	while (parent != nullptr)
-	{
-		sys = parent->getSystem();
+  if (group != nullptr && sys->isGroupChildSystem())
+  return group;  
+  }
+  
+  while (parent != nullptr)
+  {
+  sys = parent->getSystem();
+ 
 
-	//	if (sys->isCollection())
-	//		return sys;
+  // if (sys->isCollection())
+  //  return sys;
+ 
 
-		parent = parent->getParent();
-	}
+  parent = parent->getParent();
+  }
+ 
 
-	return sys;
-}
+  return sys;
+ }
