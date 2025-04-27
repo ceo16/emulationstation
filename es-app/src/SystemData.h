@@ -61,7 +61,7 @@ struct SystemEnvironmentData
 		return mSearchExtensions.find(extension) != mSearchExtensions.cend();
 	}
 };
-
+class EpicGamesStoreAPI; // Forward declaration
 class SystemData;
 
 class BindableRandom : public IBindable
@@ -73,6 +73,7 @@ public:
 
 	std::string getBindableTypeName() override { return "random"; }
 	IBindable* getBindableParent() override { return nullptr; };
+
 
 private:
 	SystemData* mSystem;
@@ -98,6 +99,8 @@ public:
 	inline const std::vector<PlatformIds::PlatformId>& getPlatformIds() const { return mEnvData->mPlatformIds; }
 	inline bool hasPlatformId(PlatformIds::PlatformId id) { if (!mEnvData) return false; return std::find(mEnvData->mPlatformIds.cbegin(), mEnvData->mPlatformIds.cend(), id) != mEnvData->mPlatformIds.cend(); }
 	inline const SystemMetadata& getSystemMetadata() const { return mMetadata; }
+	 void populateEpicGamesVirtual(EpicGamesStoreAPI* epicApi, const std::map<std::string, std::string>& existingNames); // << ASSICURATI CHE SIA COSI'
+
 
 	inline const std::shared_ptr<ThemeData>& getTheme() const { return mTheme; }
 
@@ -115,6 +118,7 @@ public:
 	static void deleteSystems();
 	static bool loadConfig(Window* window = nullptr); //Load the system config file at getConfigPath(). Returns true if no errors were encountered. An example will be written if the file doesn't exist.	
 	static std::string getConfigPath();
+
 	
 	bool loadFeatures();
 

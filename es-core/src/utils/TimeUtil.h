@@ -3,13 +3,16 @@
 #define ES_CORE_UTILS_TIME_UTIL_H
 
 #include <string>
-#include <time.h>
+#include <ctime> // Per time_t e struct tm
+
+// Forward declaration
+struct tm;
 
 namespace Utils
 {
 	namespace Time
 	{
-		static int NOT_A_DATE_TIME = 0;
+		static const time_t NOT_A_DATE_TIME = 0;
 
 		class DateTime
 		{
@@ -17,73 +20,68 @@ namespace Utils
 			 static DateTime now();
 
 			 DateTime();
-			 DateTime(const time_t& _time);
-			 DateTime(const tm& _timeStruct);
+			 DateTime(time_t _time);
 			 DateTime(const std::string& _isoString);
+			 // DateTime(const tm& _timeStruct); // Rimosso per semplicità
 			~DateTime();
 
-			const bool operator<           (const DateTime& _other) const { return (mTime <  _other.mTime); }
-			const bool operator<=          (const DateTime& _other) const { return (mTime <= _other.mTime); }
-			const bool operator>           (const DateTime& _other) const { return (mTime >  _other.mTime); }
-			const bool operator>=          (const DateTime& _other) const { return (mTime >= _other.mTime); }
-			           operator time_t     ()                       const { return mTime; }
-			           operator tm         ()                       const { return mTimeStruct; }
-			           operator std::string()                       const { return mIsoString; }
+			// Dichiarazioni Operatori (senza corpo inline)
+			bool operator<(const DateTime& _other) const;
+			bool operator<=(const DateTime& _other) const;
+			bool operator>(const DateTime& _other) const;
+			bool operator>=(const DateTime& _other) const;
+			operator time_t() const;
+			operator std::string() const; // Dichiarazione operatore conversione a stringa ISO
 
-			void               setTime      (const time_t& _time);
-			const time_t&      getTime      () const { return mTime; }
-			void               setTimeStruct(const tm& _timeStruct);
-			const tm&          getTimeStruct() const { return mTimeStruct; }
-			void               setIsoString (const std::string& _isoString);
-			const std::string& getIsoString () const { return mIsoString; }
-			std::string		   toLocalTimeString();
+			// Dichiarazioni Getters pubblici (senza corpo inline, const corretto)
+			time_t             getTime() const;
+			tm                 getTimeStruct() const; // Restituisce COPIA
+			const std::string& getIsoString() const;
+			std::string        toLocalTimeString() const;
+			double             elapsedSecondsSince(const DateTime& _since) const;
+			bool               isValid() const; // const corretto
 
-			double			   elapsedSecondsSince(const DateTime& _since);
-
-			bool				isValid() { return mTime != 0; }
+            // Dichiarazioni Setters pubblici
+            void setTime(time_t _time);
+			void setTimeStruct(const tm& _timeStruct);
+			void setIsoString (const std::string& _isoString);
 
 		private:
-
 			time_t      mTime;
-			tm          mTimeStruct;
-			std::string mIsoString;
-
+			tm          mTimeStruct; // Contiene la versione locale
+			std::string mIsoString;  // Contiene la versione ISO standard
 		}; // DateTime
 
-		class Duration
+		class Duration // Dichiarazioni Duration (assicurati corrispondano al tuo originale)
 		{
 		public:
-
-			 Duration(const time_t& _time);
+			 Duration(time_t _time);
 			~Duration();
-
-			unsigned int getDays   () const { return mDays; }
-			unsigned int getHours  () const { return mHours; }
-			unsigned int getMinutes() const { return mMinutes; }
-			unsigned int getSeconds() const { return mSeconds; }
-
+			unsigned int getDays() const;
+			unsigned int getHours() const;
+			unsigned int getMinutes() const;
+			unsigned int getSeconds() const;
 		private:
-
 			unsigned int mTotalSeconds;
 			unsigned int mDays;
 			unsigned int mHours;
 			unsigned int mMinutes;
 			unsigned int mSeconds;
-
 		}; // Duration
 
+		// Dichiarazioni Funzioni Standalone
 		time_t      now         ();
 		time_t      stringToTime(const std::string& _string, const std::string& _format = "%Y%m%dT%H%M%S");
-		std::string timeToString(const time_t& _time, const std::string& _format = "%Y%m%dT%H%M%S");
-		int         daysInMonth (const int _year, const int _month);
-		int         daysInYear  (const int _year);
-		std::string secondsToString(const long seconds, bool asTime = false);
-
+		std::string timeToString(time_t _time, const std::string& _format = "%Y%m%dT%H%M%S");
+		int         daysInMonth (int _year, int _month);
+		int         daysInYear  (int _year);
+		std::string secondsToString(long seconds, bool asTime = false);
 		std::string getSystemDateFormat();
-		std::string getElapsedSinceString(const time_t& _time);
+		std::string getElapsedSinceString(time_t _time);
+		time_t      iso8601ToTime(const std::string& iso_string);
+		std::string timeToMetaDataString(time_t timestamp);
 
-	} // Time::
-
-} // Utils::
+	} // Namespace Time::
+} // Namespace Utils::
 
 #endif // ES_CORE_UTILS_TIME_UTIL_H

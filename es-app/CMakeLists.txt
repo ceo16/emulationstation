@@ -36,6 +36,8 @@ set(ES_HEADERS
 	${CMAKE_CURRENT_SOURCE_DIR}/src/GameStore/EpicGames/EpicGamesStoreAPI.h
 	${CMAKE_CURRENT_SOURCE_DIR}/src/GameStore/GameStore.h
 	${CMAKE_CURRENT_SOURCE_DIR}/src/GameStore/EpicGames/PlaceholderStore.h
+	${CMAKE_CURRENT_SOURCE_DIR}/src/GameStore/EpicGames/EpicGamesModels.h
+	
 
     # GuiComponents    
     ${CMAKE_CURRENT_SOURCE_DIR}/src/components/ScraperSearchComponent.h    
@@ -150,6 +152,7 @@ set(ES_SOURCES
 	${CMAKE_CURRENT_SOURCE_DIR}/src/GameStore/EpicGames/EpicGamesStoreAPI.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/src/GameStore/GameStore.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/src/GameStore/EpicGames/PlaceholderStore.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/src/GameStore/EpicGames/EpicGamesModels.cpp
 
     # GuiComponents    
     ${CMAKE_CURRENT_SOURCE_DIR}/src/components/ScraperSearchComponent.cpp	

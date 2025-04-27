@@ -7,6 +7,9 @@
 #include "GuiComponent.h"
 #include <vector>
 #include <functional>
+#include <future> // <-- AGGIUNGI QUESTO
+#include <string> // <-- AGGIUNGI QUESTO (se non già presente implicitamente)
+#include <set>    // <-- AGGIUNGI QUESTO
 
 class IGameListView;
 class ISimpleGameListView;
@@ -46,6 +49,7 @@ public:
 	void reloadGameListView(IGameListView* gamelist);
 	inline void reloadGameListView(SystemData* system) { reloadGameListView(getGameListView(system).get()); }
 	void reloadSystemListViewTheme(SystemData* system);
+	std::future<void>& getEpicUpdateFuture() { return mEpicUpdateFuture; }
 
 	void reloadAll(Window* window = nullptr, bool reloadTheme = true); // Reload everything with a theme.  Used when the "ThemeSet" setting changes.
 
@@ -118,6 +122,9 @@ public:
 private:
 	ViewController(Window* window);
 	static ViewController* sInstance;
+	
+	std::future<void> mEpicUpdateFuture;          
+    std::set<SystemData*> mSystemsCheckedForUpdate;
 
 	void playViewTransition(bool forceImmediate);
 	bool doLaunchGame(FileData* game, LaunchGameOptions options);

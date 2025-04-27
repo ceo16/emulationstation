@@ -15,6 +15,7 @@
 #include "Settings.h"
 #include "utils/base64.h"
 
+
 using json = nlohmann::json;
 
 const std::string EpicGamesAuth::STATE_FILE_NAME = "epic_auth_state.txt";
@@ -58,7 +59,7 @@ std::string EpicGamesAuth::getAuthorizationUrl(std::string& state) {
 
     std::string clientId = Settings::getInstance()->getString("EpicGames.ClientId");
     if (clientId.empty()) {
-        clientId = "xyza78919vCLzoIKl2CjuMtYaR8kn7xM"; // IMPORTANT: REPLACE THIS!
+        clientId = "34a02cf8f4414e29b15921876da36f9a"; // IMPORTANT: REPLACE THIS!
     }
     std::string redirectUri = Settings::getInstance()->getString("EpicGames.RedirectUri");
     if (redirectUri.empty()) {
@@ -77,62 +78,90 @@ std::string EpicGamesAuth::getAuthorizationUrl(std::string& state) {
 }
 
 bool EpicGamesAuth::getAccessToken(const std::string& authCode, std::string& accessToken) {
-    LOG(LogDebug) << "EpicGamesAuth::getAccessToken - Entering. Instance: " << this;
+    LOG(LogDebug) << "EpicGamesAuth::getAccessToken - Entering. Using Playnite Credentials. Instance: " << this;
 
-    std::string url = "https://api.epicgames.dev/epic/oauth/v2/token";
-    std::string clientId = Settings::getInstance()->getString("EpicGames.ClientId");
-    if (clientId.empty()) {
-        clientId = "xyza78919vCLzoIKl2CjuMtYaR8kn7xM"; // IMPORTANT: REPLACE THIS!
-    }
-    std::string redirectUri = Settings::getInstance()->getString("EpicGames.RedirectUri");
-    if (redirectUri.empty()) {
-        redirectUri = "http://localhost:1234/epic_callback";
-    }
+    // URL Endpoint Token (Fallback Playnite)
+    std::string url = "https://account-public-service-prod03.ol.epicgames.com/account/api/oauth/token";
 
-    std::string clientSecret = Settings::getInstance()->getString("EpicGames.ClientSecret"); // Load from settings!
-    if (clientSecret.empty()) {
-        clientSecret = "GEBLQtVX7uuwDcqyKbBKu2jEKZjjrTuXfyZWb+v2JbY"; // IMPORTANT: REPLACE THIS!
-    }
-    std::string authEncoded = base64_encode(clientId + ":" + clientSecret); // Example
+    // Client ID e Secret (DI PLAYNITE)
+    std::string clientId = "34a02cf8f4414e29b15921876da36f9a";
+    std::string clientSecret = "daafbccc737745039dffe53d94fc76cf";
 
+    // Codifica ID:Secret in Base64 per l'header Authorization Basic
+    std::string authString = clientId + ":" + clientSecret;
+    std::string authEncoded = base64_encode(reinterpret_cast<const unsigned char*>(authString.c_str()), authString.length());
+
+    // POST Data (come Playnite)
     std::string postData = "grant_type=authorization_code&"
-                      "code=" + authCode + "&"
-                      "redirect_uri=" + redirectUri + "&"
-                      "client_id=" + clientId;
+                           "code=" + authCode + "&"
+                           "token_type=eg1";
 
     LOG(LogDebug) << "getAccessToken - Request URL: " << url;
-    LOG(LogDebug) << "getAccessToken - Request Data: " << postData;
-    LOG(LogDebug) << "getAccessToken - Auth Header: Authorization: Basic " << authEncoded;  // Log the header
+    LOG(LogDebug) << "getAccessToken - Auth Header: Authorization: Basic " << authEncoded; // Usa credenziali Playnite
+    // LOG(LogDebug) << "getAccessToken - Request Data: " << postData; // Meglio non loggare authCode
 
+    // Prepara opzioni per HttpReq
     HttpReqOptions options;
-    options.dataToPost = postData;
+    options.dataToPost = postData; // Imposta il corpo della richiesta POST
     options.customHeaders.push_back("Authorization: Basic " + authEncoded);
     options.customHeaders.push_back("Content-Type: application/x-www-form-urlencoded");
 
+    // Crea ed esegui la richiesta
     HttpReq httpreq(url, &options);
 
+    // Attendi il completamento
     if (!httpreq.wait()) {
-        LOG(LogError) << "HTTP request failed!";
+        LOG(LogError) << "HTTP request to get access token failed! Status: " << httpreq.status();
+        LOG(LogError) << "Error: " << httpreq.getErrorMsg();
+        LOG(LogError) << "Response Body: " << httpreq.getContent();
+        saveToken(""); // Pulisce token vecchio se fallisce
         return false;
     }
 
+    // Controlla lo stato HTTP (dovrebbe essere 200 OK)
     if (httpreq.status() != HttpReq::REQ_SUCCESS) {
         LOG(LogError) << "Failed to get access token. HTTP status: " << httpreq.status();
         LOG(LogError) << "Response: " << httpreq.getContent();
+        saveToken(""); // Pulisce token vecchio se fallisce
         return false;
     }
 
+    // Parsifica la risposta JSON per ottenere il token
     try {
         json response = json::parse(httpreq.getContent());
-        accessToken = response["access_token"];
-        LOG(LogDebug) << "Got access token: " << accessToken;
-        saveToken(accessToken);
-        return true;
+        if (response.contains("access_token")) {
+            accessToken = response["access_token"];
+            LOG(LogInfo) << "EpicGamesAuth: Successfully obtained new access token using Playnite credentials.";
+            // TODO: Salva anche refresh_token, account_id, expires_in se presenti e necessari
+            // std::string refreshToken = response.value("refresh_token", "");
+            // int expiresIn = response.value("expires_in", 0);
+            // std::string accountId = response.value("account_id", "");
+            saveToken(accessToken); // Salva il nuovo token
+            mAccessToken = accessToken; // Aggiorna anche il membro interno
+            return true;
+        } else {
+            LOG(LogError) << "Access token not found in response JSON.";
+            LOG(LogError) << "Response: " << httpreq.getContent();
+            saveToken("");
+            return false;
+        }
     } catch (const json::parse_error& e) {
-        LOG(LogError) << "JSON parse error: " << e.what();
+        LOG(LogError) << "JSON parse error while getting access token: " << e.what();
+        LOG(LogError) << "Response: " << httpreq.getContent();
+        saveToken("");
+        return false;
+    } catch (const std::exception& e) {
+        LOG(LogError) << "Exception while parsing access token response: " << e.what();
+        saveToken("");
         return false;
     }
-}
+
+    // Ritorno finale se qualcosa va storto prima
+    saveToken("");
+    return false;
+} // Fine getAccessToken
+
+
 
 std::string EpicGamesAuth::getAccessToken() const {
     return mAccessToken;

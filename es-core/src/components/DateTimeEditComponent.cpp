@@ -121,8 +121,8 @@ bool DateTimeEditComponent::input(InputConfig* config, Input input)
 
 		if (incDir != 0)
 		{
-			tm new_tm = mTime;
-
+			tm new_tm = mTime.getTimeStruct();
+			
 			if (mEditIndex == mMonthIndex)
 			{
 				new_tm.tm_mon += incDir;
@@ -157,7 +157,7 @@ bool DateTimeEditComponent::input(InputConfig* config, Input input)
 			if (new_tm.tm_mday > days_in_month)
 				new_tm.tm_mday = days_in_month;
 
-			mTime = new_tm;
+			mTime.setTimeStruct(new_tm);
 
 			updateTextCache();
 			return true;
@@ -240,7 +240,7 @@ void DateTimeEditComponent::setValue(const std::string& val)
 
 std::string DateTimeEditComponent::getValue() const
 {
-	return mTime;
+	return mTime.getIsoString();
 }
 
 DateTimeEditComponent::DisplayMode DateTimeEditComponent::getCurrentDisplayMode() const

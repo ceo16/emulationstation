@@ -185,7 +185,11 @@ public:
 	IBindable*  getBindableParent() override;
 
 	std::string getGenre();
+bool isInstalled() const;
+    void setInstalled(bool installed);
 
+    const std::string& getInstallCommand() const;
+    void setInstallCommand(const std::string& command);
 private:
 	std::string getKeyboardMappingFilePath();
 	std::string getMessageFromExitCode(int exitCode);
@@ -201,6 +205,8 @@ protected:
 	FileType mType;
 	SystemData* mSystem;
 	std::string* mDisplayName;
+	bool          mIsInstalled;     // Flag per indicare se il gioco è installato localmente
+    std::string   mInstallCommand; 
 };
 
 class CollectionFileData : public FileData
@@ -241,6 +247,7 @@ public:
 	bool isVirtualFolderDisplayEnabled() { return mIsDisplayableAsVirtualFolder; };
 
 	FileData* FindByPath(const std::string& path);
+	
 
 	inline const std::vector<FileData*>& getChildren() const { return mChildren; }
 	const std::vector<FileData*> getChildrenListToDisplay();

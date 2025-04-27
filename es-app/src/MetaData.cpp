@@ -9,8 +9,21 @@
 #include "Settings.h"
 #include "FileData.h"
 #include "ImageIO.h"
+#include "EmulationStation.h"
+#define N_(String) (String)
 
-std::vector<MetaDataDecl> MetaDataList::mMetaDataDecls;
+std::vector<MetaDataDecl> MetaDataList::mMetaDataDecls = {
+MetaDataDecl(LaunchCommand, "launch",      MD_STRING, "",       false, N_("Launch Cmd"),   N_("enter launch command"), false ), // Usa LaunchCommand se hai corretto l'enum
+MetaDataDecl(Installed,     "installed",   MD_BOOL,   "false",  false, N_("Installed"),    N_("is game installed?"),   false ), // <<< AGGIUNTA (usa MD_BOOL)
+MetaDataDecl(Virtual,       "virtual",     MD_BOOL,   "false",  false, N_("Virtual"),      N_("is game virtual?"),     false ), // <<< AGGIUNTA (usa MD_BOOL)
+MetaDataDecl(EpicId,        "epicid",      MD_STRING, "",       false, N_("Epic ID"),      N_("epic app name/id"),     false ), // Già presente, verifica ordine
+MetaDataDecl(EpicNamespace, "epicns",      MD_STRING, "",       false, N_("Epic Namespace"),N_("epic namespace"),      false ), // Già presente, verifica ordine
+MetaDataDecl(EpicCatalogId, "epiccstid",   MD_STRING, "",       false, N_("Epic Catalog"), N_("epic catalog id"),    false ), // <<< AGGIUNTA
+MetaDataDecl(InstallDir,    "installdir",  MD_PATH,   "",       false, N_("Install Dir"),  N_("game install path"),    false ), // <<< AGGIUNTA (se mancava)
+MetaDataDecl(Executable,    "executable",  MD_STRING, "",       false, N_("Executable"),   N_("game executable"),      false ), // <<< AGGIUNTA (se mancava)
+    // ...
+};
+
 
 static std::map<MetaDataId, int> mMetaDataIndexes;
 static std::string* mDefaultGameMap = nullptr;
@@ -94,7 +107,18 @@ void MetaDataList::initMetadata()
 		{ CheevosHash,      "cheevosHash", MD_STRING,              "",                 true,       _("Cheevos Hash"),          _("Cheevos checksum"),	    false },
 		{ CheevosId,        "cheevosId",   MD_INT,                 "",				   true,       _("Cheevos Game ID"),       _("Cheevos Game ID"),		false },
 
-		{ ScraperId,        "id",		   MD_INT,                 "",				   true,       _("Screenscraper Game ID"), _("Screenscraper Game ID"),	false, true }
+		{ ScraperId,        "id",		   MD_INT,                 "",				   true,       _("Screenscraper Game ID"), _("Screenscraper Game ID"),	false, true },
+        { LaunchCommand, "launch",      MD_STRING,           "",                 false, N_("Launch Cmd"),   N_("enter launch command"),     false },
+        { Installed,     "installed",   MD_BOOL,             "false",            false, N_("Installed"),    N_("is game installed?"),       false },
+        { Virtual,       "virtual",     MD_BOOL,             "false",            false, N_("Virtual"),      N_("is game virtual?"),         false },
+        { EpicId,        "epicid",      MD_STRING,           "",                 false, N_("Epic ID"),      N_("epic app name/id"),         false },
+        { EpicNamespace, "epicns",      MD_STRING,           "",                 false, N_("Epic Namespace"),N_("epic namespace"),          false },
+        { EpicCatalogId, "epiccstid",   MD_STRING,           "",                 false, N_("Epic Catalog"), N_("epic catalog id"),        false },
+        { InstallDir,    "installdir",  MD_PATH,             "",                 false, N_("Install Dir"),  N_("game install path"),        false },
+        { Executable,    "executable",  MD_STRING,           "",                 false, N_("Executable"),   N_("game executable"),          false }
+        // --- ***** FINE DICHIARAZIONI DA AGGIUNGERE ***** ---
+
+		
 	};
 	
 	mMetaDataDecls = std::vector<MetaDataDecl>(gameDecls, gameDecls + sizeof(gameDecls) / sizeof(gameDecls[0]));

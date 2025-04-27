@@ -67,7 +67,7 @@ static std::map<std::string, std::function<BindableProperty(FileData*)>> propert
 FileData* FileData::mRunningGame = nullptr;
 
 FileData::FileData(FileType type, const std::string& path, SystemData* system)
-	: mPath(path), mType(type), mSystem(system), mParent(nullptr), mDisplayName(nullptr), mMetadata(type == GAME ? GAME_METADATA : FOLDER_METADATA) // metadata is REALLY set in the constructor!
+	: mPath(path), mType(type), mSystem(system), mParent(nullptr), mDisplayName(nullptr), mMetadata(type == GAME ? GAME_METADATA : FOLDER_METADATA), mIsInstalled(true), mInstallCommand("")
 {
 	// metadata needs at least a name field (since that's what getName() will return)
 	if (mMetadata.get(MetaDataId::Name).empty() && !mPath.empty())
@@ -461,6 +461,25 @@ const bool FileData::isSpinnerGame()
 	return MameNames::getInstance()->isSpinner(Utils::FileSystem::getStem(getPath()), mSystem->getName(), mSystem && mSystem->hasPlatformId(PlatformIds::ARCADE));
 	//return Genres::genreExists(&getMetadata(), GENRE_SPINNER);
 }
+bool FileData::isInstalled() const
+{
+    return mIsInstalled;
+}
+
+void FileData::setInstalled(bool installed)
+{
+    mIsInstalled = installed;
+}
+
+const std::string& FileData::getInstallCommand() const
+{
+    return mInstallCommand;
+}
+
+void FileData::setInstallCommand(const std::string& command)
+{
+    mInstallCommand = command;
+}
 
 FileData* FileData::getSourceFileData()
 {
@@ -663,7 +682,7 @@ std::string FileData::getlaunchCommand(LaunchGameOptions& options, bool includeC
  
   std::string command;
   if (mSystem->getName() == "epicgamestore") {
-  command = getMetadata(MetaDataId::launchCommand);
+  command = getMetadata(MetaDataId::LaunchCommand);
   LOG(LogDebug) << "Retrieved launchCommand: " << command;
   if (command.empty()) {
   LOG(LogError) << "Epic Games launch command is empty! Falling back to system.cfg command.";
@@ -729,105 +748,173 @@ bool FileData::launchGame(Window* window, LaunchGameOptions options)
 {
 	LOG(LogInfo) << "Attempting to launch game...";
 
-	FileData* gameToUpdate = getSourceFileData();
+	FileData* gameToUpdate = getSourceFileData(); // <<< gameToUpdate dichiarato QUI
 	if (gameToUpdate == nullptr)
+	{
+		LOG(LogError) << "FileData::launchGame - Error: gameToUpdate is null.";
 		return false;
+	}
 
 	SystemData* system = gameToUpdate->getSystem();
 	if (system == nullptr)
+	{
+		LOG(LogError) << "FileData::launchGame - Error: System is null for game: " << gameToUpdate->getName();
 		return false;
+	}
 
-	std::string command = getlaunchCommand(options);
-	if (command.empty())
-		return false;
+	// --- NUOVA LOGICA AGGIORNAMENTO METADATI (ESEGUITA PRIMA DEL LANCIO) ---
+	time_t currentTime = Utils::Time::now();
+	MetaDataList& metadata = gameToUpdate->getMetadata(); // Usa MetaDataList&
+
+	// Ottieni l'orario dell'ultimo avvio (o ultima chiusura registrata)
+	// *** CORREZIONE QUI ***
+	time_t lastPlayedTime = Utils::Time::stringToTime(metadata.get(MetaDataId::LastPlayed)); // Usa get() e stringToTime()
+
+	if (lastPlayedTime != 0) // Se è stato giocato almeno una volta
+	{
+		// Calcola il tempo trascorso dall'ultima registrazione di "LastPlayed"
+		long elapsedSeconds = difftime(currentTime, lastPlayedTime);
+
+		// Aggiorna il contatore delle partite (PlayCount)
+		int timesPlayed = metadata.getInt(MetaDataId::PlayCount) + 1;
+		metadata.set(MetaDataId::PlayCount, std::to_string(timesPlayed));
+		LOG(LogDebug) << "Updating PlayCount for " << gameToUpdate->getName() << " to " << timesPlayed;
+
+		// Aggiorna il tempo totale di gioco (GameTime)
+		// Considera la sessione valida solo se è durata un tempo minimo (es. 60 secondi)
+		if (elapsedSeconds >= 60) {
+			long gameTime = metadata.getInt(MetaDataId::GameTime) + elapsedSeconds;
+			metadata.set(MetaDataId::GameTime, std::to_string(gameTime));
+			LOG(LogDebug) << "Updating GameTime for " << gameToUpdate->getName() << " by ~" << elapsedSeconds << " seconds (since last played). Total: " << gameTime;
+		} else {
+			LOG(LogDebug) << "Skipping GameTime update for " << gameToUpdate->getName() << ", elapsed time (" << elapsedSeconds << "s) too short.";
+		}
+	} else {
+		// Se è la prima volta che viene lanciato
+		metadata.set(MetaDataId::PlayCount, "1");
+		LOG(LogDebug) << "First launch for " << gameToUpdate->getName() << ". Setting PlayCount to 1.";
+		metadata.set(MetaDataId::GameTime, "0"); // Inizializza GameTime a 0
+	}
+
+	// Aggiorna sempre l'orario dell'ultima partita (LastPlayed) all'orario di questo avvio
+	metadata.set(MetaDataId::LastPlayed, Utils::Time::DateTime(currentTime));
+	LOG(LogDebug) << "Updating LastPlayed for " << gameToUpdate->getName() << " to current time.";
+
+	CollectionSystemManager::get()->refreshCollectionSystems(gameToUpdate);
+	saveToGamelistRecovery(gameToUpdate);
+	// --- FINE NUOVA LOGICA AGGIORNAMENTO METADATI ---
+
+
+	// --- Logica di Lancio Esistente ---
+	std::string command;
+	bool isEgsGame = (system->getName() == "epicgamestore");
+	bool hideWindow = Settings::getInstance()->getBool("HideWindow");
+
+	if (isEgsGame) {
+		command = metadata.get(MetaDataId::LaunchCommand);
+		LOG(LogDebug) << "FileData::launchGame - EGS Game detected. Using URL command: " << command;
+		if (command.empty()) {
+			LOG(LogError) << "Epic Games launch command metadata is empty for " << gameToUpdate->getName() << "!";
+			return false;
+		}
+	} else {
+		command = getlaunchCommand(options);
+		LOG(LogDebug) << "FileData::launchGame - Non-EGS Game. Using command: " << command;
+		if (command.empty()) {
+			LOG(LogError) << "Standard launch command is empty for " << gameToUpdate->getName() << "!";
+			return false;
+		}
+	}
 
 	AudioManager::getInstance()->deinit();
 	VolumeControl::getInstance()->deinit();
-
-	bool hideWindow = Settings::getInstance()->getBool("HideWindow");
 	window->deinit(hideWindow);
-	
-	const std::string rom = Utils::FileSystem::getEscapedPath(getPath());
-	const std::string basename = Utils::FileSystem::getStem(getPath());
 
-	Scripting::fireEvent("game-start", rom, basename, getName());
+	Scripting::fireEvent("game-start", gameToUpdate->getPath(), gameToUpdate->getFileName(), gameToUpdate->getName());
 
-	time_t tstart = time(NULL);
+	int exitCode = 0;
 
-	LOG(LogInfo) << "	" << command;
+	if (isEgsGame) {
+		LOG(LogInfo) << "   Executing EGS URL: " << command;
+		Utils::Platform::openUrl(command);
+		LOG(LogDebug) << "FileData::launchGame - EGS URL opened. Reinitializing ES Window/Audio.";
 
-	auto p2kConv = convertP2kFile();
+		// Re-inizializza subito la finestra/audio
+		if (!hideWindow && Settings::getInstance()->getBool("HideWindowFullReinit")) {
+			LOG(LogDebug) << "FileData::launchGame - EGS Launch: Full reinitialization.";
+			ResourceManager::getInstance()->reloadAll();
+			window->init();
+			window->setCustomSplashScreen(gameToUpdate->getImagePath(), gameToUpdate->getName(), gameToUpdate);
+		} else {
+			LOG(LogDebug) << "FileData::launchGame - EGS Launch: Standard reinitialization.";
+			window->init(hideWindow);
+		}
 
-	mRunningGame = gameToUpdate;
+		VolumeControl::getInstance()->init();
+		AudioManager::getInstance()->init();
+		window->normalizeNextUpdate();
+		window->reactivateGui();
 
-	ProcessStartInfo process(command);
-	process.window = hideWindow ? NULL : window;
-	
-	int exitCode = process.run();
-	if (exitCode != 0)
-		LOG(LogWarning) << "...launch terminated with nonzero exit code " << exitCode << "!";
+		if (system != nullptr && system->getTheme() != nullptr)
+			AudioManager::getInstance()->changePlaylist(system->getTheme(), true);
+		else
+			AudioManager::getInstance()->playRandomMusic();
 
-	mRunningGame = nullptr;
+		return true;
 
-	if (SaveStateRepository::isEnabled(this))
-	{
-		if (options.saveStateInfo != nullptr)
-			options.saveStateInfo->onGameEnded(this);
+	} else {
+		// Percorso originale per giochi non-EGS
+		LOG(LogInfo) << "   Executing Command: " << command;
+		auto p2kConv = convertP2kFile();
+		mRunningGame = gameToUpdate;
 
-		getSourceFileData()->getSystem()->getSaveStateRepository()->refresh();
+		ProcessStartInfo process(command);
+		process.window = hideWindow ? NULL : window;
+		exitCode = process.run();
+		if (exitCode != 0)
+			LOG(LogWarning) << "...launch terminated with nonzero exit code " << exitCode << "!";
+
+		mRunningGame = nullptr;
+
+		// --- Logica Post-Lancio per non-EGS ---
+		if (SaveStateRepository::isEnabled(this)) {
+			if (options.saveStateInfo != nullptr)
+				options.saveStateInfo->onGameEnded(this);
+			getSourceFileData()->getSystem()->getSaveStateRepository()->refresh();
+		}
+
+		if (!p2kConv.empty())
+			Utils::FileSystem::removeFile(p2kConv);
+
+		Scripting::fireEvent("game-end");
+
+		// Re-inizializzazione finestra/audio dopo la fine del processo
+		if (!hideWindow && Settings::getInstance()->getBool("HideWindowFullReinit")) {
+			LOG(LogDebug) << "FileData::launchGame - Non-EGS Launch: Full reinitialization.";
+			ResourceManager::getInstance()->reloadAll();
+			window->init();
+			window->setCustomSplashScreen(gameToUpdate->getImagePath(), gameToUpdate->getName(), gameToUpdate);
+		} else {
+			LOG(LogDebug) << "FileData::launchGame - Non-EGS Launch: Standard reinitialization.";
+			window->init(hideWindow);
+		}
+
+		VolumeControl::getInstance()->init();
+		AudioManager::getInstance()->init();
+		window->normalizeNextUpdate();
+		window->reactivateGui();
+
+		if (system != nullptr && system->getTheme() != nullptr)
+			AudioManager::getInstance()->changePlaylist(system->getTheme(), true);
+		else
+			AudioManager::getInstance()->playRandomMusic();
+
+		if (exitCode >= 200 && exitCode <= 300)
+			window->pushGui(new GuiMsgBox(window, _("AN ERROR OCCURRED") + ":\r\n" + getMessageFromExitCode(exitCode), _("OK"), nullptr, GuiMsgBoxIcon::ICON_ERROR));
+
+		// Metadati già aggiornati all'inizio
+		return exitCode == 0;
 	}
-
-	if (!p2kConv.empty()) // delete .keys file if it has been converted from p2k
-		Utils::FileSystem::removeFile(p2kConv);
-
-	Scripting::fireEvent("game-end");
-	
-	if (!hideWindow && Settings::getInstance()->getBool("HideWindowFullReinit"))
-	{
-		ResourceManager::getInstance()->reloadAll();
-		window->deinit();
-		window->init();
-		window->setCustomSplashScreen(gameToUpdate->getImagePath(), gameToUpdate->getName(), gameToUpdate);
-	}
-	else
-		window->init(hideWindow);
-
-	VolumeControl::getInstance()->init();
-	AudioManager::getInstance()->init();
-
-	window->normalizeNextUpdate();
-
-	//update number of times the game has been launched
-	if (exitCode == 0)
-	{
-		int timesPlayed = gameToUpdate->getMetadata().getInt(MetaDataId::PlayCount) + 1;
-		gameToUpdate->setMetadata(MetaDataId::PlayCount, std::to_string(static_cast<long long>(timesPlayed)));
-
-		// How long have you played that game? (more than 10 seconds, otherwise
-		// you might have experienced a loading problem)
-		time_t tend = time(NULL);
-		long elapsedSeconds = difftime(tend, tstart);
-		long gameTime = gameToUpdate->getMetadata().getInt(MetaDataId::GameTime) + elapsedSeconds;
-		if (elapsedSeconds >= 10)
-			gameToUpdate->setMetadata(MetaDataId::GameTime, std::to_string(static_cast<long>(gameTime)));
-
-		//update last played time
-		gameToUpdate->setMetadata(MetaDataId::LastPlayed, Utils::Time::DateTime(Utils::Time::now()));
-		CollectionSystemManager::get()->refreshCollectionSystems(gameToUpdate);
-		saveToGamelistRecovery(gameToUpdate);
-	}
-
-	window->reactivateGui();
-
-	if (system != nullptr && system->getTheme() != nullptr)
-		AudioManager::getInstance()->changePlaylist(system->getTheme(), true);
-	else
-		AudioManager::getInstance()->playRandomMusic();
-
-	if (exitCode >= 200 && exitCode <= 300)
-		window->pushGui(new GuiMsgBox(window, _("AN ERROR OCCURRED") + ":\r\n" + getMessageFromExitCode(exitCode), _("OK"), nullptr, GuiMsgBoxIcon::ICON_ERROR));
-
-	return exitCode == 0;
 }
 
 
@@ -1250,62 +1337,101 @@ void FolderData::getFilesRecursiveWithContext(std::vector<FileData*>& out, unsig
 	if (filter == nullptr)
 		return;
 
-	auto isVirtualFolder = [](FileData* file)
+	// Lambda per controllare le cartelle virtuali
+	auto isVirtualFolder = [](FileData* file) -> bool // Aggiunto -> bool per chiarezza
 	{
-		if (file->getType() == GAME)
+		if (file == nullptr || file->getType() == GAME)
 			return false;
 
-		FolderData* fld = (FolderData*)file;
+		// Cast sicuro (anche se dynamic_cast sarebbe più sicuro se la gerarchia fosse complessa)
+		FolderData* fld = static_cast<FolderData*>(file);
 		return fld->isVirtualStorage();
 	};
 
 	SystemData* pSystem = (system != nullptr ? system : mSystem);
-	
+    if (pSystem == nullptr) {
+        LOG(LogError) << "getFilesRecursiveWithContext: pSystem is null!";
+        return;
+    }
+
 	FileFilterIndex* idx = pSystem->getIndex(false);
 
+	// Ciclo sui figli diretti
 	for (auto it : mChildren)
 	{
+        if (it == nullptr) {
+            LOG(LogWarning) << "getFilesRecursiveWithContext: Found null child in folder " << mPath;
+            continue;
+        }
+
+		// Corrisponde al tipo richiesto? (es. GAME)
 		if (it->getType() & typeMask)
 		{
-			if (!displayedOnly || idx == nullptr || !idx->isFiltered() || idx->showFile(it))
-			{
+			// Determina se il filtro di base (FileFilterIndex) lo farebbe passare
+			bool passesFilterIndex = (!displayedOnly || idx == nullptr || !idx->isFiltered() || idx->showFile(it));
+
+			// Determina se è un gioco Epic non installato
+            bool isUninstalledEpicGame = (it->getType() == GAME && !it->isInstalled() && pSystem->getName() == "epicgamestore");
+
+            // L'elemento passa se: il filtro normale lo accetta OPPURE è un gioco Epic non installato
+            if (passesFilterIndex || isUninstalledEpicGame)
+            {
+				// Applica i filtri secondari (solo se displayedOnly)
+				bool keep = true;
 				if (displayedOnly)
 				{
 					if (!filter->showHiddenFiles && it->getHidden())
-						continue;
+						keep = false;
 
-					if (filter->filterKidGame && it->getKidGame())
-						continue;
+					if (keep && filter->filterKidGame && it->getKidGame())
+						keep = false;
 
-					if (typeMask == GAME && filter->hiddenExtensions.size() > 0)
+					// Usa it->getType() invece di typeMask qui per sicurezza
+					if (keep && (it->getType() == GAME) && filter->hiddenExtensions.size() > 0)
 					{
-						std::string extlow = Utils::String::toLower(Utils::FileSystem::getExtension(it->getFileName(), false));
-						if (filter->hiddenExtensions.find(extlow) != filter->hiddenExtensions.cend())
-							continue;
+						// Usiamo getPath() per sicurezza, anche se getFileName() potrebbe bastare
+						std::string extlow = Utils::String::toLower(Utils::FileSystem::getExtension(it->getPath(), false));
+						if (!extlow.empty() && filter->hiddenExtensions.find(extlow) != filter->hiddenExtensions.cend())
+							keep = false;
 					}
 				}
 
-				if (includeVirtualStorage || !isVirtualFolder(it))
+                // Aggiungi alla lista 'out' solo se 'keep' è vero e non è una virtual folder da escludere
+				if (keep && (includeVirtualStorage || !isVirtualFolder(it))) {
 					out.push_back(it);
-			}
-		}
+				} else if (!keep) {
+                    LOG(LogDebug) << "Filtered out (hidden/kid/ext): " << it->getName();
+                }
 
-		if (it->getType() != FOLDER)
-			continue;
+            } else {
+                 // Log se viene scartato dal filtro principale (FileFilterIndex) e NON è un gioco Epic non installato
+                 LOG(LogDebug) << "Filtered out by FileFilterIndex (and not uninstalled Epic): " << it->getName();
+            }
+		} // Fine if (it->getType() & typeMask)
 
-		FolderData* folder = (FolderData*)it;
-		if (folder->getChildren().size() > 0)
-		{
-			if (includeVirtualStorage || !isVirtualFolder(folder))
-			{
-				if (folder->isVirtualStorage() && folder->getSourceFileData()->getSystem()->isGroupChildSystem() && folder->getSourceFileData()->getSystem()->getName() == "windows_installers")
-					out.push_back(it);
-				else
-					folder->getFilesRecursiveWithContext(out, typeMask, filter, displayedOnly, system, includeVirtualStorage);
-			}
-		}
-	}
-}
+		// Gestione ricorsiva cartelle (assicurati che le graffe siano corrette anche qui)
+		if (it->getType() == FOLDER) // Spostato fuori dall'if precedente
+        {
+            FolderData* folder = static_cast<FolderData*>(it); // Cast sicuro
+            if (!folder->getChildren().empty())
+            {
+                if (includeVirtualStorage || !isVirtualFolder(folder))
+                {
+                    // Logica specifica per windows_installers (sembra invariata)
+                    if (folder->isVirtualStorage() && folder->getSourceFileData() && folder->getSourceFileData()->getSystem() && folder->getSourceFileData()->getSystem()->isGroupChildSystem() && folder->getSourceFileData()->getSystem()->getName() == "windows_installers") {
+                        out.push_back(it); // Aggiungi la cartella virtuale stessa se soddisfa la condizione strana
+                    } else {
+                        // Chiamata ricorsiva
+                        folder->getFilesRecursiveWithContext(out, typeMask, filter, displayedOnly, system, includeVirtualStorage);
+                    }
+                }
+            }
+		} // Fine if (it->getType() == FOLDER)
+
+	} // --- FINE CICLO FOR ---
+
+} // <<<---
+
 
 std::vector<FileData*> FolderData::getFlatGameList(bool displayedOnly, SystemData* system) const
 {

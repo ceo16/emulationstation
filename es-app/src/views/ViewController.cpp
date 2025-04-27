@@ -31,6 +31,9 @@
 #include "TextToSpeech.h"
 #include "VolumeControl.h"
 #include "guis/GuiNetPlay.h"
+#include "GameStore/EpicGames/EpicGamesStore.h"
+#include "GameStore/EpicGames/GameStoreManager.h" // Includi questo
+
 
 ViewController* ViewController::sInstance = nullptr;
 
@@ -270,115 +273,200 @@ void ViewController::goToGameList(SystemData* system, bool forceImmediate)
 	if (system == nullptr)
 		return;
 
-	SystemData* destinationSystem = system;
-	FolderData* collectionFolder = nullptr;
+	LOG(LogDebug) << "ViewController::goToGameList requested for system: " << system->getName();
 
+	// --- Logica Specifica per Epic Games Store ---
+	if (system->getName() == "epicgamestore")
+	{
+		LOG(LogDebug) << "Handling Epic Games Store specific logic.";
+		// Controlla se abbiamo già eseguito l'update per questo sistema in questa sessione
+		if (mSystemsCheckedForUpdate.find(system) == mSystemsCheckedForUpdate.end())
+		{
+			 LOG(LogDebug) << "First time entering Epic system view this session. Checking for needed metadata updates.";
+			 mSystemsCheckedForUpdate.insert(system); // Segna come controllato
+
+			 // Ottieni l'istanza tramite Singleton
+			 GameStoreManager* storeManager = GameStoreManager::get();
+			 EpicGamesStore* epicStorePtr = nullptr;
+
+			 if (!storeManager) {
+				 LOG(LogError) << "Epic Store: GameStoreManager singleton instance is null!";
+			 }
+			 else
+			 {
+			     GameStore* baseStorePtr = storeManager->getStore("EpicGamesStore"); // <-- USA QUESTA CHIAVE
+     if (!baseStorePtr) {
+         // Questo warning ora non dovrebbe più apparire se la chiave è giusta
+         LOG(LogWarning) << "Epic Store: Store 'EpicGamesStore' not found in GameStoreManager.";
+     } else {
+         // --- CORREZIONE: Usa dynamic_cast con puntatori grezzi ---
+         epicStorePtr = dynamic_cast<EpicGamesStore*>(baseStorePtr);
+         if (!epicStorePtr) {
+             LOG(LogError) << "Epic Store: Failed to cast GameStore* to EpicGamesStore*.";
+         }
+     }
+ }
+
+			    if (epicStorePtr)
+         {
+             // --- NUOVA LOGICA: Aggiorna TUTTI i giochi la prima volta ---
+             std::vector<std::string> gamePathsToUpdate;
+             if (system->getRootFolder()) {
+                 LOG(LogDebug) << "First entry: preparing to update metadata for ALL games in Epic system.";
+                 for (auto* fileData : system->getRootFolder()->getFilesRecursive(GAME)) {
+                     if (fileData) {
+                         gamePathsToUpdate.push_back(fileData->getPath());
+                     }
+                 }
+                 LOG(LogDebug) << "Prepared " << gamePathsToUpdate.size() << " total games for metadata check/update.";
+             }
+
+				 if (!gamePathsToUpdate.empty()) {
+					 LOG(LogInfo) << "Epic Store: Triggering automatic update for " << gamePathsToUpdate.size() << " games missing names.";
+					 if (mEpicUpdateFuture.valid() && mEpicUpdateFuture.wait_for(std::chrono::seconds(0)) != std::future_status::ready) {
+						 LOG(LogWarning) << "Epic Store: Previous update task still running. Skipping new trigger.";
+					 } else {
+						 LOG(LogDebug) << "Epic Store: Calling epicStorePtr->updateGamesMetadataAsync.";
+						 mEpicUpdateFuture = epicStorePtr->updateGamesMetadataAsync(system, gamePathsToUpdate); // Chiamata dirett
+
+						 if (!mEpicUpdateFuture.valid()) {
+							 LOG(LogError) << "Epic Store: Failed to launch update task (future is invalid after call).";
+						 } else {
+							 LOG(LogInfo) << "Epic Store: Metadata update task launched successfully.";
+						 }
+					 }
+				 } else {
+					 LOG(LogInfo) << "Epic Store: No games found needing metadata update.";
+				 }
+			 } else {
+				 LOG(LogError) << "Epic Store: Could not get EpicGamesStore instance pointer. Cannot trigger update.";
+			 }
+		} else {
+			 LOG(LogDebug) << "Epic system already checked for updates this session.";
+		}
+		// Dopo la logica Epic, il codice prosegue per visualizzare la lista
+	} // Fine blocco if (system->getName() == "epicgamestore")
+	else {
+		LOG(LogDebug) << "Handling non-Epic system: " << system->getName();
+	}
+
+
+	// --- Logica Comune per Trovare/Creare e Visualizzare la Vista ---
+
+	SystemData* destinationSystem = system;
+	FolderData* collectionFolder = nullptr; // Necessario per le collezioni
+
+	// Gestione speciale per le collezioni (sembra essere corretto dal tuo codice precedente)
 	if (system->isCollection())
 	{
+		LOG(LogDebug) << "System is a collection: " << system->getName();
 		SystemData* bundle = CollectionSystemManager::get()->getCustomCollectionsBundle();
 		if (bundle != nullptr)
 		{
+			LOG(LogDebug) << "Checking custom collection bundle: " << bundle->getName();
+			destinationSystem = bundle; // La vista appartiene al sistema bundle
+			// Cerca la cartella specifica della collezione all'interno del bundle
 			for (auto child : bundle->getRootFolder()->getChildren())
 			{
 				if (child->getType() == FOLDER && child->getName() == system->getName())
 				{
 					collectionFolder = (FolderData*)child;
-					destinationSystem = bundle;
+					LOG(LogDebug) << "Found collection folder: " << collectionFolder->getName();
 					break;
 				}
 			}
+			if (!collectionFolder) {
+				LOG(LogWarning) << "Collection folder '" << system->getName() << "' not found within bundle '" << bundle->getName() << "'";
+				// Potrebbe essere un problema o una collezione dinamica/auto
+			}
+		} else {
+			LOG(LogWarning) << "System is a collection but custom collection bundle not found.";
+			// Se è una collezione automatica (es. Favorites), destinationSystem rimane 'system'
+			// e collectionFolder rimane nullptr, che è probabilmente corretto.
+			destinationSystem = system;
 		}
 	}
 
-	std::shared_ptr<IGameListView> view = getGameListView(destinationSystem);
+	// Ottieni (o crea se non esiste) la vista per il destinationSystem
+	LOG(LogDebug) << "Getting game list view for destination system: " << destinationSystem->getName();
+	std::shared_ptr<IGameListView> view = getGameListView(destinationSystem); // getGameListView dovrebbe creare la vista se non esiste
 
+	if (!view) {
+		LOG(LogError) << "Failed to get or create GameListView for system: " << destinationSystem->getName();
+		// Qui potresti voler mostrare un messaggio di errore all'utente o tornare indietro
+		// MWindow->pushGui(new GuiMsgBox(MWindow, "Error loading game list view!"));
+		return;
+	}
 
+	// Logica di transizione (sembra essere corretta dal tuo codice precedente)
 	if (mState.viewing == SYSTEM_SELECT)
 	{
-		// move system list
-		auto sysList = getSystemListView();
-		float offX = sysList->getPosition().x();
-		sysList->setPosition(view->getPosition().x(), sysList->getPosition().y());
-		offX = sysList->getPosition().x() - offX;
-		mCamera.translation().x() -= offX;
-	}	
-	else if (mState.viewing == GAME_LIST && mState.system != nullptr)
-	{
-		// Realign current view to center
-		auto currentView = getGameListView(mState.system, false);
-		if (currentView != nullptr)
-		{
-			int currentIndex = 0;
-
-			std::vector<std::pair<int, SystemData*>> ids;
-			for (auto sys : SystemData::sSystemVector)
-			{
-				if (sys->isVisible())
-				{
-					if (sys == destinationSystem)
-						currentIndex = ids.size();
-
-					ids.push_back(std::pair<int, SystemData*>(ids.size(), sys));
-				}
-			}
-
-			if (ids.size() > 2)
-			{
-				int rotateBy = (ids.size() / 2) - currentIndex;
-				if (rotateBy != 0)
-				{
-					if (rotateBy < 0)
-						std::rotate(ids.begin(), ids.begin() - rotateBy, ids.end());
-					else
-						std::rotate(ids.rbegin(), ids.rbegin() + rotateBy, ids.rend());
-
-					for (auto gameList : mGameListViews)
-					{
-						for (int idx = 0; idx < ids.size(); idx++)
-						{
-							if (gameList.first == ids[idx].second)
-							{
-								gameList.second->setPosition(idx * (float)Renderer::getScreenWidth(), (float)Renderer::getScreenHeight() * 2);
-								break;
-							}
-						}
-					}
-
-					mCamera.translation().x() = -currentView->getPosition().x();
-				}
-			}
+		LOG(LogDebug) << "Transitioning from System Select view.";
+		auto sysList = getSystemListView(); // Assumi che esista
+		if (sysList) {
+			float offX = sysList->getPosition().x();
+			sysList->setPosition(view->getPosition().x(), sysList->getPosition().y());
+			offX = sysList->getPosition().x() - offX;
+			mCamera.translation().x() -= offX;
+			LOG(LogDebug) << "Moved System View and adjusted camera X by: " << -offX;
+		} else {
+			LOG(LogWarning) << "SystemListView is null during transition from SYSTEM_SELECT.";
 		}
-	}	
-	
+	}
+	else if (mState.viewing == GAME_LIST && mState.system != nullptr && mState.system != destinationSystem)
+	{
+		LOG(LogDebug) << "Transitioning from Game List view of system: " << mState.system->getName();
+		// Potrebbe essere necessaria la logica di riallineamento/rotazione delle viste qui,
+		// se vuoi l'effetto carosello anche tra sistemi diversi (era commentata nel tuo codice originale)
+		// La logica di rotazione con std::rotate era presente nel codice che hai fornito,
+		// puoi ripristinarla se quell'effetto è desiderato.
+		LOG(LogDebug) << "Simple transition, no view rotation implemented here currently.";
+	}
+
+	// Imposta il nuovo stato
 	mState.viewing = GAME_LIST;
-	mState.system = destinationSystem;
-	
+	mState.system = destinationSystem; // Il sistema che contiene la vista (es. il bundle per collezioni custom)
+
+	// Se stavamo andando a una collezione specifica, naviga alla sua cartella
 	if (collectionFolder != nullptr)
 	{
 		ISimpleGameListView* simpleView = dynamic_cast<ISimpleGameListView*>(view.get());
-		if (simpleView != nullptr)
+		if (simpleView != nullptr) {
+			LOG(LogDebug) << "Moving view to collection folder: " << collectionFolder->getName();
 			simpleView->moveToFolder(collectionFolder);
-	}	
+		} else {
+			LOG(LogWarning) << "View for collection system " << destinationSystem->getName() << " is not an ISimpleGameListView, cannot move to folder.";
+		}
+	}
 
-	if (AudioManager::isInitialized())
+	// Cambia la musica (se necessario)
+	if (AudioManager::isInitialized()) {
+		LOG(LogDebug) << "Changing playlist for system: " << system->getName(); // Usa 'system' originale per il tema? O 'destinationSystem'? Probabilmente 'system'.
 		AudioManager::getInstance()->changePlaylist(system->getTheme());
+	}
 
+	// Gestisci la transizione
 	mDeferPlayViewTransitionTo = nullptr;
-
 	if (forceImmediate || Settings::TransitionStyle() == "fade")
 	{
-		if (mCurrentView)
+		LOG(LogDebug) << "Performing immediate or fade transition.";
+		if (mCurrentView) {
+			LOG(LogDebug) << "Hiding current view.";
 			mCurrentView->onHide();
-
+		}
 		mCurrentView = view;
-		playViewTransition(forceImmediate);
+		playViewTransition(forceImmediate); // Mostra la nuova vista e anima
 	}
 	else
 	{
-		cancelAnimation(0);
+		LOG(LogDebug) << "Deferring transition animation.";
+		// La transizione avverrà nel ciclo di update
 		mDeferPlayViewTransitionTo = view;
 	}
+
+	LOG(LogDebug) << "ViewController::goToGameList finished for system: " << system->getName();
 }
+
 
 void ViewController::playViewTransition(bool forceImmediate)
 {

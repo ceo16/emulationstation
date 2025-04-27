@@ -26,6 +26,13 @@
 #include "Paths.h"
 #include "SystemRandomPlaylist.h"
 #include "PlatformId.h"
+#include <map>
+#include <set>
+#include <vector>
+#include "HttpReq.h"
+#include "GameStore/EpicGames/EpicGamesStoreAPI.h"
+#include "GameStore/EpicGames/EpicGamesModels.h"
+#include "MetaData.h"
 
 
 #if WIN32
@@ -218,6 +225,97 @@ void SystemData::removeMultiDiskContent(std::unordered_map<std::string, FileData
 			delete (*folder);
 		}		
 	}
+}
+
+void SystemData::populateEpicGamesVirtual(EpicGamesStoreAPI* epicApi, const std::map<std::string, std::string>& existingNames)
+{
+    if (getName() != "epicgamestore") { /* ... log errore ... */ return; }
+    LOG(LogInfo) << "Populating virtual games for Epic Games Store system [" << getName() << "]";
+    if (!epicApi || !epicApi->getAuth() || epicApi->getAuth()->getAccessToken().empty()) { /* ... log warning ... */ return; }
+    FolderData* root = getRootFolder();
+    if (!root) { /* ... log errore ... */ return; }
+
+    LOG(LogInfo) << "Fetching full Epic Games library from API...";
+    std::vector<EpicGames::Asset> libraryAssets; // << USA IL TIPO CORRETTO: EpicGames::Asset
+    try {
+        libraryAssets = epicApi->GetAllAssets();
+    } catch (const std::exception& e) { /* ... log errore ... */ return; }
+      catch(...) { /* ... log errore ... */ return; }
+
+    LOG(LogInfo) << "API returned " << libraryAssets.size() << " assets from Epic library.";
+    if (libraryAssets.empty()) { /* ... log warning ... */ return; }
+
+    int virtualGamesAdded = 0;
+    int skippedCount = 0;
+    const std::string VIRTUAL_EPIC_PREFIX = "epic://virtual/";
+
+    for (const auto& asset : libraryAssets) // 'asset' ora è di tipo EpicGames::Asset
+    {
+        std::string uniqueId = asset.appName;
+        if (uniqueId.empty()) { /* ... log warning ... */ continue; }
+
+        std::string pseudoPath = VIRTUAL_EPIC_PREFIX;
+        // Usa i membri CORRETTI per il path (ns, catalogItemId, appName)
+        // ** Verifica che questo formato corrisponda a quello salvato in gamelist.xml **
+        if (!asset.ns.empty() && !asset.catalogItemId.empty()) {
+             pseudoPath += HttpReq::urlEncode(asset.appName) + "/" + HttpReq::urlEncode(asset.catalogItemId); // Path: appName/item ?
+        } else if (!uniqueId.empty()) {
+             pseudoPath += HttpReq::urlEncode(uniqueId);
+             LOG(LogWarning) << "Generating simplified pseudoPath for asset " << uniqueId << " due to missing ns/item.";
+        } else { /* ... log warning ... */ continue; }
+
+
+        // Controlla se il path esiste nella mappa existingNames
+        if (existingNames.find(pseudoPath) == existingNames.end())
+        {
+            // GIOCO NUOVO
+            LOG(LogDebug) << "Virtual game path not found in existing gamelist, adding: " << pseudoPath;
+            FileData* virtualGame = new FileData(FileType::GAME, pseudoPath, this);
+
+            // Imposta metadati usando i membri CORRETTI di asset
+            virtualGame->getMetadata().set(MetaDataId::Name, asset.appName);
+            virtualGame->getMetadata().set(MetaDataId::Installed, "false");
+            virtualGame->getMetadata().set(MetaDataId::Virtual, "true");
+            virtualGame->getMetadata().set(MetaDataId::EpicId, asset.appName);
+            virtualGame->getMetadata().set(MetaDataId::EpicNamespace, asset.ns);
+            virtualGame->getMetadata().set(MetaDataId::EpicCatalogId, asset.catalogItemId);
+
+            // Launch Command
+            std::string installCommandUri = "com.epicgames.launcher://apps/";
+            // ... (logica URI come prima, usando asset.ns, asset.catalogItemId, asset.appName) ...
+             if (!asset.ns.empty() && !asset.catalogItemId.empty() && !asset.appName.empty()) {
+                 installCommandUri += HttpReq::urlEncode(asset.ns) + "%3A";
+                 installCommandUri += HttpReq::urlEncode(asset.catalogItemId) + "%3A";
+                 installCommandUri += HttpReq::urlEncode(asset.appName);
+                 installCommandUri += "?action=install&silent=false";
+             } else { // Fallback
+                 installCommandUri += HttpReq::urlEncode(asset.appName) + "?action=install&silent=false";
+                 LOG(LogWarning) << "Missing IDs for full install URI for " << asset.appName << ". Using fallback URI.";
+             }
+            virtualGame->getMetadata().set(MetaDataId::LaunchCommand, installCommandUri);
+
+
+            root->addChild(virtualGame);
+            if (mFilterIndex != nullptr) {
+                mFilterIndex->addToIndex(virtualGame);
+            }
+            virtualGamesAdded++;
+
+        } else {
+            // GIOCO ESISTENTE
+            LOG(LogDebug) << "Virtual game path already exists in gamelist, skipping add: " << pseudoPath;
+            skippedCount++;
+        }
+
+    } // Fine ciclo sugli Asset
+
+    LOG(LogInfo) << "Added " << virtualGamesAdded << " NEW virtual Epic game entries to system " << getName();
+    LOG(LogInfo) << "Skipped adding " << skippedCount << " virtual games already present in gamelist.xml.";
+
+    // Rimosso il riordino che causava errore
+    // if (virtualGamesAdded > 0) { root->sort(...); }
+
+    updateDisplayedGameCount();
 }
 
 void SystemData::setIsGameSystemStatus()
@@ -1185,14 +1283,14 @@ SystemData* SystemData::loadSystem(pugi::xml_node system, bool fullMode)
 		return newSys;
 
 	//  [MODIFIED]  Remove or comment out this block!
-  /*
+  
   if (!UIModeController::LoadEmptySystems() && newSys->getRootFolder()->getChildren().size() == 0)
   {
    LOG(LogWarning) << "System \"" << md.name << "\" has no games! Ignoring it.";
    delete newSys;
    return nullptr;
   }
-  */
+  
 	
 
 	if (!newSys->mIsCollectionSystem && newSys->mIsGameSystem && !md.manufacturer.empty() && !IsManufacturerSupported)
@@ -1321,22 +1419,26 @@ SystemData* SystemData::getPrev() const
 	return *it;
 }
 
-std::string SystemData::getGamelistPath(bool forWrite) const
-{
-	std::string filePath;
+std::string SystemData::getGamelistPath(bool forWrite) const {
+    std::string filePath;
+    std::string exeDir;
 
-	filePath = mRootFolder->getPath() + "/gamelist.xml";
-	if(Utils::FileSystem::exists(filePath))
-		return filePath;
+    //  Use Paths::getExePath()  (if available and reliable)
+    exeDir = Utils::FileSystem::getParent(Paths::getExePath());
 
-	std::string localPath = Paths::getUserEmulationStationPath() + "/gamelists/" + mMetadata.name + "/gamelist.xml";
-	if (Utils::FileSystem::exists(localPath))
-		return localPath;
+    // Construct the desired relative path
+    filePath = exeDir + "/roms/epicgamestore/gamelist.xml";
 
-	if (forWrite)
-		Utils::FileSystem::createDirectory(Utils::FileSystem::getParent(filePath));
-	
-	return filePath;
+    // Check if the file already exists
+    if (Utils::FileSystem::exists(filePath))
+        return filePath;
+
+    // If forWrite is true, ensure the directory exists
+    if (forWrite) {
+        Utils::FileSystem::createDirectory(Utils::FileSystem::getParent(filePath));
+    }
+
+    return filePath;
 }
 
 std::string SystemData::getThemePath() const

@@ -1,0 +1,1 @@
+FileData* gameFileData = new FileData(GAME, "", epicSystem); // Initialize with empty path

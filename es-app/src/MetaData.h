@@ -76,10 +76,21 @@ enum MetaDataId
 	GenreIds = 39,
 	Family = 40,
 	Bezel = 41,
-	InstallDir = 42,
-    Executable = 43,
-	launchCommand = 44
+    InstallDir = 42, // Esistente
+    Executable = 43, // Esistente
+
+    // --- NUOVI / CORRETTI ---
+    LaunchCommand = 44, // <<< CORRETTO: 'L' Maiuscola
+    Installed = 45,     // <<< AGGIUNTO
+    Virtual = 46,       // <<< AGGIUNTO
+    EpicId = 47,        // <<< OK (ri-numerato)
+    EpicNamespace = 48, // <<< OK (ri-numerato)
+    EpicCatalogId = 49, // <<< OK (ri-numerato)
+
+
+    // Assicurati che gli ID siano sequenziali e univoci
 };
+
 
 namespace MetaDataImportType
 {
