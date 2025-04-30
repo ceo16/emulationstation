@@ -326,6 +326,32 @@ void ViewController::goToGameList(SystemData* system, bool forceImmediate)
 					 if (mEpicUpdateFuture.valid() && mEpicUpdateFuture.wait_for(std::chrono::seconds(0)) != std::future_status::ready) {
 						 LOG(LogWarning) << "Epic Store: Previous update task still running. Skipping new trigger.";
 					 } else {
+						 // ***** INSERISCI IL CODICE DI LOGGING QUI *****
+                         // Prendiamo il primo gioco come esempio (assicurati che esista)
+                         if (system->getRootFolder() && !system->getRootFolder()->getChildren().empty()) {
+                             FileData* firstGame = nullptr;
+                             for (auto child : system->getRootFolder()->getChildren()) { // Trova il primo FileData che sia GAME
+                                 if (child->getType() == GAME) {
+                                     firstGame = child;
+                                     break;
+                                 }
+                             }
+
+                             if (firstGame) {
+                                 LOG(LogDebug) << "VC_DEBUG: Stato Metadati PRIMA del task background per gioco: " << firstGame->getName();
+                                 // Metodo Alternativo (logga chiavi specifiche):
+                                 LOG(LogDebug) << "  -> name = [" << firstGame->getMetadata().get(MetaDataId::Name) << "]";
+                                 LOG(LogDebug) << "  -> desc = [" << firstGame->getMetadata().get(MetaDataId::Desc).substr(0, 30) << "...]";
+                                 LOG(LogDebug) << "  -> virtual = [" << firstGame->getMetadata().get(MetaDataId::Virtual) << "]";
+                                 LOG(LogDebug) << "  -> epicns = [" << firstGame->getMetadata().get(MetaDataId::EpicNamespace) << "]";
+                                 LOG(LogDebug) << "  -> epiccstid = [" << firstGame->getMetadata().get(MetaDataId::EpicCatalogId) << "]";
+                                 LOG(LogDebug) << "  -> launch = [" << firstGame->getMetadata().get(MetaDataId::LaunchCommand) << "]";
+                             } else {
+                                 LOG(LogDebug) << "VC_DEBUG: Non è stato trovato nessun gioco nel root folder per il log PRIMA.";
+                             }
+                         } else {
+                            LOG(LogDebug) << "VC_DEBUG: Root folder vuoto o non valido per il log PRIMA.";
+                         }
 						 LOG(LogDebug) << "Epic Store: Calling epicStorePtr->updateGamesMetadataAsync.";
 						 mEpicUpdateFuture = epicStorePtr->updateGamesMetadataAsync(system, gamePathsToUpdate); // Chiamata dirett
 

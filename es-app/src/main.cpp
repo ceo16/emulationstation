@@ -547,10 +547,13 @@ void launchStartupGame()
          epicSystem->getRootFolder()->clear();
      }
      if (!epicSystem->getRootFolder()) { LOG(LogError) << "Epic Store Init: Root folder is null!"; return; }
-
+    pugi::xml_document doc;
+    pugi::xml_parse_result loadResult = doc.load_file(gamelistPath.c_str());
+    bool fileExists = loadResult && loadResult.status == pugi::xml_parse_status::status_ok;
+    bool shouldRunApiCheck = !fileExists;
 
      // --- 5. Decidi se eseguire l'API Check ---
-     bool shouldRunApiCheck = false;
+   //  bool shouldRunApiCheck = false;
      // Esegui API se gamelist non esiste, il parsing è fallito, o era vuoto.
      if (!gamelistExists || !gamelistParsedSuccessfully || existingNames.empty()) {
           LOG(LogInfo) << "CONDITION MET: Gamelist missing, failed parse, or empty. API Check will run.";
@@ -576,33 +579,93 @@ void launchStartupGame()
               LOG(LogError) << "Cannot run populateEpicGamesVirtual: API instance invalid or user not authenticated.";
           }
      } else {
-          // --- Carica da Mappa XML ---
-          LOG(LogInfo) << "Adding virtual games using names found in existing gamelist map...";
-          int virtualAddedFromXml = 0;
-          for(const auto& pair : existingNames) {
-              const std::string& path = pair.first;
-              const std::string& name = pair.second; // Nome letto da XML
+          // ---> INIZIO BLOCCO CORRETTO (SOSTITUISCE IL TUO BLOCCO "Carica da Mappa XML") <---
+ // --- Carica da XML Completo ---
+        LOG(LogInfo) << "Parsing full gamelist XML to load virtual games and metadata...";
 
-              // Aggiungi solo giochi virtuali (quelli installati verranno gestiti dopo)
-              if (Utils::String::startsWith(path, "epic://virtual/")) {
-                   // Aggiungi solo se non esiste già un gioco con lo stesso path
-                   if (epicSystem->getRootFolder()->FindByPath(path) == nullptr) {
-                       FileData* gameFileData = new FileData(FileType::GAME, path, epicSystem);
-                       // Imposta il nome letto dall'XML. Se era vuoto nell'XML, usa il path.
-                       gameFileData->getMetadata().set(MetaDataId::Name, name.empty() ? path : name);
-                       gameFileData->getMetadata().set(MetaDataId::Installed, "false");
-                       gameFileData->getMetadata().set(MetaDataId::Virtual, "true");
-                       // Aggiungere altri metadati letti dall'XML se necessario (es. immagine, desc...)
-                       // ... gameFileData->getMetadata().set(MetaDataId::Image, gameNode.child_value("image")); ...
-                       epicSystem->getRootFolder()->addChild(gameFileData);
-                       virtualAddedFromXml++;
-                   } else {
-                        LOG(LogDebug) << "Virtual game path from XML already exists, skipping add: " << path;
-                   }
-              }
-          }
-          LOG(LogInfo) << "Added " << virtualAddedFromXml << " virtual games from existing gamelist map.";
-     }
+        // Recupera il nodo root (<gameList>) dal documento 'doc'
+        pugi::xml_node root = doc.child("gameList"); // 'doc' è nello scope qui
+        if (!root) {
+             LOG(LogError) << "initEpicGamesStore: Impossibile trovare il nodo gameList nel documento XML caricato nel blocco ELSE!";
+        }
+        else // Procedi solo se root XML è valido
+        {
+            int virtualAddedOrUpdated = 0;
+            FolderData* rootFolder = epicSystem->getRootFolder(); // Ottieni FolderData root
+            if (!rootFolder) {
+                LOG(LogError) << "initEpicGamesStore: Impossibile ottenere rootFolder per epicSystem nel blocco ELSE!";
+            } else
+            {
+                // Itera sui NODI <game> nel documento XML 'root'
+                for (pugi::xml_node gameNode = root.child("game"); gameNode; gameNode = gameNode.next_sibling("game"))
+                {
+                    std::string path = gameNode.child_value("path"); // Leggi il path dal nodo XML
+
+                    // Processa solo i percorsi virtuali qui
+                    if (path.empty() || !Utils::String::startsWith(path, "epic:/virtual/")) { // Usa UN solo slash
+                         continue;
+                    }
+
+                    // ---> INIZIO LOGICA REPLICATA (da findOrCreateFile) <---
+                    FileData* gameFileData = nullptr; // Puntatore al FileData finale
+
+                    // 1. Controlla se esiste già tra i figli diretti
+                    FileData* existingChild = nullptr;
+                    for(FileData* child : rootFolder->getChildren()) {
+                         if(child != nullptr && child->getPath() == path) {
+                              existingChild = child;
+                              break;
+                         }
+                    }
+
+                    if (existingChild != nullptr) {
+                        // Trovato! Usa l'oggetto esistente.
+                        LOG(LogDebug) << "initEpicGamesStore: Trovato FileData ESISTENTE per path XML: " << path;
+                        gameFileData = existingChild;
+                    } else {
+                        // Non trovato, CREA un nuovo oggetto FileData
+                        LOG(LogDebug) << "initEpicGamesStore: FileData non esistente, CREO NUOVO per path XML: " << path;
+                        gameFileData = new FileData(FileType::GAME, path, epicSystem);
+                        // Aggiungi il NUOVO oggetto ai figli della root folder
+                        rootFolder->addChild(gameFileData);
+                    }
+                    // ---> FINE LOGICA REPLICATA <---
+
+
+                    if (gameFileData != nullptr) // Ora gameFileData punta a quello giusto (vecchio o nuovo)
+                    {
+                        LOG(LogDebug) << "Processing game from XML node for path: " << path;
+                        // ---> INIZIO LETTURA COMPLETA METADATI (dal nodo XML 'gameNode') <---
+                        gameFileData->getMetadata().set(MetaDataId::Name,        gameNode.child_value("name"));
+                        gameFileData->getMetadata().set(MetaDataId::Desc,        gameNode.child_value("desc"));
+                        gameFileData->getMetadata().set(MetaDataId::Rating,      gameNode.child_value("rating"));
+                        gameFileData->getMetadata().set(MetaDataId::ReleaseDate, gameNode.child_value("releasedate"));
+                        gameFileData->getMetadata().set(MetaDataId::Developer,   gameNode.child_value("developer"));
+                        gameFileData->getMetadata().set(MetaDataId::Publisher,   gameNode.child_value("publisher"));
+                        gameFileData->getMetadata().set(MetaDataId::Genre,       gameNode.child_value("genre"));
+                        gameFileData->getMetadata().set(MetaDataId::Players,     gameNode.child_value("players"));
+                        gameFileData->getMetadata().set(MetaDataId::Image,       gameNode.child_value("image"));
+                        gameFileData->getMetadata().set(MetaDataId::Video,       gameNode.child_value("video"));
+                        gameFileData->getMetadata().set(MetaDataId::Thumbnail,   gameNode.child_value("thumbnail"));
+                        // ... altri standard ...
+
+                        // Leggi e imposta i metadati specifici di Epic (Usa stringhe come ID)
+                        gameFileData->getMetadata().set("epicns",    gameNode.child_value("epicns"));
+                        gameFileData->getMetadata().set("epiccstid", gameNode.child_value("epiccstid"));
+                        gameFileData->getMetadata().set("launch",    gameNode.child_value("launch"));
+                        gameFileData->getMetadata().set("virtual",   gameNode.child_value("virtual"));
+                        gameFileData->getMetadata().set(MetaDataId::Installed, "false");
+                        // ---> FINE LETTURA COMPLETA METADATI <---
+
+                        virtualAddedOrUpdated++;
+                    } else {
+                         LOG(LogError) << "Errore critico: gameFileData è nullo dopo check/creazione per path XML: " << path;
+                    }
+                } // Fine ciclo for sui gameNode
+                LOG(LogInfo) << "Aggiunti/Aggiornati " << virtualAddedOrUpdated << " giochi virtuali leggendo il gamelist XML completo.";
+            } // Fine if (rootFolder)
+        } // Fine if (root)
+    } // ---> FINE BLOCCO CORRETTO <---
 
      // --- 7. Gestisci Giochi INSTALLATI (Aggiorna o Aggiungi) ---
      //    (Questa parte viene eseguita sempre, dopo aver popolato i virtuali da XML o API)

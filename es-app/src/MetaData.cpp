@@ -213,6 +213,7 @@ void MetaDataList::loadFromXML(MetaDataListType type, pugi::xml_node& node, Syst
 				continue;
 
 			value = xelement.text().get();
+			LOG(LogDebug) << "loadFromXML (Child): Processing Key=[" << name << "], Value=[" << value.substr(0, 50) << (value.length() > 50 ? "..." : "") << "]"; // Logga chiave e valore letto
 			if (!value.empty())
 				mUnKnownElements.push_back(std::tuple<std::string, std::string, bool>(name, value, true));
 
@@ -258,6 +259,7 @@ void MetaDataList::loadFromXML(MetaDataListType type, pugi::xml_node& node, Syst
 		if (it == mGameIdMap.cend())
 		{
 			value = xattr.value();
+			LOG(LogDebug) << "loadFromXML (Attr): Processing Key=[" << name << "], Value=[" << value.substr(0, 50) << (value.length() > 50 ? "..." : "") << "]"; // Logga chiave e valore letto
 			if (!value.empty())
 				mUnKnownElements.push_back(std::tuple<std::string, std::string, bool>(name, value, false));
 
@@ -331,7 +333,7 @@ void MetaDataList::appendToXML(pugi::xml_node& parent, bool ignoreDefaults, cons
 				else
 					value = Utils::FileSystem::createRelativePath(value, relativeTo, true);
 			}
-						
+			LOG(LogDebug) << "appendToXML: ABOUT TO WRITE Key=[" << mddIter->key << "], Value=[" << value << "]";	
 			if (mddIter->isAttribute)
 				parent.append_attribute(mddIter->key.c_str()).set_value(value.c_str());
 			else

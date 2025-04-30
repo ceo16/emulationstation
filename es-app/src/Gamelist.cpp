@@ -25,20 +25,75 @@ std::string getGamelistRecoveryPath(SystemData* system)
 
 FileData* findOrCreateFile(SystemData* system, const std::string& path, FileType type, std::unordered_map<std::string, FileData*>& fileMap)
 {
-	auto pGame = fileMap.find(path);
-	if (pGame != fileMap.end())
-		return pGame->second;
+    // --- Gestisci SUBITO i percorsi VIRTUALI ---
+    if (Utils::String::startsWith(path, "epic:/")) // Controlla se è virtuale
+    {
+        // ---> NUOVO: Controlla se esiste GIÀ un figlio con questo path nella root folder <---
+        // Questo serve perché initEpicGamesStore potrebbe averlo già aggiunto prima che parseGamelist venga chiamato.
+        FolderData* rootCheck = system->getRootFolder();
+        if (rootCheck != nullptr)
+        {
+            FileData* existingChild = nullptr;
+            // Scorri i figli DIRETTI della root folder
+            for(FileData* child : rootCheck->getChildren()) {
+                 // Confronta il percorso completo
+                 if(child->getPath() == path) {
+                      existingChild = child;
+                      break; // Trovato!
+                 }
+            }
 
-	// first, verify that path is within the system's root folder
-	FolderData* root = system->getRootFolder();
-	bool contains = false;
-	std::string relative = Utils::FileSystem::removeCommonPath(path, root->getPath(), contains);
+            // Se l'abbiamo trovato tra i figli diretti, restituisci quello esistente
+            if (existingChild != nullptr) {
+                LOG(LogDebug) << "findOrCreateFile: Trovato FileData virtuale ESISTENTE tramite ricerca figli root per path: " << path;
+                // Aggiungilo alla mappa locale di questo parsing per coerenza
+                fileMap[path] = existingChild;
+                return existingChild; // Evita di creare un duplicato
+            }
+        }
+        // ---> FINE NUOVO CONTROLLO <---
 
-	if(!contains)
-	{
-		LOG(LogWarning) << "File path \"" << path << "\" is outside system path \"" << system->getStartPath() << "\"";
-		return NULL;
-	}
+        // Se non trovato nella root, controlla nella mappa locale di questo parsing (poco probabile ora, ma sicuro)
+        auto virtual_it = fileMap.find(path);
+        if (virtual_it != fileMap.end()) {
+            LOG(LogDebug) << "findOrCreateFile: Trovato FileData virtuale ESISTENTE tramite mappa locale per path: " << path;
+            return virtual_it->second;
+        }
+
+        // Se ancora non trovato da nessuna parte, ALLORA crealo (come prima)
+        LOG(LogInfo) << "findOrCreateFile: Creazione NUOVO FileData virtuale per path: " << path;
+        if (type != GAME) {
+             LOG(LogWarning) << "findOrCreateFile: Virtual path encountered for non-GAME type? Path: " << path;
+             return NULL;
+        }
+
+        FileData* virtualItem = new FileData(GAME, path, system);
+        fileMap[path] = virtualItem; // Aggiungi alla mappa locale
+
+        if (rootCheck) { rootCheck->addChild(virtualItem); } // Aggiungi alla root folder
+        else { LOG(LogError) << "findOrCreateFile: Could not get root folder for system " << system->getName() << " while adding virtual game."; }
+        return virtualItem;
+    }
+    // --- FINE Gestione Percorsi VIRTUALI ---
+
+    // --- Se NON è VIRTUAL, prosegui con la logica originale ---
+
+    // Controlla prima la cache (usando la variabile 'pGame' originale)
+    auto pGame = fileMap.find(path);
+    if (pGame != fileMap.end())
+        return pGame->second; // Trovato nella cache
+
+    // Controllo se il percorso è dentro la root (usando la variabile 'root' originale)
+    // Dichiariamo 'root' qui per la logica dei percorsi non-virtuali.
+    FolderData* root = system->getRootFolder();
+    bool contains = false;
+    std::string relative = Utils::FileSystem::removeCommonPath(path, root->getPath(), contains);
+
+    if(!contains)
+    {
+        LOG(LogWarning) << "File path \"" << path << "\" is outside system path \"" << system->getStartPath() << "\"";
+        return NULL;
+    }
 
 	auto pathList = Utils::FileSystem::getPathList(relative);
 	auto path_it = pathList.begin();
@@ -158,22 +213,46 @@ std::vector<FileData*> loadGamelistFile(const std::string xmlpath, SystemData* s
 
 		if (trustGamelist)
 			file = findOrCreateFile(system, path, type, fileMap);
-		else 
-		{
-			auto pGame = fileMap.find(path);
-			if (pGame != fileMap.end())
-				file = pGame->second;
-			else
-			{
-				if (!fromFile && system->getSystemEnvData()->isValidExtension(Utils::String::toLower(Utils::FileSystem::getExtension(path))) && Utils::FileSystem::exists(path))
-					file = findOrCreateFile(system, path, type, fileMap);
-				else
-				{
-					LOG(LogWarning) << "File \"" << path << "\" does not exist or is arcade asset ! Ignoring.";
-					continue;
-				}
-			}
-		}
+	else // Questo corrisponde a: if (!trustGamelist)
+  {
+   // --- INIZIO BLOCCO CORRETTO v3 (Bypass Estensione per Virtuali) ---
+   LOG(LogDebug) << "loadGamelistFile: Processing path (trustGamelist=false): " << path;
+   auto mapEntry = fileMap.find(path);
+   if (mapEntry != fileMap.end())
+   {
+    LOG(LogDebug) << "  Found path in fileMap.";
+    file = mapEntry->second;
+   }
+   else
+   {
+    LOG(LogDebug) << "  Path NOT found in fileMap. Checking virtual/existence...";
+    bool isVirtualPath = Utils::String::startsWith(path, "epic:/");
+    bool fileExists = !isVirtualPath && Utils::FileSystem::exists(path);
+    LOG(LogDebug) << "  isVirtualPath: " << (isVirtualPath ? "true" : "false") << ", fileExists: " << (fileExists ? "true" : "false");
+
+    // Controlla l'estensione SOLO se NON è un percorso virtuale
+    bool isValidExtensionNonVirtual = !isVirtualPath && system->getSystemEnvData()->isValidExtension(Utils::String::toLower(Utils::FileSystem::getExtension(path)));
+    LOG(LogDebug) << "  isValidExtensionNonVirtual: " << (isValidExtensionNonVirtual ? "true" : "false");
+
+    // Se è un percorso virtuale (ignoriamo estensione) OPPURE se esiste fisicamente ED ha estensione valida
+    if (isVirtualPath || (fileExists && isValidExtensionNonVirtual))
+    {
+     LOG(LogDebug) << "  Condition MET: Calling findOrCreateFile.";
+     file = findOrCreateFile(system, path, type, fileMap);
+     if (file != nullptr)
+         LOG(LogDebug) << "   findOrCreateFile successful.";
+     else
+         LOG(LogDebug) << "   findOrCreateFile returned NULL.";
+    }
+    else
+    {
+     // Se non è virtuale E (non esiste O estensione non valida), ignoralo.
+     LOG(LogWarning) << "  Condition NOT MET: File \"" << path << "\" is not virtual and (does not exist or has invalid extension)! Ignoring."; // Messaggio Warning aggiornato
+     continue; // Salta al prossimo nodo nel gamelist.xml
+    }
+   }
+   // --- FINE BLOCCO CORRETTO v3 ---
+  }
 
 		if (file == nullptr)
 		{			
@@ -411,11 +490,18 @@ void updateGamelist(SystemData* system)
 	{
 		pugi::xml_node path = fileNode.child("path");
 		if (path)
-		{
-			std::string nodePath = Utils::FileSystem::getCanonicalPath(Utils::FileSystem::resolveRelativePath(path.text().get(), system->getStartPath(), true));
-			xmlMap[nodePath] = fileNode;
-		}
-	}
+	    {
+            // USA getCanonicalPath SOLO per percorsi NON virtuali
+            std::string nodePathText = path.text().get();
+            std::string lookupPath;
+            if (Utils::String::startsWith(nodePathText, "epic://")) {
+                lookupPath = nodePathText; // Usa il percorso grezzo per i virtuali
+            } else {
+                lookupPath = Utils::FileSystem::getCanonicalPath(Utils::FileSystem::resolveRelativePath(nodePathText, system->getStartPath(), true));
+            }
+            xmlMap[lookupPath] = fileNode;
+        }
+    }
 	
 	// iterate through all files, checking if they're already in the XML
 	for(auto file : dirtyFiles)
@@ -424,12 +510,26 @@ void updateGamelist(SystemData* system)
 
 		// check if the file already exists in the XML
 		// if it does, remove it before adding
-		auto xmf = xmlMap.find(Utils::FileSystem::getCanonicalPath(file->getPath()));
-		if (xmf != xmlMap.cend())
-		{
-			removed = true;
-			root.remove_child(xmf->second);
-		}
+	  // Determina quale chiave usare per la ricerca
+    std::string currentFilePath = file->getPath();
+    std::string lookupKey;
+    if (Utils::String::startsWith(currentFilePath, "epic://")) {
+        lookupKey = currentFilePath; // Usa il percorso grezzo per i virtuali
+    } else {
+        lookupKey = Utils::FileSystem::getCanonicalPath(currentFilePath);
+    }
+
+    auto xmf = xmlMap.find(lookupKey); // Usa lookupKey invece di getCanonicalPath diretto
+    if (xmf != xmlMap.cend())
+    {
+        removed = true;
+        root.remove_child(xmf->second);
+        // Log aggiuntivo (Opzionale ma utile)
+        LOG(LogDebug) << "updateGamelist: Removed existing XML node for path: " << lookupKey;
+    } else {
+        // Log aggiuntivo (Opzionale ma utile)
+         LOG(LogDebug) << "updateGamelist: No existing XML node found for path: " << lookupKey;
+    }
 		
 		const char* tag = (file->getType() == GAME) ? "game" : "folder";
 

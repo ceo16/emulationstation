@@ -1110,6 +1110,23 @@ std::future<void> EpicGamesStore::updateGamesMetadataAsync(SystemData* system, c
             }
 
             // --- FINE AGGIORNAMENTO METADATI DETTAGLIATI ---
+			
+			 // ***** INSERISCI IL CODICE DI LOGGING "DOPO" QUI *****
+         // Logga lo stato DOPO aver potenzialmente chiamato set() per questo gioco
+         // Assumendo che 'fileData' e 'metadata' siano validi qui
+         if (fileData) { // Aggiungi un controllo per sicurezza
+             LOG(LogDebug) << "EG_DEBUG: Stato Metadati DOPO il task background per gioco: " << fileData->getName();
+             // Metodo Alternativo:
+             LOG(LogDebug) << "  -> name = [" << metadata.get(MetaDataId::Name) << "]";
+             LOG(LogDebug) << "  -> desc = [" << metadata.get(MetaDataId::Desc).substr(0, 30) << "...]";
+             LOG(LogDebug) << "  -> virtual = [" << metadata.get(MetaDataId::Virtual) << "]";
+             LOG(LogDebug) << "  -> epicns = [" << metadata.get(MetaDataId::EpicNamespace) << "]";
+             LOG(LogDebug) << "  -> epiccstid = [" << metadata.get(MetaDataId::EpicCatalogId) << "]";
+             LOG(LogDebug) << "  -> launch = [" << metadata.get(MetaDataId::LaunchCommand) << "]";
+         } else {
+             LOG(LogWarning) << "EG_DEBUG: fileData non valido nel punto di logging 'DOPO' per gamePath: " << gamePath;
+         }
+         // ***** FINE CODICE DI LOGGING "DOPO" INSERITO *****
 
             if (gameMetadataChanged) {
                 updatedCount++;

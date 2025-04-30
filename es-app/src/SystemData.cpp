@@ -118,8 +118,8 @@ SystemData::SystemData(const SystemMetadata& meta, SystemEnvironmentData* envDat
 		}
 
 		if (!Settings::IgnoreGamelist())
-			parseGamelist(this, fileMap);		
-		
+			parseGamelist(this, fileMap);
+
 		if (Settings::RemoveMultiDiskContent())
 			removeMultiDiskContent(fileMap);
 	}
@@ -145,7 +145,7 @@ SystemData::SystemData(const SystemMetadata& meta, SystemEnvironmentData* envDat
 		if (Settings::PreloadMedias())
 			getSaveStateRepository();
 	}
-}
+} // Fine costruttore SystemData
 
 SystemData::~SystemData()
 {
@@ -247,7 +247,7 @@ void SystemData::populateEpicGamesVirtual(EpicGamesStoreAPI* epicApi, const std:
 
     int virtualGamesAdded = 0;
     int skippedCount = 0;
-    const std::string VIRTUAL_EPIC_PREFIX = "epic://virtual/";
+    const std::string VIRTUAL_EPIC_PREFIX = "epic:/virtual/";
 
     for (const auto& asset : libraryAssets) // 'asset' ora è di tipo EpicGames::Asset
     {
@@ -1419,25 +1419,32 @@ SystemData* SystemData::getPrev() const
 	return *it;
 }
 
-std::string SystemData::getGamelistPath(bool forWrite) const {
-    std::string filePath;
-    std::string exeDir;
+std::string SystemData::getGamelistPath(bool forWrite) const
+{
+    // Ottieni la cartella che contiene l'eseguibile
+    std::string exePath = Paths::getExePath();
+    std::string exeDir = Utils::FileSystem::getParent(exePath);
 
-    //  Use Paths::getExePath()  (if available and reliable)
-    exeDir = Utils::FileSystem::getParent(Paths::getExePath());
+    // Costruisci il percorso: [CartellaExe]/roms/[nome_sistema]/gamelist.xml
+    std::string systemRomDir = exeDir + "/roms/" + getName(); // Usa getName() per il nome corretto!
+    std::string filePath = systemRomDir + "/gamelist.xml";
 
-    // Construct the desired relative path
-    filePath = exeDir + "/roms/epicgamestore/gamelist.xml";
+    // Log per debug
+    LOG(LogDebug) << "getGamelistPath (Portable Setup 'roms' sibling): Percorso per sistema '" << getName() << "' è: " << filePath;
 
-    // Check if the file already exists
-    if (Utils::FileSystem::exists(filePath))
-        return filePath;
-
-    // If forWrite is true, ensure the directory exists
+    // Se richiesto per scrittura, assicurati che la cartella specifica del sistema esista
     if (forWrite) {
-        Utils::FileSystem::createDirectory(Utils::FileSystem::getParent(filePath));
+        // Controlla se la cartella di destinazione esiste prima di provare a crearla
+        if (!Utils::FileSystem::exists(systemRomDir)) {
+             LOG(LogInfo) << "getGamelistPath (Portable Setup 'roms' sibling): Creo cartella per gamelist sistema '" << getName() << "': " << systemRomDir;
+             // createDirectory dovrebbe creare anche le cartelle intermedie (come 'roms') se necessario
+             Utils::FileSystem::createDirectory(systemRomDir);
+        } else if (!Utils::FileSystem::isDirectory(systemRomDir)) {
+             // Logga un errore se il percorso esiste ma non è una cartella
+             LOG(LogError) << "getGamelistPath (Portable Setup 'roms' sibling): Il percorso per la cartella roms del sistema esiste ma non è una directory: " << systemRomDir;
+        }
     }
-
+    // Restituisci sempre questo percorso costruito
     return filePath;
 }
 
