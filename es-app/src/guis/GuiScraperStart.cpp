@@ -27,6 +27,7 @@ GuiScraperStart::GuiScraperStart(Window* window)
 
 	addGroup(_("SOURCE"));
 	addWithLabel(_("SCRAPE FROM"), scraper_list);
+	scraper_list->add(_("EPIC GAMES STORE"), "epicgames", "epicgames" == scraperName); // Aggiunge "EPICGAMES" alla lista
 
 	if (!scraper_list->hasSelection())
 	{

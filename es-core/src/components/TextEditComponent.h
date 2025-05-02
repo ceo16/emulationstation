@@ -45,6 +45,8 @@ private:
 
 	void updateCursorRepeat(int deltaTime);
 	void moveCursor(int amt);
+	
+	void handlePaste(); // <-- NUOVA DICHIARAZIONE
 
 	bool isMultiline();
 	Vector2f getTextAreaPos() const;

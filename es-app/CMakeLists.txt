@@ -92,7 +92,8 @@ set(ES_HEADERS
     ${CMAKE_CURRENT_SOURCE_DIR}/src/scrapers/GamesDBJSONScraperResources.h
     ${CMAKE_CURRENT_SOURCE_DIR}/src/scrapers/ArcadeDBJSONScraper.h
 	${CMAKE_CURRENT_SOURCE_DIR}/src/scrapers/HfsDBScraper.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/scrapers/ScreenScraper.h    
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/scrapers/ScreenScraper.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/scrapers/EpicGamesScraper.h    
 
     # Views
     ${CMAKE_CURRENT_SOURCE_DIR}/src/views/gamelist/BasicGameListView.h
@@ -204,6 +205,7 @@ set(ES_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/src/scrapers/ArcadeDBJSONScraper.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/src/scrapers/HfsDBScraper.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/scrapers/ScreenScraper.cpp	
+	${CMAKE_CURRENT_SOURCE_DIR}/src/scrapers/EpicGamesScraper.cpp 
 
     # Views
     ${CMAKE_CURRENT_SOURCE_DIR}/src/views/gamelist/BasicGameListView.cpp
