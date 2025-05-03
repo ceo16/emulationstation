@@ -3,6 +3,9 @@
 #define ES_APP_SCRAPERS_EPIC_GAMES_H
 
 #include "scrapers/Scraper.h"
+#include <vector>
+#include <string>
+#include <memory> // Per std::unique_ptr se non già incluso
 
 class EpicGamesScraper : public Scraper
 {

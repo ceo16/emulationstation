@@ -1253,6 +1253,8 @@ std::future<void> EpicGamesStore::refreshGamesListAsync() {
         }
 
         LOG(LogInfo) << "Epic Store: Background library refresh finished (refreshGamesListAsync v4).";
+		
+		
     });
 }
 // --- Assicurati che l'implementazione di getGameLaunchUrl NON sia duplicata ---

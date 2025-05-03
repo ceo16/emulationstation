@@ -79,7 +79,7 @@ void EpicGamesUI::showMainMenu(Window* window, EpicGamesStore* store) {
 // --- NUOVA VOCE: Aggiorna Libreria Giochi ---
  if (store && store->getAuth() && !store->getAuth()->getAccessToken().empty()) {
         menu->addEntry(
-            "Aggiorna Libreria Giochi",
+            "Scarica/Aggiorna Libreria Giochi Online",
             true,
             [window, store, menu]() { // Cattura anche menu
                 LOG(LogInfo) << "User triggered 'Aggiorna Libreria Giochi'";

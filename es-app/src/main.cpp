@@ -891,7 +891,7 @@ int main(int argc, char* argv[])
 	}
 
 	SystemConf* systemConf = SystemConf::getInstance();
-     initEpicGamesStore(window);
+  //   initEpicGamesStore(window);
 
 #ifdef _ENABLE_KODI_
 	if (systemConf->getBool("kodi.enabled", true) && systemConf->getBool("kodi.atstartup"))
@@ -922,7 +922,7 @@ int main(int argc, char* argv[])
 	InputConfig::AssignActionButtons();
 	InputManager::getInstance()->init();
 	SDL_StopTextInput();
-
+    
 	
 
 	// tts
