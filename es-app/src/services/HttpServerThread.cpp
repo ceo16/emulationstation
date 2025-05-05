@@ -83,7 +83,7 @@ HttpServerThread::HttpServerThread(Window* window, std::function<void(const std:
 
   mGameStoreManager = GameStoreManager::get();
   mGameStoreManager->setSetStateCallback(setStateCallback);
-  mStore = new EpicGamesStore(&mAuth); // Pass mAuth instead of setStateCallback
+  mStore = new EpicGamesStore(&mAuth); // Pass mAuth instead of setStateCallbac
   mGameStoreManager->registerStore(mStore);
   mEpicLoginCallback = nullptr;
  }

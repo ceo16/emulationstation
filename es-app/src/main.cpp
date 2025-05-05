@@ -17,6 +17,7 @@
 #include "Settings.h"
 #include "SystemData.h"
 #include "SystemScreenSaver.h"
+#include <SDL.h> 
 #include <SDL_events.h>
 #include <SDL_main.h>
 #include <SDL_timer.h>
@@ -46,6 +47,8 @@
 #include "GameStore/EpicGames/GameStoreManager.h"
 #include "MetaData.h"
 #include "FileSorts.h" 
+#include "guis/GuiBusyInfoPopup.h"
+#include "SdlEvents.h"
 
 
 #ifdef WIN32
@@ -732,6 +735,7 @@ void launchStartupGame()
      LOG(LogDebug) << "--- EPIC GAMES STORE INIT END (V4 Final - Conditional API) ---";
  }
 
+Uint32 SDL_EPIC_REFRESH_COMPLETE; // <- Definisci senza valore qui
 int main(int argc, char* argv[])
 {	
 	Utils::MathExpr::performUnitTests();
@@ -839,7 +843,12 @@ int main(int argc, char* argv[])
 		LOG(LogError) << "Window failed to initialize!";
 		return 1;
 	}
-
+SDL_EPIC_REFRESH_COMPLETE = SDL_RegisterEvents(1); // <- Assegna l'ID qui
+if (SDL_EPIC_REFRESH_COMPLETE == (Uint32)-1) {
+    LOG(LogError) << "SDL_RegisterEvents failed!";
+} else {
+    LOG(LogInfo) << "Registered SDL_EPIC_REFRESH_COMPLETE with ID: " << SDL_EPIC_REFRESH_COMPLETE;
+}
 	PowerSaver::init();
 
 	bool splashScreen = Settings::getInstance()->getBool("SplashScreen");
@@ -914,7 +923,7 @@ int main(int argc, char* argv[])
 
 	ApiSystem::getInstance()->getIpAddress();
 
-	// preload what we can right away instead of waiting for the user to select it
+	// preload what we can right away instead of waiting for the user to select i
 	// this makes for no delays when accessing content, but a longer startup time
 
 	ViewController::get()->preload();
@@ -1029,14 +1038,135 @@ if (gsm) {
 			// Reset this event's state
 			TRYCATCH("resetRefreshEvent", PowerSaver::resetRefreshEvent());
 
-			do
-			{
-				TRYCATCH("InputManager::parseEvent", InputManager::getInstance()->parseEvent(event, &window));
+			    do {
+        // Process the event 'event' that was fetched by the outer if or the previous while condition
+        TRYCATCH("InputManager::parseEvent", InputManager::getInstance()->parseEvent(event, &window));
+        // Il log qui sotto può essere commentato o rimosso se causa problemi o confusione
+        // LOG(LogDebug) << "Processing event type: " << event.type << " (EPIC Event ID is: " << SDL_EPIC_REFRESH_COMPLETE << ")";
+        if (event.type == SDL_QUIT) {
+            running = false;
+			}
+        else if (event.type == SDL_USEREVENT && event.user.code == SDL_EPIC_REFRESH_COMPLETE) // Modificato per controllare anche SDL_USEREVENT
+				{
+                    // -------------- INIZIO CODICE NUOVO / MODIFICATO --------------
+					LOG(LogInfo) << "Main Loop: Received SDL_EPIC_REFRESH_COMPLETE event.";
+					// Recupera il payload (il puntatore al vettore)
+					auto* newGamesPayload = static_cast<std::vector<NewEpicGameData>*>(event.user.data1);
 
-				if (event.type == SDL_QUIT)
-					running = false;
-			} 
-			while(SDL_PollEvent(&event));
+                    // Controlla se il payload è valido
+					if (newGamesPayload) {
+						if (!newGamesPayload->empty()) {
+							LOG(LogInfo) << "Processing " << newGamesPayload->size() << " new Epic games from payload.";
+							// Ottieni le risorse necessarie (FALLIBILE, controlla i puntatori!)
+							SystemData* system = SystemData::getSystem("epicgamestore");
+							if (system) {
+								FolderData* rootFolder = system->getRootFolder();
+								FileFilterIndex* filterIndex = system->getFilterIndex(); // Può essere nullptr
+
+								if (rootFolder) {
+									std::vector<std::string> addedGamePathsForMetaUpdate; // Per l'aggiornamento successivo
+									addedGamePathsForMetaUpdate.reserve(newGamesPayload->size());
+									bool changesMade = false;
+
+									for (const auto& gameData : *newGamesPayload) {
+										// Crea il FileData
+										FileData* newGame = new FileData(FileType::GAME, gameData.pseudoPath, system);
+										MetaDataList& mdl = newGame->getMetadata();
+
+										// Imposta i metadati dalla mappa
+										for (const auto& metaPair : gameData.metadataMap) {
+											mdl.set(metaPair.first, metaPair.second);
+										}
+
+										// Aggiungi al sistema
+										rootFolder->addChild(newGame);
+										changesMade = true;
+
+                                        newGame->getMetadata().setDirty(); // <--- USA QUESTO!
+                                     LOG(LogDebug) << "Main Loop: Marked metadata for new game '" << newGame->getName() << "' as dirty.";
+
+										// Aggiungi all'indice dei filtri se esiste
+										if (filterIndex) {
+											filterIndex->addToIndex(newGame);
+										}
+										addedGamePathsForMetaUpdate.push_back(gameData.pseudoPath); // Salva per l'aggiornamento metadati completo
+
+										LOG(LogDebug) << "Main Loop: Added new Epic game: " << gameData.pseudoPath << " (" << mdl.get(MetaDataId::Name) << ")";
+									} // fine ciclo for gameData
+
+									if (changesMade) {
+										// Aggiorna il conteggio e la UI
+										system->updateDisplayedGameCount();
+										if (ViewController::get()) {
+											LOG(LogInfo) << "Main Loop: Reloading Epic game list view.";
+											ViewController::get()->reloadGameListView(system);
+											// Potresti voler ricaricare TUTTE le viste se le collezioni sono state modificate
+											// ViewController::get()->reloadAll();
+										} else {
+											LOG(LogWarning) << "Main Loop: ViewController not available, cannot reload game list view.";
+										}
+
+                                        // Mostra notifica DOPO aver aggiunto i giochi
+                                        window.displayNotificationMessage(_("LIBRERIA EPIC AGGIORNATA.")); // Messaggio modificato
+
+
+
+
+										// --- Triggera l'aggiornamento metadati completo per i nuovi giochi ---
+										// Dobbiamo ottenere un puntatore all'istanza di EpicGamesStore.
+										// Questo potrebbe richiedere un modo per accedere all'istanza (es. Singleton, passata a Window, etc.)
+                                        // USA IL METODO CORRETTO PER LA TUA APPLICAZIONE PER OTTENERE epicStore
+										EpicGamesStore* epicStore = nullptr;
+                                        GameStoreManager* gsm = GameStoreManager::get();
+                                        if (gsm) {
+                                            const auto& stores = gsm->getStores();
+                                            auto it = stores.find("EpicGamesStore");
+                                            if (it != stores.end()) {
+                                                epicStore = static_cast<EpicGamesStore*>(it->second);
+                                            }
+                                        }
+                                        // Fine ottenimento epicStore
+
+										if (epicStore && !addedGamePathsForMetaUpdate.empty()) {
+											LOG(LogInfo) << "Main Loop: Triggering FULL metadata update task for " << addedGamePathsForMetaUpdate.size() << " newly added Epic games.";
+											epicStore->updateGamesMetadataAsync(system, addedGamePathsForMetaUpdate);
+										} else if (!epicStore) {
+                                            LOG(LogWarning) << "Main Loop: Could not get EpicGamesStore instance to trigger metadata update.";
+                                        }
+
+									} // fine if(changesMade)
+								} else {
+									LOG(LogError) << "Main Loop: Root folder for 'epicgamestore' is null. Cannot add new games.";
+								}
+							} else {
+								LOG(LogError) << "Main Loop: Could not find SystemData for 'epicgamestore'. Cannot add new games.";
+							}
+						} else {
+							LOG(LogInfo) << "Main Loop: Epic refresh completed, but no new games were added.";
+                            window.displayNotificationMessage(_("Libreria Epic: Nessun nuovo gioco trovato."));
+						}
+
+						// *** FONDAMENTALE: Dealloca la memoria del payload ***
+						delete newGamesPayload;
+						event.user.data1 = nullptr; // Buona norma
+
+					} else {
+						LOG(LogWarning) << "Main Loop: Received SDL_EPIC_REFRESH_COMPLETE but payload (data1) was null.";
+					}
+
+                    // Gestione GuiBusyInfoPopup (se necessario)
+                    // Se l'aggiornamento è stato avviato da una GUI che mostrava il popup,
+                    // potresti volerlo chiudere qui. Assicurati che GuiBusyInfoPopup.h sia incluso.
+                    GuiComponent* topGui = window.peekGui();
+                    if (topGui != nullptr && dynamic_cast<GuiBusyInfoPopup*>(topGui)) {
+                        LOG(LogDebug) << "Main Loop: Closing GuiBusyInfoPopup after processing EPIC_REFRESH_COMPLETE.";
+                        delete topGui;
+                    } else {
+                        // Potrebbe non essere un problema se il popup non c'è più
+                        // LOG(LogWarning) << "GuiBusyInfoPopup not found on top when refresh completed. Top GUI: " << (topGui ? typeid(*topGui).name() : "nullptr");
+                    }
+}
+    } while (SDL_PollEvent(&event));
 
 			// check guns
 			InputManager::getInstance()->updateGuns(&window);
@@ -1075,6 +1205,7 @@ if (gsm) {
 			deltaTime = 1000;
 
 		TRYCATCH("Window.update" ,window.update(deltaTime))	
+		LOG(LogInfo) << "[DEBUG_POPUP] Main loop calling window.render() NOW."; // <-- AGGIUNGI QUESTA RIGA QUI
 		TRYCATCH("Window.render", window.render())
 
 /*

@@ -75,6 +75,11 @@ bool checkInstallationStatus(const EpicGames::Asset& asset);
     std::string getGameLaunchUrl(const EpicGames::Asset& asset) const;
 
  };
- 
-
+struct NewEpicGameData {
+    std::string pseudoPath;
+    std::map<MetaDataId, std::string> metadataMap; // Mappa per contenere tutti i metadati iniziali
+    // *** QUESTI DOVREBBERO ESSERCI ***
+    std::string epicNamespace; // <--- Verifica questo
+    std::string epicCatalogId; // <--- Verifica questo
+}; // <--- ASSICURATI CHE CI SIA QUESTO PUNTO E VIRGOLA
  #endif // ES_APP_GAMESTORE_EPICGAMES_EPICGAMESSTORE_H

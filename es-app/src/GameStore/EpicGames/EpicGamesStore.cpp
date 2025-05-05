@@ -36,7 +36,7 @@
 #include "views/ViewController.h"
 #include "views/gamelist/IGameListView.h"
 #include "GameStore/EpicGames/EpicGamesParser.h" // <--- Assicurati che ci sia!
-
+#include "SdlEvents.h"
 
 using json = nlohmann::json;
 namespace fs = std::filesystem; // Alias per filesyste
@@ -1160,104 +1160,192 @@ std::future<void> EpicGamesStore::updateGamesMetadataAsync(SystemData* system, c
 
 
 std::future<void> EpicGamesStore::refreshGamesListAsync() {
-    return std::async(std::launch::async, [this]() {
-        LOG(LogInfo) << "Epic Store: Starting background library refresh (refreshGamesListAsync v4 - Simplified)...";
+     return std::async(std::launch::async, [this]() {
+         // Inizio della lambda in refreshGamesListAsync
+         LOG(LogInfo) << "Epic Store Refresh BG: Starting..."; // Timestamp 1
+         auto startRefresh = std::chrono::high_resolution_clock::now(); // Ora inizio totale
 
-        // --- Controlli preliminari ---
-        if (!mAuth || mAuth->getAccessToken().empty()) { LOG(LogWarning) << "Epic Store Refresh: Not authenticated."; return; }
-        if (!mAPI) { LOG(LogError) << "Epic Store Refresh: API object is null."; return; }
-        SystemData* system = SystemData::getSystem("epicgamestore");
-        if (!system) { LOG(LogError) << "Epic Store Refresh: Could not find SystemData for 'epicgamestore'."; return; }
-        FolderData* rootFolder = system->getRootFolder();
-        if (!rootFolder) { LOG(LogError) << "Epic Store Refresh: Root folder for system is null."; return; }
+         // --- Controlli preliminari ---
+         if (!mAuth || mAuth->getAccessToken().empty()) {
+             LOG(LogWarning) << "Epic Store Refresh BG: Not authenticated."; return;
+         }
+         if (!mAPI) {
+             LOG(LogError) << "Epic Store Refresh BG: API object is null."; return;
+         }
 
-        // --- Ottieni lista giochi ATTUALE da SystemData (mappa per PATH) ---
-        std::vector<FileData*> currentFiles = rootFolder->getFilesRecursive(GAME);
-        std::map<std::string, FileData*> currentFilesMapByPath;
-        for (FileData* fd : currentFiles) {
-             if (fd) { currentFilesMapByPath[fd->getPath()] = fd; }
-        }
-        LOG(LogInfo) << "Epic Store Refresh: Found " << currentFilesMapByPath.size() << " existing game paths.";
+         LOG(LogInfo) << "Epic Store Refresh BG: Reading existing IDs..."; // Timestamp 2
+         auto startReadIds = std::chrono::high_resolution_clock::now();
+         // --- Ottieni ID esistenti ---
+         SystemData* tempSystem = SystemData::getSystem("epicgamestore");
+         if (!tempSystem) {
+              LOG(LogError) << "Epic Store Refresh BG: Could not find SystemData for 'epicgamestore' to read existing IDs."; return;
+         }
+         FolderData* tempRootFolder = tempSystem->getRootFolder();
+         if (!tempRootFolder) {
+              LOG(LogError) << "Epic Store Refresh BG: Root folder is null when reading existing IDs."; return;
+         }
+         std::vector<FileData*> currentFiles = tempRootFolder->getFilesRecursive(GAME);
+         std::unordered_set<std::string> existingEpicIds;
+         for (FileData* fd : currentFiles) {
+             if (fd) {
+                 std::string epicId = fd->getMetadata().get(MetaDataId::EpicId);
+                 if (!epicId.empty()) {
+                     existingEpicIds.insert(epicId);
+                 }
+             }
+         }
+         // --- Fine Ottieni ID esistenti ---
+         auto endReadIds = std::chrono::high_resolution_clock::now();
+         LOG(LogInfo) << "Epic Store Refresh BG: Finished reading existing IDs (" << existingEpicIds.size() << ") in "
+                      << std::chrono::duration_cast<std::chrono::milliseconds>(endReadIds - startReadIds).count() << " ms."; // Timestamp 3
 
-        // --- Ottieni lista giochi AGGIORNATA da API ---
-        std::vector<EpicGames::Asset> assetsFromApi;
-        try {
-            assetsFromApi = mAPI->GetAllAssets();
-            LOG(LogInfo) << "Epic Store Refresh: Fetched " << assetsFromApi.size() << " assets from API.";
-        } catch (const std::exception& e) { LOG(LogError) << "Epic Store Refresh: Exception fetching assets: " << e.what(); return; }
-          catch (...) { LOG(LogError) << "Epic Store Refresh: Unknown exception fetching assets."; return; }
+         // --- Ottieni Asset da API ---
+         std::vector<EpicGames::Asset> assetsFromApi;
+         LOG(LogInfo) << "Epic Store Refresh BG: Calling GetAllAssets API..."; // Timestamp 4
+         auto startApiAssets = std::chrono::high_resolution_clock::now();
+         try {
+             assetsFromApi = mAPI->GetAllAssets(); // <-- Chiamata bloccante
+         } catch (const std::exception& e) {
+             LOG(LogError) << "Epic Store Refresh BG: Exception fetching assets: " << e.what(); return;
+         } catch (...) {
+             LOG(LogError) << "Epic Store Refresh BG: Unknown exception fetching assets."; return;
+         }
+         auto endApiAssets = std::chrono::high_resolution_clock::now();
+         LOG(LogInfo) << "Epic Store Refresh BG: GetAllAssets API call completed (" << assetsFromApi.size() << " assets) in "
+                      << std::chrono::duration_cast<std::chrono::milliseconds>(endApiAssets - startApiAssets).count() << " ms."; // Timestamp 5
 
-        // --- Confronta e Aggiungi Giochi Nuovi ---
-        bool changesMade = false;
-        std::vector<std::string> addedGamePathsForMetaUpdate;
-        int addedCount = 0;
-        const std::string VIRTUAL_EPIC_PREFIX = "epic://virtual/";
 
-        for (const auto& asset : assetsFromApi) {
-            if (asset.appName.empty()) continue;
+         // --- Identifica NUOVI giochi e prepara fetch titoli ---
+         LOG(LogInfo) << "Epic Store Refresh BG: Identifying new games..."; // Timestamp 6
+         int alreadyExistingCount = 0;
+         std::vector<std::pair<std::string, std::string>> itemsToFetchTitles;
+         std::vector<EpicGames::Asset> newAssetsData;
+         std::unordered_map<std::string, EpicGames::Asset> newAssetsMapByCatalogId;
 
-            // Ricostruisci pseudoPath
-            std::string pseudoPath = VIRTUAL_EPIC_PREFIX;
-            if (!asset.ns.empty() && !asset.catalogItemId.empty()) {
-                 pseudoPath += HttpReq::urlEncode(asset.appName) + "/" + HttpReq::urlEncode(asset.catalogItemId);
-            } else {
-                   pseudoPath += HttpReq::urlEncode(asset.appName);
-            }
+         for (const auto& asset : assetsFromApi) {
+             if (asset.appName.empty()) {
+                 LOG(LogWarning) << "Epic Store Refresh BG: Skipping asset with empty appName.";
+                 continue;
+             }
+             std::string currentEpicId = asset.appName;
 
-            if (currentFilesMapByPath.find(pseudoPath) == currentFilesMapByPath.end()) {
-                // GIOCO NUOVO
-                LOG(LogInfo) << "Epic Store Refresh: Adding new game -> " << pseudoPath << " (" << asset.appName << ")";
-                FileData* newGame = new FileData(FileType::GAME, pseudoPath, system);
-                MetaDataList& mdl = newGame->getMetadata();
-                mdl.set(MetaDataId::Name, asset.appName);
-                mdl.set(MetaDataId::Installed, "false");
-                mdl.set(MetaDataId::Virtual, "true");
-                mdl.set(MetaDataId::EpicId, asset.appName);
-                mdl.set(MetaDataId::EpicNamespace, asset.ns);
-                mdl.set(MetaDataId::EpicCatalogId, asset.catalogItemId);
-                std::string installCommandUri = "com.epicgames.launcher://apps/";
-                 if (!asset.ns.empty() && !asset.catalogItemId.empty() && !asset.appName.empty()) { /* ... costruisci URI completo ... */ } else { /* ... costruisci URI fallback ... */ }
-                 mdl.set(MetaDataId::LaunchCommand, installCommandUri);
+             if (existingEpicIds.find(currentEpicId) == existingEpicIds.end()) {
+                 // Gioco potenzialmente nuovo
+                 if (!asset.ns.empty() && !asset.catalogItemId.empty()) {
+                     itemsToFetchTitles.push_back({asset.ns, asset.catalogItemId});
+                     newAssetsData.push_back(asset);
+                     newAssetsMapByCatalogId[asset.catalogItemId] = asset;
+                 } else {
+                     LOG(LogWarning) << "Epic Store Refresh BG: Skipping potential new game " << currentEpicId << " due to missing ns/catalogItemId needed for title fetch.";
+                 }
+             } else {
+                 alreadyExistingCount++;
+             }
+         }
+         LOG(LogInfo) << "Epic Store Refresh BG: Identified " << newAssetsData.size() << " potential new games to fetch titles for. Skipped " << alreadyExistingCount << " existing games.";
 
-                rootFolder->addChild(newGame);
-                changesMade = true;
-                addedGamePathsForMetaUpdate.push_back(pseudoPath);
-                addedCount++;
-                FileFilterIndex* filterIndex = system->getFilterIndex();
-                 if (filterIndex != nullptr) { filterIndex->addToIndex(newGame); }
-            }
-        } // Fine ciclo assetsFromApi
 
-        // --- Blocco Rimozione Eliminato ---
+         // --- Fetch Titoli per i NUOVI Giochi (se ce ne sono) ---
+         std::map<std::string, EpicGames::CatalogItem> newTitlesResults;
+         if (!itemsToFetchTitles.empty()) {
+             LOG(LogInfo) << "Epic Store Refresh BG: Calling GetCatalogItems API for " << itemsToFetchTitles.size() << " items..."; // Timestamp 7
+             auto startApiCatalog = std::chrono::high_resolution_clock::now();
+             try {
+                 newTitlesResults = mAPI->GetCatalogItems(itemsToFetchTitles); // <-- Chiamata bloccante
+             } catch (const std::exception& e) {
+                 LOG(LogError) << "Epic Store Refresh BG: Exception fetching titles: " << e.what(); newTitlesResults.clear();
+             } catch (...) {
+                 LOG(LogError) << "Epic Store Refresh BG: Unknown exception fetching titles."; newTitlesResults.clear();
+             }
+             auto endApiCatalog = std::chrono::high_resolution_clock::now();
+             LOG(LogInfo) << "Epic Store Refresh BG: GetCatalogItems API call completed (" << newTitlesResults.size() << " results) in "
+                          << std::chrono::duration_cast<std::chrono::milliseconds>(endApiCatalog - startApiCatalog).count() << " ms."; // Timestamp 8
+         } else {
+              LOG(LogInfo) << "Epic Store Refresh BG: No new items to fetch titles for. Skipping GetCatalogItems API call."; // Log aggiunto
+         }
 
-        // --- Azioni Finali Semplificate ---
-        if (changesMade) {
-            LOG(LogInfo) << "Epic Store Refresh: " << addedCount << " new games added.";
 
-            // Triggera l'aggiornamento metadati per i NUOVI giochi
-            if (!addedGamePathsForMetaUpdate.empty()) {
-                 LOG(LogInfo) << "Epic Store Refresh: Triggering metadata update for " << addedCount << " newly added games.";
-                 this->updateGamesMetadataAsync(system, addedGamePathsForMetaUpdate);
-            }
+         // --- Prepara i dati per il thread principale ---
+         LOG(LogInfo) << "Epic Store Refresh BG: Preparing payload..."; // Timestamp 9
+         auto startPayload = std::chrono::high_resolution_clock::now();
+         // Usiamo un puntatore grezzo perché SDL_Event lo richiede.
+         // Il thread principale sarà responsabile della deallocazione.
+         auto newGamesPayload = new std::vector<NewEpicGameData>();
+         newGamesPayload->reserve(newAssetsData.size()); // Ottimizzazione
 
-            // Aggiorna conteggio giochi
-             system->updateDisplayedGameCount();
+         const std::string VIRTUAL_EPIC_PREFIX = "epic://virtual/";
 
-            // ** NON tentiamo di salvare o ricaricare l'UI da qui **
-            // Ci affidiamo al salvataggio all'uscita di ES e al refresh
-            // manuale della vista da parte dell'utente (uscendo e rientrando nel sistema).
-             LOG(LogInfo) << "Epic Store Refresh: Relying on ES auto-save. UI will update on next view load.";
+         for (const auto& asset : newAssetsData) { // Cicla solo sugli asset identificati come nuovi
+             std::string currentEpicId = asset.appName;
+             std::string gameDisplayName = currentEpicId; // Default a ID
+             std::string catalogId = asset.catalogItemId;
+             std::string ns = asset.ns;
 
-        } else {
-            LOG(LogInfo) << "Epic Store Refresh: No new games found to add.";
-        }
+             // Cerca il titolo tra i risultati
+             auto titleIt = newTitlesResults.find(catalogId);
+             if (titleIt != newTitlesResults.end() && !titleIt->second.title.empty()) {
+                 gameDisplayName = titleIt->second.title;
+             } else {
+                 LOG(LogWarning) << "Epic Store Refresh BG: Could not fetch title for new game ID " << currentEpicId << ". Using ID as name.";
+             }
 
-        LOG(LogInfo) << "Epic Store: Background library refresh finished (refreshGamesListAsync v4).";
-		
-		
-    });
-}
-// --- Assicurati che l'implementazione di getGameLaunchUrl NON sia duplicata ---
-// std::string EpicGamesStore::getGameLaunchUrl(const EpicGames::Asset& asset) const { ... }
+             // Costruisci lo pseudoPath
+             std::string pseudoPath = VIRTUAL_EPIC_PREFIX;
+                if (!ns.empty() && !catalogId.empty()) {
+                    pseudoPath += HttpReq::urlEncode(asset.appName) + "/" + HttpReq::urlEncode(catalogId);
+                } else {
+                    pseudoPath += HttpReq::urlEncode(asset.appName);
+                }
 
- 
+             // Costruisci LAUNCH URI
+             std::string launchCommandUri = "com.epicgames.launcher://apps/";
+                if (!ns.empty() && !catalogId.empty() && !currentEpicId.empty()) {
+                    launchCommandUri += HttpReq::urlEncode(ns) + "%3A";
+                    launchCommandUri += HttpReq::urlEncode(catalogId) + "%3A";
+                    launchCommandUri += HttpReq::urlEncode(currentEpicId);
+                    launchCommandUri += "?action=launch&silent=true";
+                } else {
+                    launchCommandUri += HttpReq::urlEncode(currentEpicId) + "?action=launch&silent=true";
+                    LOG(LogWarning) << "Epic Store Refresh BG: Missing IDs for full launch URI for " << currentEpicId << ". Using fallback URI.";
+                }
+
+             // Popola la struttura dati
+             NewEpicGameData gameData;
+             gameData.pseudoPath = pseudoPath;
+             gameData.epicNamespace = ns;
+             gameData.epicCatalogId = catalogId;
+
+             // Imposta metadati base nella mappa
+             gameData.metadataMap[MetaDataId::Name] = gameDisplayName;
+             gameData.metadataMap[MetaDataId::Installed] = "false";
+             gameData.metadataMap[MetaDataId::Virtual] = "true";
+             gameData.metadataMap[MetaDataId::EpicId] = currentEpicId;
+             gameData.metadataMap[MetaDataId::EpicNamespace] = ns;
+             gameData.metadataMap[MetaDataId::EpicCatalogId] = catalogId;
+             gameData.metadataMap[MetaDataId::LaunchCommand] = launchCommandUri;
+
+             newGamesPayload->push_back(gameData);
+             // Log rimosso da qui, lo facciamo alla fine della preparazione
+         }
+         auto endPayload = std::chrono::high_resolution_clock::now();
+         LOG(LogInfo) << "Epic Store Refresh BG: Payload preparation finished (" << newGamesPayload->size() << " games) in "
+                      << std::chrono::duration_cast<std::chrono::milliseconds>(endPayload - startPayload).count() << " ms."; // Timestamp 10
+
+
+         // --- Azioni Finali ---
+         LOG(LogInfo) << "Epic Store Refresh BG: Sending completion event..."; // Timestamp 11
+         auto endRefresh = std::chrono::high_resolution_clock::now(); // Ora fine totale
+         LOG(LogInfo) << "Epic Store Refresh BG: TOTAL background task duration: "
+                      << std::chrono::duration_cast<std::chrono::milliseconds>(endRefresh - startRefresh).count() << " ms."; // Timestamp 12
+
+         SDL_Event event;
+         SDL_zero(event);
+         event.type = SDL_USEREVENT;
+         event.user.code = SDL_EPIC_REFRESH_COMPLETE;
+         event.user.data1 = newGamesPayload; // Passa il puntatore
+         event.user.data2 = nullptr;
+         SDL_PushEvent(&event);
+         // NON fare delete newGamesPayload qui!
+
+     }); // Fine lambda std::async
+ }

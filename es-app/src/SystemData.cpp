@@ -250,7 +250,7 @@ void SystemData::populateEpicGamesVirtual(EpicGamesStoreAPI* epicApi, const std:
 
     int virtualGamesAdded = 0;
     int skippedCount = 0;
-    const std::string VIRTUAL_EPIC_PREFIX = "epic:/virtual/";
+    const std::string VIRTUAL_EPIC_PREFIX = "epic://virtual/";
 
     for (const auto& asset : libraryAssets) // 'asset' ora è di tipo EpicGames::Asset
     {
@@ -1167,7 +1167,7 @@ if (epicSystem != nullptr && systemNeedsPopulation)
              } catch (const std::exception& e) { LOG(LogError) << "[EpicDynamic] Error processing installed games: " << e.what(); }
         } // fine if (epicGamesStore)
 
-        // 3. Carica il tema e aggiungi al vettore SE appena creato e popolato
+        // 3. Carica il tema e aggiungi al vettore SE appena creato e popolat
         if (systemJustCreated) {
             if (epicSystem->getRootFolder()->getChildren().size() > 0) {
                 LOG(LogDebug) << "[EpicDynamic] Loading theme and adding populated epicgamestore system to vector.";
