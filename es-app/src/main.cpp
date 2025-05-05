@@ -17,6 +17,7 @@
 #include "Settings.h"
 #include "SystemData.h"
 #include "SystemScreenSaver.h"
+#include <SDL.h> 
 #include <SDL_events.h>
 #include <SDL_main.h>
 #include <SDL_timer.h>
@@ -46,6 +47,8 @@
 #include "GameStore/EpicGames/GameStoreManager.h"
 #include "MetaData.h"
 #include "FileSorts.h" 
+#include "guis/GuiBusyInfoPopup.h"
+#include "SdlEvents.h"
 
 
 #ifdef WIN32
@@ -732,6 +735,7 @@ void launchStartupGame()
      LOG(LogDebug) << "--- EPIC GAMES STORE INIT END (V4 Final - Conditional API) ---";
  }
 
+Uint32 SDL_EPIC_REFRESH_COMPLETE; // <- Definisci senza valore qui
 int main(int argc, char* argv[])
 {	
 	Utils::MathExpr::performUnitTests();
@@ -839,7 +843,12 @@ int main(int argc, char* argv[])
 		LOG(LogError) << "Window failed to initialize!";
 		return 1;
 	}
-
+SDL_EPIC_REFRESH_COMPLETE = SDL_RegisterEvents(1); // <- Assegna l'ID qui
+if (SDL_EPIC_REFRESH_COMPLETE == (Uint32)-1) {
+    LOG(LogError) << "SDL_RegisterEvents failed!";
+} else {
+    LOG(LogInfo) << "Registered SDL_EPIC_REFRESH_COMPLETE with ID: " << SDL_EPIC_REFRESH_COMPLETE;
+}
 	PowerSaver::init();
 
 	bool splashScreen = Settings::getInstance()->getBool("SplashScreen");
@@ -891,7 +900,7 @@ int main(int argc, char* argv[])
 	}
 
 	SystemConf* systemConf = SystemConf::getInstance();
-     initEpicGamesStore(window);
+  //   initEpicGamesStore(window);
 
 #ifdef _ENABLE_KODI_
 	if (systemConf->getBool("kodi.enabled", true) && systemConf->getBool("kodi.atstartup"))
@@ -914,7 +923,7 @@ int main(int argc, char* argv[])
 
 	ApiSystem::getInstance()->getIpAddress();
 
-	// preload what we can right away instead of waiting for the user to select it
+	// preload what we can right away instead of waiting for the user to select i
 	// this makes for no delays when accessing content, but a longer startup time
 
 	ViewController::get()->preload();
@@ -922,7 +931,7 @@ int main(int argc, char* argv[])
 	InputConfig::AssignActionButtons();
 	InputManager::getInstance()->init();
 	SDL_StopTextInput();
-
+    
 	
 
 	// tts
@@ -1029,14 +1038,29 @@ if (gsm) {
 			// Reset this event's state
 			TRYCATCH("resetRefreshEvent", PowerSaver::resetRefreshEvent());
 
-			do
-			{
-				TRYCATCH("InputManager::parseEvent", InputManager::getInstance()->parseEvent(event, &window));
+			    do {
+        // Process the event 'event' that was fetched by the outer if or the previous while condition
+        TRYCATCH("InputManager::parseEvent", InputManager::getInstance()->parseEvent(event, &window));
+        // Il log qui sotto può essere commentato o rimosso se causa problemi o confusione
+        // LOG(LogDebug) << "Processing event type: " << event.type << " (EPIC Event ID is: " << SDL_EPIC_REFRESH_COMPLETE << ")";
+        if (event.type == SDL_QUIT) {
+            running = false;
+        } else if (event.type == SDL_EPIC_REFRESH_COMPLETE) { // <-- Controllo evento
+            // Handle Epic event
+            LOG(LogInfo) << "Main Loop: Received SDL_EPIC_REFRESH_COMPLETE event.";
+            GuiComponent* topGui = window.peekGui();
+            // (Ensure GuiBusyInfoPopup.h is included in main.cpp)
+            if (topGui != nullptr && dynamic_cast<GuiBusyInfoPopup*>(topGui)) {
+                LOG(LogDebug) << "Closing GuiBusyInfoPopup.";
+                delete topGui;
+            } else {
+                LOG(LogWarning) << "GuiBusyInfoPopup not found on top when refresh completed. Top GUI: " << (topGui ? typeid(*topGui).name() : "nullptr");
+            }
+            window.displayNotificationMessage(_("LIBRERIA EPIC AGGIORNATA. SI PREGA DI AGGIORNARE LE LISTE GIOCHI DAL MENU PRINCIPALE."));
+        }
+        // Add other 'else if (event.type == ...)' handlers here
 
-				if (event.type == SDL_QUIT)
-					running = false;
-			} 
-			while(SDL_PollEvent(&event));
+    } while (SDL_PollEvent(&event));
 
 			// check guns
 			InputManager::getInstance()->updateGuns(&window);
@@ -1075,6 +1099,7 @@ if (gsm) {
 			deltaTime = 1000;
 
 		TRYCATCH("Window.update" ,window.update(deltaTime))	
+		LOG(LogInfo) << "[DEBUG_POPUP] Main loop calling window.render() NOW."; // <-- AGGIUNGI QUESTA RIGA QUI
 		TRYCATCH("Window.render", window.render())
 
 /*

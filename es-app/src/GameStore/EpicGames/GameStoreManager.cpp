@@ -16,7 +16,7 @@ GameStoreManager* GameStoreManager::get() {
 GameStoreManager::GameStoreManager(std::function<void(const std::string&)> setStateCallback) : setStateCallback(setStateCallback) {
     LOG(LogDebug) << "GameStoreManager: Constructor (with callback)";
   //  registerStore(new PlaceholderStore());
-  //  registerStore(new EpicGamesStore(setStateCallback));
+  //  registerStore(new EpicGamesStore(setStateCallback))
 }
 
 GameStoreManager::~GameStoreManager() {

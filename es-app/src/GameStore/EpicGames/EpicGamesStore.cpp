@@ -36,7 +36,7 @@
 #include "views/ViewController.h"
 #include "views/gamelist/IGameListView.h"
 #include "GameStore/EpicGames/EpicGamesParser.h" // <--- Assicurati che ci sia!
-
+#include "SdlEvents.h"
 
 using json = nlohmann::json;
 namespace fs = std::filesystem; // Alias per filesyste
@@ -1160,102 +1160,177 @@ std::future<void> EpicGamesStore::updateGamesMetadataAsync(SystemData* system, c
 
 
 std::future<void> EpicGamesStore::refreshGamesListAsync() {
-    return std::async(std::launch::async, [this]() {
-        LOG(LogInfo) << "Epic Store: Starting background library refresh (refreshGamesListAsync v4 - Simplified)...";
+     return std::async(std::launch::async, [this]() {
+         LOG(LogInfo) << "Epic Store: Starting background library refresh (refreshGamesListAsync v8 - ID Check + Titles + Launch URI)...";
 
-        // --- Controlli preliminari ---
-        if (!mAuth || mAuth->getAccessToken().empty()) { LOG(LogWarning) << "Epic Store Refresh: Not authenticated."; return; }
-        if (!mAPI) { LOG(LogError) << "Epic Store Refresh: API object is null."; return; }
-        SystemData* system = SystemData::getSystem("epicgamestore");
-        if (!system) { LOG(LogError) << "Epic Store Refresh: Could not find SystemData for 'epicgamestore'."; return; }
-        FolderData* rootFolder = system->getRootFolder();
-        if (!rootFolder) { LOG(LogError) << "Epic Store Refresh: Root folder for system is null."; return; }
+         // --- Controlli preliminari ---
+         if (!mAuth || mAuth->getAccessToken().empty()) { LOG(LogWarning) << "Epic Store Refresh: Not authenticated."; return; }
+         if (!mAPI) { LOG(LogError) << "Epic Store Refresh: API object is null."; return; }
+         SystemData* system = SystemData::getSystem("epicgamestore");
+         if (!system) { LOG(LogError) << "Epic Store Refresh: Could not find SystemData for 'epicgamestore'."; return; }
+         FolderData* rootFolder = system->getRootFolder();
+         if (!rootFolder) { LOG(LogError) << "Epic Store Refresh: Root folder is null."; return; }
 
-        // --- Ottieni lista giochi ATTUALE da SystemData (mappa per PATH) ---
-        std::vector<FileData*> currentFiles = rootFolder->getFilesRecursive(GAME);
-        std::map<std::string, FileData*> currentFilesMapByPath;
-        for (FileData* fd : currentFiles) {
-             if (fd) { currentFilesMapByPath[fd->getPath()] = fd; }
-        }
-        LOG(LogInfo) << "Epic Store Refresh: Found " << currentFilesMapByPath.size() << " existing game paths.";
+         // --- Ottieni ID esistenti ---
+         std::vector<FileData*> currentFiles = rootFolder->getFilesRecursive(GAME);
+         std::unordered_set<std::string> existingEpicIds;
+         for (FileData* fd : currentFiles) {
+             if (fd) {
+                 std::string epicId = fd->getMetadata().get(MetaDataId::EpicId);
+                 if (!epicId.empty()) {
+                     existingEpicIds.insert(epicId);
+                 }
+             }
+         }
+         LOG(LogInfo) << "Epic Store Refresh: Found " << existingEpicIds.size() << " existing Epic IDs.";
 
-        // --- Ottieni lista giochi AGGIORNATA da API ---
-        std::vector<EpicGames::Asset> assetsFromApi;
-        try {
-            assetsFromApi = mAPI->GetAllAssets();
-            LOG(LogInfo) << "Epic Store Refresh: Fetched " << assetsFromApi.size() << " assets from API.";
-        } catch (const std::exception& e) { LOG(LogError) << "Epic Store Refresh: Exception fetching assets: " << e.what(); return; }
-          catch (...) { LOG(LogError) << "Epic Store Refresh: Unknown exception fetching assets."; return; }
+         // --- Ottieni Asset da API ---
+         std::vector<EpicGames::Asset> assetsFromApi;
+         try {
+             assetsFromApi = mAPI->GetAllAssets();
+             LOG(LogInfo) << "Epic Store Refresh: Fetched " << assetsFromApi.size() << " assets from API.";
+         } catch (const std::exception& e) { LOG(LogError) << "Epic Store Refresh: Exception fetching assets: " << e.what(); return; }
+           catch (...) { LOG(LogError) << "Epic Store Refresh: Unknown exception fetching assets."; return; }
 
-        // --- Confronta e Aggiungi Giochi Nuovi ---
-        bool changesMade = false;
-        std::vector<std::string> addedGamePathsForMetaUpdate;
-        int addedCount = 0;
-        const std::string VIRTUAL_EPIC_PREFIX = "epic://virtual/";
+         // --- Identifica NUOVI giochi e prepara fetch titoli ---
+         bool changesMade = false;
+         int alreadyExistingCount = 0;
+         std::vector<std::pair<std::string, std::string>> itemsToFetchTitles; // Lista {ns, catalogId} per i NUOVI giochi
+         std::vector<EpicGames::Asset> newAssetsData; // Memorizza i dati degli asset NUOVI
+         std::unordered_map<std::string, EpicGames::Asset> newAssetsMapByCatalogId; // Mappa CatalogID -> Asset NUOVO
 
-        for (const auto& asset : assetsFromApi) {
-            if (asset.appName.empty()) continue;
+         for (const auto& asset : assetsFromApi) {
+             if (asset.appName.empty()) {
+                 LOG(LogWarning) << "Epic Store Refresh: Skipping asset with empty appName.";
+                 continue;
+             }
+             std::string currentEpicId = asset.appName;
 
-            // Ricostruisci pseudoPath
-            std::string pseudoPath = VIRTUAL_EPIC_PREFIX;
-            if (!asset.ns.empty() && !asset.catalogItemId.empty()) {
-                 pseudoPath += HttpReq::urlEncode(asset.appName) + "/" + HttpReq::urlEncode(asset.catalogItemId);
-            } else {
-                   pseudoPath += HttpReq::urlEncode(asset.appName);
-            }
+             if (existingEpicIds.find(currentEpicId) == existingEpicIds.end()) {
+                 // Gioco potenzialmente nuovo (basato su ID)
+                 if (!asset.ns.empty() && !asset.catalogItemId.empty()) {
+                     itemsToFetchTitles.push_back({asset.ns, asset.catalogItemId});
+                     newAssetsData.push_back(asset); // Salva i dati dell'asset
+                     newAssetsMapByCatalogId[asset.catalogItemId] = asset; // Mappa per ritrovarlo dopo
+                 } else {
+                     LOG(LogWarning) << "Epic Store Refresh: Skipping potential new game " << currentEpicId << " due to missing ns/catalogItemId needed for title fetch.";
+                 }
+             } else {
+                 alreadyExistingCount++;
+             }
+         }
 
-            if (currentFilesMapByPath.find(pseudoPath) == currentFilesMapByPath.end()) {
-                // GIOCO NUOVO
-                LOG(LogInfo) << "Epic Store Refresh: Adding new game -> " << pseudoPath << " (" << asset.appName << ")";
-                FileData* newGame = new FileData(FileType::GAME, pseudoPath, system);
-                MetaDataList& mdl = newGame->getMetadata();
-                mdl.set(MetaDataId::Name, asset.appName);
-                mdl.set(MetaDataId::Installed, "false");
-                mdl.set(MetaDataId::Virtual, "true");
-                mdl.set(MetaDataId::EpicId, asset.appName);
-                mdl.set(MetaDataId::EpicNamespace, asset.ns);
-                mdl.set(MetaDataId::EpicCatalogId, asset.catalogItemId);
-                std::string installCommandUri = "com.epicgames.launcher://apps/";
-                 if (!asset.ns.empty() && !asset.catalogItemId.empty() && !asset.appName.empty()) { /* ... costruisci URI completo ... */ } else { /* ... costruisci URI fallback ... */ }
-                 mdl.set(MetaDataId::LaunchCommand, installCommandUri);
+         LOG(LogInfo) << "Epic Store Refresh: Identified " << newAssetsData.size() << " potential new games to fetch titles for. Skipped " << alreadyExistingCount << " existing games.";
 
-                rootFolder->addChild(newGame);
-                changesMade = true;
-                addedGamePathsForMetaUpdate.push_back(pseudoPath);
-                addedCount++;
-                FileFilterIndex* filterIndex = system->getFilterIndex();
-                 if (filterIndex != nullptr) { filterIndex->addToIndex(newGame); }
-            }
-        } // Fine ciclo assetsFromApi
+         // --- Fetch Titoli per i NUOVI Giochi (se ce ne sono) ---
+         std::map<std::string, EpicGames::CatalogItem> newTitlesResults;
+         if (!itemsToFetchTitles.empty()) {
+             LOG(LogInfo) << "Epic Store Refresh: Fetching titles for " << itemsToFetchTitles.size() << " new games...";
+             try {
+                 newTitlesResults = mAPI->GetCatalogItems(itemsToFetchTitles);
+                 LOG(LogInfo) << "Epic Store Refresh: API call for new titles successful, received " << newTitlesResults.size() << " results.";
+             } catch (const std::exception& apiEx) {
+                 LOG(LogError) << "Epic Store Refresh: Exception fetching new titles: " << apiEx.what();
+                 newTitlesResults.clear();
+             } catch (...) {
+                 LOG(LogError) << "Epic Store Refresh: Unknown exception fetching new titles.";
+                 newTitlesResults.clear();
+             }
+         }
 
-        // --- Blocco Rimozione Eliminato ---
+         // --- Aggiungi NUOVI giochi alla lista ---
+         std::vector<std::string> addedGamePathsForMetaUpdate;
+         int addedCount = 0;
+         const std::string VIRTUAL_EPIC_PREFIX = "epic://virtual/";
 
-        // --- Azioni Finali Semplificate ---
-        if (changesMade) {
-            LOG(LogInfo) << "Epic Store Refresh: " << addedCount << " new games added.";
+         for (const auto& asset : newAssetsData) { // Cicla solo sugli asset identificati come nuovi
+             std::string currentEpicId = asset.appName;
+             std::string gameDisplayName = currentEpicId; // Default a ID
+             std::string catalogId = asset.catalogItemId;
+             std::string ns = asset.ns;
 
-            // Triggera l'aggiornamento metadati per i NUOVI giochi
-            if (!addedGamePathsForMetaUpdate.empty()) {
-                 LOG(LogInfo) << "Epic Store Refresh: Triggering metadata update for " << addedCount << " newly added games.";
-                 this->updateGamesMetadataAsync(system, addedGamePathsForMetaUpdate);
-            }
+             // Cerca il titolo tra i risultati
+             auto titleIt = newTitlesResults.find(catalogId);
+             if (titleIt != newTitlesResults.end() && !titleIt->second.title.empty()) {
+                 gameDisplayName = titleIt->second.title;
+             } else {
+                 LOG(LogWarning) << "Epic Store Refresh: Could not fetch title for new game ID " << currentEpicId << ". Using ID as name.";
+             }
 
-            // Aggiorna conteggio giochi
+             // Costruisci lo pseudoPath
+             std::string pseudoPath = VIRTUAL_EPIC_PREFIX;
+             if (!ns.empty() && !catalogId.empty()) {
+                  pseudoPath += HttpReq::urlEncode(asset.appName) + "/" + HttpReq::urlEncode(catalogId);
+             } else {
+                    pseudoPath += HttpReq::urlEncode(asset.appName);
+             }
+
+             LOG(LogInfo) << "Epic Store Refresh: Adding new game -> ID: " << currentEpicId << ", Path: " << pseudoPath << ", Name: '" << gameDisplayName << "'";
+             FileData* newGame = new FileData(FileType::GAME, pseudoPath, system);
+             MetaDataList& mdl = newGame->getMetadata();
+
+             // Imposta metadati base
+             mdl.set(MetaDataId::Name, gameDisplayName);
+             mdl.set(MetaDataId::Installed, "false");
+             mdl.set(MetaDataId::Virtual, "true");
+             mdl.set(MetaDataId::EpicId, currentEpicId);
+             mdl.set(MetaDataId::EpicNamespace, ns);
+             mdl.set(MetaDataId::EpicCatalogId, catalogId);
+
+             // *** MODIFICA CHIAVE V8: Costruisci LAUNCH URI ***
+             std::string launchCommandUri = "com.epicgames.launcher://apps/";
+             if (!ns.empty() && !catalogId.empty() && !currentEpicId.empty()) {
+                  // Formato corretto: namespace:catalogItemId:appName
+                  launchCommandUri += HttpReq::urlEncode(ns) + "%3A";
+                  launchCommandUri += HttpReq::urlEncode(catalogId) + "%3A";
+                  launchCommandUri += HttpReq::urlEncode(currentEpicId);
+                  launchCommandUri += "?action=launch&silent=true"; // <--- AZIONE = launch
+             } else {
+                  // Fallback meno ideale, ma usa comunque launch
+                  launchCommandUri += HttpReq::urlEncode(currentEpicId) + "?action=launch&silent=true";
+                  LOG(LogWarning) << "Epic Store Refresh: Missing IDs for full launch URI for " << currentEpicId << ". Using fallback URI.";
+             }
+             mdl.set(MetaDataId::LaunchCommand, launchCommandUri); // Imposta il comando di LANCIO
+             // *** FINE MODIFICA CHIAVE V8 ***
+
+             // Log di verifica aggiunto nella risposta precedente
+             LOG(LogDebug) << "Refresh Add New: Impostato LaunchCommand per ID " << currentEpicId
+                           << " a [" << mdl.get(MetaDataId::LaunchCommand) << "] "
+                           << "(Valore sorgente: [" << launchCommandUri << "])";
+
+
+             rootFolder->addChild(newGame); // Aggiungi al sistema
+             changesMade = true;
+             addedGamePathsForMetaUpdate.push_back(pseudoPath); // Aggiungi il path alla lista per l'update COMPLETO dei metadati
+             addedCount++;
+             FileFilterIndex* filterIndex = system->getFilterIndex();
+              if (filterIndex != nullptr) { filterIndex->addToIndex(newGame); }
+         }
+
+         // --- Azioni Finali ---
+         if (changesMade) {
+             LOG(LogInfo) << "Epic Store Refresh: " << addedCount << " new games added.";
+             // Triggera l'aggiornamento completo dei metadati (desc, image etc.) per i NUOVI giochi
+             if (!addedGamePathsForMetaUpdate.empty()) {
+                  LOG(LogInfo) << "Epic Store Refresh: Triggering FULL metadata update task for " << addedCount << " newly added games.";
+                  this->updateGamesMetadataAsync(system, addedGamePathsForMetaUpdate);
+             }
              system->updateDisplayedGameCount();
+             LOG(LogInfo) << "Epic Store Refresh: Relying on ES auto-save and subsequent metadata update.";
+         } else {
+              LOG(LogInfo) << "Epic Store Refresh: No new games found to add based on Epic ID.";
+         }
 
-            // ** NON tentiamo di salvare o ricaricare l'UI da qui **
-            // Ci affidiamo al salvataggio all'uscita di ES e al refresh
-            // manuale della vista da parte dell'utente (uscendo e rientrando nel sistema).
-             LOG(LogInfo) << "Epic Store Refresh: Relying on ES auto-save. UI will update on next view load.";
+         // Invia evento per notificare il completamento
+         LOG(LogInfo) << "Epic Store: Background library refresh finished (refreshGamesListAsync v8).";
+         SDL_Event event;
+         SDL_zero(event);
+         event.type = SDL_USEREVENT;
+         event.user.code = SDL_EPIC_REFRESH_COMPLETE;
+         event.user.data1 = nullptr; // Non passiamo più il flag newGamesFound qui
+         event.user.data2 = nullptr;
+         SDL_PushEvent(&event);
+         LOG(LogInfo) << "Epic Store Refresh: Inviato evento EPIC_REFRESH_COMPLETE.";
 
-        } else {
-            LOG(LogInfo) << "Epic Store Refresh: No new games found to add.";
-        }
-
-        LOG(LogInfo) << "Epic Store: Background library refresh finished (refreshGamesListAsync v4).";
-    });
-}
-// --- Assicurati che l'implementazione di getGameLaunchUrl NON sia duplicata ---
-// std::string EpicGamesStore::getGameLaunchUrl(const EpicGames::Asset& asset) const { ... }
-
- 
+     }); // Fine lambda std::async
+ }

@@ -35,7 +35,7 @@ std::vector<std::pair<std::string, Scraper*>> Scraper::scrapers
 #endif
 
 	{ "ArcadeDB", new ArcadeDBScraper() },
-	{ "epicgames", new EpicGamesScraper() }
+	{ "EPIC GAMES STORE", new EpicGamesScraper() }
 };
 
 std::string Scraper::getScraperName(Scraper* scraper)

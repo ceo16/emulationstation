@@ -33,6 +33,9 @@
 #include "GameStore/EpicGames/EpicGamesStoreAPI.h"
 #include "GameStore/EpicGames/EpicGamesModels.h"
 #include "MetaData.h"
+#include "GameStore/EpicGames/GameStoreManager.h" // <--- AGGIUNGI QUESTO
+#include "GameStore/EpicGames/EpicGamesStore.h" // <--- AGGIUNGI QUESTO
+#include "GameStore/EpicGames/EpicGamesModels.h"
 
 
 #if WIN32
@@ -247,7 +250,7 @@ void SystemData::populateEpicGamesVirtual(EpicGamesStoreAPI* epicApi, const std:
 
     int virtualGamesAdded = 0;
     int skippedCount = 0;
-    const std::string VIRTUAL_EPIC_PREFIX = "epic:/virtual/";
+    const std::string VIRTUAL_EPIC_PREFIX = "epic://virtual/";
 
     for (const auto& asset : libraryAssets) // 'asset' ora è di tipo EpicGames::Asset
     {
@@ -1024,6 +1027,186 @@ bool SystemData::loadConfig(Window* window)
 
 		CollectionSystemManager::get()->loadCollectionSystems();
 	}
+LOG(LogInfo) << "[EpicDynamic] Checking/Creating/Populating Epic Games Store system in loadConfig...";
+
+SystemData* epicSystem = getSystem("epicgamestore");
+bool systemJustCreated = false;
+bool systemNeedsPopulation = false;
+
+if (epicSystem == nullptr)
+{
+    LOG(LogInfo) << "[EpicDynamic] Epic Games Store system not found, creating dynamically...";
+    // --- Blocco creazione dinamica (Assicurati sia corretto per te) ---
+    SystemMetadata md_epic;
+    md_epic.name = "epicgamestore";
+    md_epic.fullName = _("Epic Games Store");
+    md_epic.themeFolder = "epicgamestore";
+    md_epic.manufacturer = "Epic Games";
+    md_epic.hardwareType = "pc";
+
+    SystemEnvironmentData* envData_epic = new SystemEnvironmentData();
+    std::string exePath = Paths::getExePath();
+    std::string exeDir = Utils::FileSystem::getParent(exePath);
+    std::string gamelistDir = Utils::FileSystem::getGenericPath(exeDir + "/roms/epicgamestore");
+    envData_epic->mStartPath = gamelistDir;
+    envData_epic->mSearchExtensions.insert(".epic");
+    envData_epic->mPlatformIds = { PlatformIds::PC };
+    envData_epic->mLaunchCommand = "";
+
+    std::vector<EmulatorData> epicEmulators;
+    epicSystem = new SystemData(md_epic, envData_epic, &epicEmulators, false, false, true, false);
+
+    if (!epicSystem) {
+        delete envData_epic;
+        LOG(LogError) << "[EpicDynamic] Failed to dynamically create 'epicgamestore' system object!";
+    } else {
+        systemJustCreated = true;
+        LOG(LogInfo) << "[EpicDynamic] Dynamically created 'epicgamestore' system object.";
+        systemNeedsPopulation = true;
+    }
+    // --- FINE Blocco creazione dinamica ---
+}
+else
+{
+    LOG(LogInfo) << "[EpicDynamic] Epic Games Store system already loaded. Clearing for repopulation.";
+    epicSystem->getRootFolder()->clear();
+
+    // CORREZIONE 1: Cancella l'indice correttamente
+    FileFilterIndex* existingIndex = epicSystem->getIndex(false); // Ottieni puntatore senza creare
+    if (existingIndex != nullptr) {
+         delete existingIndex;
+         epicSystem->mFilterIndex = nullptr; // Resetta puntatore DOPO delete
+    }
+
+    epicSystem->updateDisplayedGameCount();
+    systemNeedsPopulation = true;
+}
+
+// Popola il sistema Epic se esiste e necessita di popolamento
+if (epicSystem != nullptr && systemNeedsPopulation)
+{
+    LOG(LogInfo) << "[EpicDynamic] Populating games for epicgamestore system...";
+    try {
+        // --- Logica di popolamento ---
+        GameStoreManager* gsm = GameStoreManager::get(); // Assumendo Singleton
+        EpicGamesStore* epicGamesStore = nullptr;
+        if (gsm) {
+            GameStore* baseStore = gsm->getStore("EpicGamesStore");
+            if (baseStore)
+                epicGamesStore = dynamic_cast<EpicGamesStore*>(baseStore);
+        }
+
+        if (!epicGamesStore) {
+            LOG(LogError) << "[EpicDynamic] Failed to get EpicGamesStore instance for population.";
+        } else {
+            // 1. Leggi il gamelist.xml
+            std::string gamelistPath = epicSystem->getGamelistPath(false);
+            if (Utils::FileSystem::exists(gamelistPath)) {
+                 LOG(LogInfo) << "[EpicDynamic] Parsing gamelist: " << gamelistPath;
+                 std::unordered_map<std::string, FileData*> fileMap;
+                 fileMap[epicSystem->getRootFolder()->getPath()] = epicSystem->getRootFolder();
+                 parseGamelist(epicSystem, fileMap);
+                 LOG(LogInfo) << "[EpicDynamic] Parsed gamelist. Found " << epicSystem->getRootFolder()->getFilesRecursive(GAME, false).size() << " game entries from XML.";
+            } else {
+                 LOG(LogWarning) << "[EpicDynamic] Gamelist file not found at: " << gamelistPath;
+            }
+
+             // 2. Sincronizza con giochi INSTALLATI
+             LOG(LogDebug) << "[EpicDynamic] Processing *installed* Epic Games...";
+             int installedProcessed = 0;
+             try {
+                 std::vector<EpicGamesStore::EpicGameInfo> installedEpicGames = epicGamesStore->getInstalledEpicGamesWithDetails();
+                 LOG(LogInfo) << "[EpicDynamic] Found " << installedEpicGames.size() << " installed Epic Games manifests.";
+
+                 FolderData* root = epicSystem->getRootFolder(); // Ottieni root folder qui
+                 if (root) { // Controlla che root non sia nullo
+                      for (const auto& installedGame : installedEpicGames) {
+                           std::string installedPath = installedGame.installDir;
+                           if (installedPath.empty()) continue;
+
+                           // CORREZIONE 6: Logica findOrCreateFile replicata
+                           FileData* installedFileData = nullptr;
+                           const auto& children = root->getChildren();
+                           for (FileData* child : children) {
+                               if (child->getPath() == installedPath) {
+                                   installedFileData = child;
+                                   break;
+                               }
+                           }
+
+                           if (installedFileData == nullptr) {
+                               LOG(LogDebug) << "[EpicDynamic] Installed game path not found, creating entry: " << installedPath;
+                               installedFileData = new FileData(FileType::GAME, installedPath, epicSystem);
+                               root->addChild(installedFileData);
+                               if (epicSystem->mFilterIndex) epicSystem->mFilterIndex->addToIndex(installedFileData);
+                           } else {
+                               LOG(LogDebug) << "[EpicDynamic] Found existing FileData for installed path: " << installedPath;
+                           }
+                           // Fine logica findOrCreateFile replicata
+
+                           if (installedFileData) {
+                                // CORREZIONE 2, 4: Usa i nomi membro CORRETTI!
+                                installedFileData->getMetadata().set(MetaDataId::Name, installedGame.name);
+                                installedFileData->getMetadata().set(MetaDataId::Installed, "true");
+                                installedFileData->getMetadata().set(MetaDataId::Virtual, "false");
+                                installedFileData->getMetadata().set(MetaDataId::LaunchCommand, installedGame.launchCommand);
+                                installedFileData->getMetadata().set(MetaDataId::EpicId, installedGame.id); // <<< USA 'id' o il nome corretto
+                                installedFileData->getMetadata().set(MetaDataId::EpicNamespace, installedGame.catalogNamespace); // <<< USA 'catalogNamespace' o il nome corretto
+                                installedFileData->getMetadata().set(MetaDataId::EpicCatalogId, installedGame.catalogItemId);
+
+                                installedFileData->getMetadata().resetChangedFlag();
+                                installedProcessed++;
+                           } else {
+                               LOG(LogError) << "[EpicDynamic] Failed to find or create FileData for installed path: " << installedPath;
+                           }
+                      }
+                 } else {
+                      LOG(LogError) << "[EpicDynamic] Root folder for epicSystem is null during installed game processing.";
+                 }
+                 LOG(LogInfo) << "[EpicDynamic] Finished processing " << installedProcessed << " installed Epic games entries.";
+             } catch (const std::exception& e) { LOG(LogError) << "[EpicDynamic] Error processing installed games: " << e.what(); }
+        } // fine if (epicGamesStore)
+
+        // 3. Carica il tema e aggiungi al vettore SE appena creato e popolat
+        if (systemJustCreated) {
+            if (epicSystem->getRootFolder()->getChildren().size() > 0) {
+                LOG(LogDebug) << "[EpicDynamic] Loading theme and adding populated epicgamestore system to vector.";
+                epicSystem->loadTheme(); // Carica il tema DOPO aver popolato
+                auto defaultView = Settings::getInstance()->getString(epicSystem->getName() + ".defaultView");
+                auto gridSizeOverride = Vector2f::parseString(Settings::getInstance()->getString(epicSystem->getName() + ".gridSize"));
+                epicSystem->setSystemViewMode(defaultView, gridSizeOverride, false);
+
+                bool nameCollision = false;
+                for(const auto& sys : SystemData::sSystemVector) { if(sys && sys->getName() == epicSystem->getName()) { nameCollision = true; break; } } // Aggiunto check sys non nullo
+                if (!nameCollision) {
+                     sSystemVector.push_back(epicSystem);
+                } else {
+                     LOG(LogError) << "[EpicDynamic] Name collision detected for epicgamestore, not adding again.";
+                     delete epicSystem;
+                     epicSystem = nullptr;
+                }
+            } else {
+                LOG(LogWarning) << "[EpicDynamic] Newly created epicgamestore system is empty. Discarding.";
+                delete epicSystem;
+                epicSystem = nullptr;
+            }
+        }
+
+        // 4. Aggiorna il conteggio finale
+        if (epicSystem) {
+            epicSystem->updateDisplayedGameCount();
+            LOG(LogInfo) << "[EpicDynamic] Finished populating epicgamestore. Final displayed game count: " << epicSystem->getGameCountInfo()->visibleGames;
+        }
+
+    } // fine try/catch popolamento
+    catch (const std::exception& e) {
+        LOG(LogError) << "[EpicDynamic] Exception during dynamic population of epicgamestore: " << e.what();
+    } catch (...) {
+        LOG(LogError) << "[EpicDynamic] Unknown exception during dynamic population of epicgamestore.";
+    }
+} else if (epicSystem == nullptr && systemJustCreated) {
+     LOG(LogError) << "[EpicDynamic] epicSystem pointer became null unexpectedly after creation block.";
+}
 
 	if (SystemData::sSystemVector.size() > 0)
 	{

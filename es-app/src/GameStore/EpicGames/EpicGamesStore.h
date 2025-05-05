@@ -12,6 +12,7 @@
  #include "FileData.h"
  #include "SystemData.h"
 
+
  
 
  class EpicGamesStore : public GameStore {
@@ -74,6 +75,10 @@ bool checkInstallationStatus(const EpicGames::Asset& asset);
     std::string getGameLaunchUrl(const EpicGames::Asset& asset) const;
 
  };
- 
+ struct NewEpicGameData {
+    std::string pseudoPath;
+    std::map<MetaDataId, std::string> metadataMap; // Mappa per contenere tutti i metadati iniziali
+    // Potresti usare direttamente MetaDataList se preferisci gestire la sua creazione/copia
+};
 
  #endif // ES_APP_GAMESTORE_EPICGAMES_EPICGAMESSTORE_H

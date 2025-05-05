@@ -13,6 +13,8 @@
 #include <string>
 #include <functional>
 #include <cstring>                         // Per strlen
+#include "guis/GuiBusyInfoPopup.h"
+
 
 
 EpicGamesUI::EpicGamesUI() {
@@ -69,7 +71,7 @@ void EpicGamesUI::showMainMenu(Window* window, EpicGamesStore* store) {
                   // <<< RIMOSSO: prompt.c_str()
                 ); // Fine costruttore GuiTextEditPopup
 
-                window->pushGui(codePopup); // Questa riga ora funzionerà
+                window->pushGui(codePopup); // Questa riga ora funzioner
 
             } // Fine lambda GuiMsgBox
         )); // Fine pushGui GuiMsgBox
@@ -79,43 +81,18 @@ void EpicGamesUI::showMainMenu(Window* window, EpicGamesStore* store) {
 // --- NUOVA VOCE: Aggiorna Libreria Giochi ---
  if (store && store->getAuth() && !store->getAuth()->getAccessToken().empty()) {
         menu->addEntry(
-            "Aggiorna Libreria Giochi",
+            "Scarica/Aggiorna Libreria Giochi Online",
             true,
-            [window, store, menu]() { // Cattura anche menu
-                LOG(LogInfo) << "User triggered 'Aggiorna Libreria Giochi'";
-
-                // --- Popup Rimosso ---
-                // GuiInfoPopup* infoPopup = new GuiInfoPopup(window, "Avvio aggiornamento...", 4000);
-                // window->pushGui(infoPopup);
-                // ---------------------
-
-                // Mostra un messaggio bloccante semplice (opzionale)
-                window->pushGui(new GuiMsgBox(window, "Avvio aggiornamento libreria Epic in background.\nLa lista si aggiornerà al termine.", "OK", [menu] {
-                    // Chiudi il menu DOPO che l'utente preme OK sul messaggio
-                    if(menu) menu->close();
-                }));
-
-                // Chiama la funzione asincrona
-                store->refreshGamesListAsync(); // Chiamata come prima
-
-                // Non chiudere il menu qui, ma nel callback del MsgBox
-                // if(menu) menu->close();
-
-            },
+ [window, store, menu]() {
+    LOG(LogInfo) << "User triggered 'Scarica/Aggiorna Libreria Giochi Online'";
+    LOG(LogWarning) << "[DEBUG_POPUP] Pushing GuiBusyInfoPopup NOW."; // <-- AGGIUNGI QUESTA
+    window->pushGui(new GuiBusyInfoPopup(window, _("AGGIORNAMENTO EPIC IN CORSO...")));
+    if(menu) menu->close();
+    LOG(LogWarning) << "[DEBUG_POPUP] Starting refreshGamesListAsync NOW."; // <-- AGGIUNGI QUESTA
+    store->refreshGamesListAsync();
+}, // Fine lambda
         "iconSync");
     }
-    // --- Fine Nuova Voce ---
- // --- Fine voce di Login ---
-
- // Aggiungi qui altre voci se necessario...
- // Esempio: Verifica stato login prima di mostrare altre voci
- /*
- if (store->isAuthenticated()) { // Metodo ipotetico
-     menu->addEntry("Mostra Libreria", true, [window, store]{
-         showGameList(window, store);
-     });
- }
- */
 
  window->pushGui(menu);
 }
