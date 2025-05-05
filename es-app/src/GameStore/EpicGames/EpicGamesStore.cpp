@@ -1160,9 +1160,10 @@ std::future<void> EpicGamesStore::updateGamesMetadataAsync(SystemData* system, c
 
 
 std::future<void> EpicGamesStore::refreshGamesListAsync() {
+     // Lancia l'intera operazione in un thread separato usando std::async
      return std::async(std::launch::async, [this]() {
          // Inizio della lambda in refreshGamesListAsync
-         LOG(LogInfo) << "Epic Store Refresh BG: Starting..."; // Timestamp 1
+         LOG(LogInfo) << "Epic Store Refresh BG: Starting (Using Async API Calls)..."; // Timestamp 1
          auto startRefresh = std::chrono::high_resolution_clock::now(); // Ora inizio totale
 
          // --- Controlli preliminari ---
@@ -1176,6 +1177,7 @@ std::future<void> EpicGamesStore::refreshGamesListAsync() {
          LOG(LogInfo) << "Epic Store Refresh BG: Reading existing IDs..."; // Timestamp 2
          auto startReadIds = std::chrono::high_resolution_clock::now();
          // --- Ottieni ID esistenti ---
+         std::unordered_set<std::string> existingEpicIds;
          SystemData* tempSystem = SystemData::getSystem("epicgamestore");
          if (!tempSystem) {
               LOG(LogError) << "Epic Store Refresh BG: Could not find SystemData for 'epicgamestore' to read existing IDs."; return;
@@ -1184,43 +1186,58 @@ std::future<void> EpicGamesStore::refreshGamesListAsync() {
          if (!tempRootFolder) {
               LOG(LogError) << "Epic Store Refresh BG: Root folder is null when reading existing IDs."; return;
          }
-         std::vector<FileData*> currentFiles = tempRootFolder->getFilesRecursive(GAME);
-         std::unordered_set<std::string> existingEpicIds;
-         for (FileData* fd : currentFiles) {
-             if (fd) {
-                 std::string epicId = fd->getMetadata().get(MetaDataId::EpicId);
-                 if (!epicId.empty()) {
-                     existingEpicIds.insert(epicId);
+         try { // Aggiungi try-catch per getFilesRecursive
+             std::vector<FileData*> currentFiles = tempRootFolder->getFilesRecursive(GAME);
+             for (FileData* fd : currentFiles) {
+                 if (fd) {
+                     std::string epicId = fd->getMetadata().get(MetaDataId::EpicId);
+                     if (!epicId.empty()) {
+                         existingEpicIds.insert(epicId);
+                     }
                  }
              }
+         } catch (const std::exception& e) {
+             LOG(LogError) << "Epic Store Refresh BG: Exception while reading existing IDs: " << e.what();
+             return; // Esci se non riesci a leggere gli ID
+         } catch (...) {
+              LOG(LogError) << "Epic Store Refresh BG: Unknown exception while reading existing IDs.";
+             return;
          }
          // --- Fine Ottieni ID esistenti ---
          auto endReadIds = std::chrono::high_resolution_clock::now();
          LOG(LogInfo) << "Epic Store Refresh BG: Finished reading existing IDs (" << existingEpicIds.size() << ") in "
                       << std::chrono::duration_cast<std::chrono::milliseconds>(endReadIds - startReadIds).count() << " ms."; // Timestamp 3
 
-         // --- Ottieni Asset da API ---
+         // --- Ottieni Asset da API (MODIFICATO per usare Async) ---
          std::vector<EpicGames::Asset> assetsFromApi;
-         LOG(LogInfo) << "Epic Store Refresh BG: Calling GetAllAssets API..."; // Timestamp 4
-         auto startApiAssets = std::chrono::high_resolution_clock::now();
+         LOG(LogInfo) << "Epic Store Refresh BG: Calling mAPI->GetAllAssetsAsync()..."; // Chiamata non bloccante
+         auto startApiAssetsCall = std::chrono::high_resolution_clock::now();
+         std::future<std::vector<EpicGames::Asset>> assetsFuture = mAPI->GetAllAssetsAsync(); // Ottieni il future
+         auto endApiAssetsCall = std::chrono::high_resolution_clock::now();
+         LOG(LogInfo) << "Epic Store Refresh BG: mAPI->GetAllAssetsAsync() returned future in " << std::chrono::duration_cast<std::chrono::milliseconds>(endApiAssetsCall - startApiAssetsCall).count() << " ms.";
+
+         // Attendi il risultato del future (QUESTO bloccherà questo thread background)
+         LOG(LogInfo) << "Epic Store Refresh BG: Waiting for GetAllAssetsAsync future result...";
+         auto startWaitAssets = std::chrono::high_resolution_clock::now();
          try {
-             assetsFromApi = mAPI->GetAllAssets(); // <-- Chiamata bloccante
+             assetsFromApi = assetsFuture.get(); // Attende il completamento del task lanciato da GetAllAssetsAsync
          } catch (const std::exception& e) {
-             LOG(LogError) << "Epic Store Refresh BG: Exception fetching assets: " << e.what(); return;
+              LOG(LogError) << "Epic Store Refresh BG: Exception getting future result for assets: " << e.what(); return; // Esci se API fallisce
          } catch (...) {
-             LOG(LogError) << "Epic Store Refresh BG: Unknown exception fetching assets."; return;
+              LOG(LogError) << "Epic Store Refresh BG: Unknown exception getting future result for assets."; return; // Esci se API fallisce
          }
-         auto endApiAssets = std::chrono::high_resolution_clock::now();
-         LOG(LogInfo) << "Epic Store Refresh BG: GetAllAssets API call completed (" << assetsFromApi.size() << " assets) in "
-                      << std::chrono::duration_cast<std::chrono::milliseconds>(endApiAssets - startApiAssets).count() << " ms."; // Timestamp 5
+         auto endWaitAssets = std::chrono::high_resolution_clock::now();
+         // Log del tempo di attesa e del risultato
+         LOG(LogInfo) << "Epic Store Refresh BG: Got assets future result (" << assetsFromApi.size() << " assets) in "
+                      << std::chrono::duration_cast<std::chrono::milliseconds>(endWaitAssets - startWaitAssets).count() << " ms.";
 
 
          // --- Identifica NUOVI giochi e prepara fetch titoli ---
          LOG(LogInfo) << "Epic Store Refresh BG: Identifying new games..."; // Timestamp 6
          int alreadyExistingCount = 0;
          std::vector<std::pair<std::string, std::string>> itemsToFetchTitles;
-         std::vector<EpicGames::Asset> newAssetsData;
-         std::unordered_map<std::string, EpicGames::Asset> newAssetsMapByCatalogId;
+         std::vector<EpicGames::Asset> newAssetsData; // Memorizza i dati degli asset NUOVI
+         std::unordered_map<std::string, EpicGames::Asset> newAssetsMapByCatalogId; // Mappa CatalogID -> Asset NUOVO
 
          for (const auto& asset : assetsFromApi) {
              if (asset.appName.empty()) {
@@ -1245,30 +1262,42 @@ std::future<void> EpicGamesStore::refreshGamesListAsync() {
          LOG(LogInfo) << "Epic Store Refresh BG: Identified " << newAssetsData.size() << " potential new games to fetch titles for. Skipped " << alreadyExistingCount << " existing games.";
 
 
-         // --- Fetch Titoli per i NUOVI Giochi (se ce ne sono) ---
+         // --- Fetch Titoli per i NUOVI Giochi (MODIFICATO per usare Async) ---
          std::map<std::string, EpicGames::CatalogItem> newTitlesResults;
          if (!itemsToFetchTitles.empty()) {
-             LOG(LogInfo) << "Epic Store Refresh BG: Calling GetCatalogItems API for " << itemsToFetchTitles.size() << " items..."; // Timestamp 7
-             auto startApiCatalog = std::chrono::high_resolution_clock::now();
+             LOG(LogInfo) << "Epic Store Refresh BG: Calling mAPI->GetCatalogItemsAsync() for " << itemsToFetchTitles.size() << " items..."; // Chiamata non bloccante
+             auto startApiCatalogCall = std::chrono::high_resolution_clock::now();
+             // Passa i parametri necessari alla funzione Async
+             std::future<std::map<std::string, EpicGames::CatalogItem>> itemsFuture = mAPI->GetCatalogItemsAsync(itemsToFetchTitles); // Usa i default per country/locale se GetCatalogItemsAsync li ha
+             auto endApiCatalogCall = std::chrono::high_resolution_clock::now();
+             LOG(LogInfo) << "Epic Store Refresh BG: mAPI->GetCatalogItemsAsync() returned future in " << std::chrono::duration_cast<std::chrono::milliseconds>(endApiCatalogCall - startApiCatalogCall).count() << " ms.";
+
+             // Attendi il risultato del future (QUESTO bloccherà questo thread background)
+             LOG(LogInfo) << "Epic Store Refresh BG: Waiting for GetCatalogItemsAsync future result...";
+             auto startWaitItems = std::chrono::high_resolution_clock::now();
              try {
-                 newTitlesResults = mAPI->GetCatalogItems(itemsToFetchTitles); // <-- Chiamata bloccante
+                 newTitlesResults = itemsFuture.get(); // Attende il completamento del task lanciato da GetCatalogItemsAsync
              } catch (const std::exception& e) {
-                 LOG(LogError) << "Epic Store Refresh BG: Exception fetching titles: " << e.what(); newTitlesResults.clear();
+                 // Se fallisce il recupero titoli, logga ma continua (useremo gli ID come nomi)
+                 LOG(LogError) << "Epic Store Refresh BG: Exception getting future result for items: " << e.what();
+                 newTitlesResults.clear(); // Assicura che la mappa sia vuota
              } catch (...) {
-                 LOG(LogError) << "Epic Store Refresh BG: Unknown exception fetching titles."; newTitlesResults.clear();
+                  LOG(LogError) << "Epic Store Refresh BG: Unknown exception getting future result for items.";
+                 newTitlesResults.clear(); // Assicura che la mappa sia vuota
              }
-             auto endApiCatalog = std::chrono::high_resolution_clock::now();
-             LOG(LogInfo) << "Epic Store Refresh BG: GetCatalogItems API call completed (" << newTitlesResults.size() << " results) in "
-                          << std::chrono::duration_cast<std::chrono::milliseconds>(endApiCatalog - startApiCatalog).count() << " ms."; // Timestamp 8
+             auto endWaitItems = std::chrono::high_resolution_clock::now();
+             // Log del tempo di attesa e del risultato
+             LOG(LogInfo) << "Epic Store Refresh BG: Got items future result (" << newTitlesResults.size() << " results) in "
+                          << std::chrono::duration_cast<std::chrono::milliseconds>(endWaitItems - startWaitItems).count() << " ms.";
          } else {
-              LOG(LogInfo) << "Epic Store Refresh BG: No new items to fetch titles for. Skipping GetCatalogItems API call."; // Log aggiunto
+             LOG(LogInfo) << "Epic Store Refresh BG: No new items to fetch titles for. Skipping GetCatalogItems API call.";
          }
 
 
          // --- Prepara i dati per il thread principale ---
          LOG(LogInfo) << "Epic Store Refresh BG: Preparing payload..."; // Timestamp 9
          auto startPayload = std::chrono::high_resolution_clock::now();
-         // Usiamo un puntatore grezzo perché SDL_Event lo richiede.
+         // Usa un puntatore grezzo perché SDL_Event lo richiede.
          // Il thread principale sarà responsabile della deallocazione.
          auto newGamesPayload = new std::vector<NewEpicGameData>();
          newGamesPayload->reserve(newAssetsData.size()); // Ottimizzazione
@@ -1325,7 +1354,6 @@ std::future<void> EpicGamesStore::refreshGamesListAsync() {
              gameData.metadataMap[MetaDataId::LaunchCommand] = launchCommandUri;
 
              newGamesPayload->push_back(gameData);
-             // Log rimosso da qui, lo facciamo alla fine della preparazione
          }
          auto endPayload = std::chrono::high_resolution_clock::now();
          LOG(LogInfo) << "Epic Store Refresh BG: Payload preparation finished (" << newGamesPayload->size() << " games) in "
@@ -1341,11 +1369,11 @@ std::future<void> EpicGamesStore::refreshGamesListAsync() {
          SDL_Event event;
          SDL_zero(event);
          event.type = SDL_USEREVENT;
-         event.user.code = SDL_EPIC_REFRESH_COMPLETE;
-         event.user.data1 = newGamesPayload; // Passa il puntatore
+         event.user.code = SDL_EPIC_REFRESH_COMPLETE; // Assicurati che sia definito globalmente o accessibile
+         event.user.data1 = newGamesPayload; // Passa il puntatore al vettore
          event.user.data2 = nullptr;
          SDL_PushEvent(&event);
-         // NON fare delete newGamesPayload qui!
+         // NON fare delete newGamesPayload qui! Il main thread lo farà.
 
      }); // Fine lambda std::async
  }

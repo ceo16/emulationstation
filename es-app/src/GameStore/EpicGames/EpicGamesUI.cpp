@@ -79,20 +79,46 @@ void EpicGamesUI::showMainMenu(Window* window, EpicGamesStore* store) {
     }, // Fine lambda principale addEntry
  "iconFolder");
 // --- NUOVA VOCE: Aggiorna Libreria Giochi ---
- if (store && store->getAuth() && !store->getAuth()->getAccessToken().empty()) {
-        menu->addEntry(
-            "Scarica/Aggiorna Libreria Giochi Online",
-            true,
- [window, store, menu]() {
-    LOG(LogInfo) << "User triggered 'Scarica/Aggiorna Libreria Giochi Online'";
-    LOG(LogWarning) << "[DEBUG_POPUP] Pushing GuiBusyInfoPopup NOW."; // <-- AGGIUNGI QUESTA
-    window->pushGui(new GuiBusyInfoPopup(window, _("AGGIORNAMENTO EPIC IN CORSO...")));
-    if(menu) menu->close();
-    LOG(LogWarning) << "[DEBUG_POPUP] Starting refreshGamesListAsync NOW."; // <-- AGGIUNGI QUESTA
-    store->refreshGamesListAsync();
-}, // Fine lambda
+if (store && store->getAuth() && !store->getAuth()->getAccessToken().empty()) {
+    menu->addEntry(
+        "Scarica/Aggiorna Libreria Giochi Online",
+        true,
+        [window, store, menu]() { // Inizio lambda UI
+            LOG(LogInfo) << "User triggered 'Scarica/Aggiorna Libreria Giochi Online'";
+
+            // 1. Mostra il Popup
+            LOG(LogWarning) << "[DEBUG_POPUP] Pushing GuiBusyInfoPopup NOW.";
+            GuiBusyInfoPopup* busyPopup = new GuiBusyInfoPopup(window, _("AGGIORNAMENTO EPIC IN CORSO..."));
+            window->pushGui(busyPopup);
+            // RenderFrame rimosso
+
+            // 2. Chiudi il menu corrente
+            if(menu) menu->close();
+
+            // 3. Avvia il Task Asincrono DOPO un piccolo ritardo
+            std::thread delayedLaunchThread([store, window]() { // Inizio lambda per thread ritardato
+                // Breve pausa
+                std::this_thread::sleep_for(std::chrono::milliseconds(100));
+
+                LOG(LogWarning) << "[DEBUG_POPUP] Starting refreshGamesListAsync NOW (after delay).";
+
+                // Esegui il task effettivo
+                if (store) {
+                    store->refreshGamesListAsync();
+                } else {
+                     LOG(LogError) << "Delayed Launch: Store pointer became null!";
+                     // Gestire l'errore qui è complicato, per ora logghiamo solo.
+                }
+            }); // Fine lambda per thread ritardato
+
+            // Stacca il thread per permettergli di continuare autonomamente
+            delayedLaunchThread.detach();
+
+            LOG(LogDebug) << "UI Action Lambda finished, delayed launch thread detached.";
+
+        }, // Fine lambda UI
         "iconSync");
-    }
+}
 
  window->pushGui(menu);
 }
