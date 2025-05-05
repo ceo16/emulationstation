@@ -4,6 +4,14 @@
 #include "utils/StringUtil.h"
 #include "LocaleES.h"
 #include "Window.h"
+#include "ThemeData.h" // Aggiunto per ThemeData::getMenuTheme()
+#include "InputConfig.h" // Aggiunto per BUTTON_OK, ecc.
+#include "Log.h"
+
+// --- ASSICURATI CHE QUESTI SIANO QUI ---
+#include <SDL_clipboard.h>
+#include <SDL_keyboard.h>
+#include <SDL_timer.h> // Per SDL_GetKeyboardState se non già incluso altrove
 
 #define TEXT_PADDING_HORIZ 10
 #define TEXT_PADDING_VERT 2
@@ -138,98 +146,154 @@ void TextEditComponent::stopEditing()
 }
 
 bool TextEditComponent::input(InputConfig* config, Input input)
-{	
-	bool const cursor_left = (config->getDeviceId() != DEVICE_KEYBOARD && config->isMappedLike("left", input)) ||
-		(config->getDeviceId() == DEVICE_KEYBOARD && input.id == SDLK_LEFT);
-	bool const cursor_right = (config->getDeviceId() != DEVICE_KEYBOARD && config->isMappedLike("right", input)) ||
-		(config->getDeviceId() == DEVICE_KEYBOARD && input.id == SDLK_RIGHT);
+{
+    bool const cursor_left = (config->getDeviceId() != DEVICE_KEYBOARD && config->isMappedLike("left", input)) ||
+        (config->getDeviceId() == DEVICE_KEYBOARD && input.id == SDLK_LEFT);
+    bool const cursor_right = (config->getDeviceId() != DEVICE_KEYBOARD && config->isMappedLike("right", input)) ||
+        (config->getDeviceId() == DEVICE_KEYBOARD && input.id == SDLK_RIGHT);
 
-	if(input.value == 0)
-	{
-		if(cursor_left || cursor_right)
-			mCursorRepeatDir = 0;
+    // --- Gestione Rilascio Tasti ---
+    if (input.value == 0)
+    {
+        if (cursor_left || cursor_right)
+            mCursorRepeatDir = 0;
 
-		return false;
-	}
+        // Ritorna false per il rilascio, non gestiamo eventi "key up" speciali qui
+        return false;
+    }
 
-	bool const cursor_up = (config->getDeviceId() != DEVICE_KEYBOARD && config->isMappedLike("up", input)) ||
-		(config->getDeviceId() == DEVICE_KEYBOARD && input.id == SDLK_UP);
-	bool const cursor_down = (config->getDeviceId() != DEVICE_KEYBOARD && config->isMappedLike("down", input)) ||
-		(config->getDeviceId() == DEVICE_KEYBOARD && input.id == SDLK_DOWN);
+    // --- Se l'evento è una pressione (input.value != 0) ---
 
-	if (cursor_up || cursor_down)
-	{
-		if (mEditing)
-			stopEditing();
+    // Se siamo in modalità modifica
+    if (mEditing)
+    {
+        // Gestione specifica per la TASTIERA
+        if (config->getDeviceId() == DEVICE_KEYBOARD)
+        {
+			if (input.id == SDLK_v) {
+     SDL_Keymod modState = SDL_GetModState();
+     LOG(LogInfo) << "Pressed V key. Mod state: " << modState << " Ctrl pressed? " << (modState & KMOD_CTRL);
+	 }
+            // --- CONTROLLO PER INCOLLA (Ctrl+V) ---
+            // Prima dello switch per gestirlo prioritariamente
+            if (input.id == SDLK_v && (SDL_GetModState() & KMOD_CTRL))
+            {
+                LOG(LogInfo) << "Ctrl+V detected, calling handlePaste()"; // Aggiungi log qui
+                handlePaste();
+                return true; // Input gestito
+            }
+            // --- FINE CONTROLLO PER INCOLLA ---
 
-		return false;
-	}
+            // Gestione altri tasti speciali
+            switch (input.id)
+            {
+                case SDLK_LEFT:
+                case SDLK_RIGHT:
+                    mBlinkTime = 0;
+                    mCursorRepeatDir = (input.id == SDLK_LEFT) ? -1 : 1;
+                    mCursorRepeatTimer = -(CURSOR_REPEAT_START_DELAY - CURSOR_REPEAT_SPEED);
+                    moveCursor(mCursorRepeatDir);
+                    return true; // Consuma l'input freccia
 
-	if((config->isMappedTo(BUTTON_OK, input) || (config->getDeviceId() == DEVICE_KEYBOARD && input.id == SDLK_RETURN)) && mFocused && !mEditing)
-	{
-		startEditing();
-		return true;
-	}
+                case SDLK_HOME:
+                    setCursor(0);
+                    return true;
 
-	if(mEditing)
-	{
-		if(config->getDeviceId() == DEVICE_KEYBOARD && input.id == SDLK_RETURN)
-		{
-			if(isMultiline())
-			{
-				textInput("\n");
-			}
-			else
-			{
-				stopEditing();
-				return false;
-			}
+                case SDLK_END:
+                    setCursor(std::string::npos);
+                    return true;
 
-			return true;
-		}
+                case SDLK_DELETE:
+                    if (mCursor < mText.length())
+                    {
+                        size_t nextCursor = Utils::String::nextCursor(mText, mCursor);
+                        mText.erase(mText.begin() + mCursor, mText.begin() + nextCursor);
+                        onTextChanged();
+                        onCursorChanged();
+                    }
+                    return true;
 
-		if((config->getDeviceId() == DEVICE_KEYBOARD && input.id == SDLK_ESCAPE)) // || (config->getDeviceId() != DEVICE_KEYBOARD && config->isMappedTo(BUTTON_BACK, input)))
-		{
-			stopEditing();
-			return false;
-		}
+                case SDLK_RETURN: // Tasto Invio
+                {
+                    if (isMultiline())
+                    {
+                        textInput("\n");
+                    } else {
+                        stopEditing();
+                        // Il popup gestirà il salvataggio/chiusura
+                        return false; // Lascia che GuiTextEditPopup gestisca Invio
+                    }
+                    return true; // Consuma Invio se multiline
+                }
 
-		if(cursor_left || cursor_right)
-		{
-			mBlinkTime = 0;
-			mCursorRepeatDir = cursor_left ? -1 : 1;
-			mCursorRepeatTimer = -(CURSOR_REPEAT_START_DELAY - CURSOR_REPEAT_SPEED);
-			moveCursor(mCursorRepeatDir);
-			return true;
-		} 
-		else if(config->getDeviceId() == DEVICE_KEYBOARD)
-		{
-			switch(input.id)
-			{
-				case SDLK_HOME:
-					setCursor(0);
-					return true;
+                case SDLK_ESCAPE: // Tasto Esc
+                    stopEditing();
+                    // Il popup gestirà l'annullamento/chiusura
+                    return false; // Lascia che GuiTextEditPopup gestisca Esc
 
-				case SDLK_END:
-					setCursor(std::string::npos);
-					return true;
+                default:
+                    // Consuma altri tasti premuti durante la modifica
+                    // L'input di testo effettivo avviene tramite l'evento SDL_TEXTINPUT gestito da Window::textInput
+                    return true;
+            } // Fine switch(input.id)
+        }
+        // Gestione per ALTRI DISPOSITIVI (non tastiera) durante l'editing
+        else
+        {
+            if (cursor_left || cursor_right)
+            {
+                mBlinkTime = 0;
+                mCursorRepeatDir = cursor_left ? -1 : 1;
+                mCursorRepeatTimer = -(CURSOR_REPEAT_START_DELAY - CURSOR_REPEAT_SPEED);
+                moveCursor(mCursorRepeatDir);
+                return true; // Consuma freccia
+            }
+             else if (config->isMappedTo(BUTTON_OK, input))
+             {
+                 stopEditing();
+                 // Il popup gestirà il salvataggio/chiusura
+                 return false; // Lascia che GuiTextEditPopup gestisca OK
+             }
+             else if (config->isMappedTo(BUTTON_BACK, input))
+             {
+                 stopEditing();
+                 // Il popup gestirà l'annullamento/chiusura
+                 return false; // Lascia che GuiTextEditPopup gestisca BACK
+             }
+        }
+    }
+    // Se NON siamo in modalità modifica
+    else
+    {
+        // Gestione tastiera quando NON si modifica
+        if (config->getDeviceId() == DEVICE_KEYBOARD)
+        {
+             // Se premi Invio sulla tastiera e il componente ha focus -> inizia modifica
+             if (input.id == SDLK_RETURN && mFocused)
+             {
+                 startEditing();
+                 return true; // Consuma Invio
+             }
+        }
+        // Gestione altri dispositivi quando NON si modifica
+        else
+        {
+            // Se premi OK e il componente ha focus -> inizia modifica
+            if (config->isMappedTo(BUTTON_OK, input) && mFocused)
+            {
+                startEditing();
+                return true; // Consuma OK
+            }
+        }
 
-				case SDLK_DELETE:
-					if(mCursor < mText.length())
-					{
-						// Fake as Backspace one char to the right
-						moveCursor(1);
-						textInput("\b");
-					}
-					return true;
-			}
+        // Non gestire altri input (come frecce, back, ecc.) quando non si modifica,
+        // lasciali propagare alla GUI superiore (ComponentList, MenuComponent, ecc.)
+        return false;
 
-			// All input on keyboard
-			return true;
-		}
-	}
+    } // Fine else (!mEditing)
 
-	return false;
+    // Se l'input non è stato gestito sopra, lascialo passare
+    return false;
 }
 
 void TextEditComponent::update(int deltaTime)
@@ -278,6 +342,31 @@ void TextEditComponent::setCursor(size_t pos)
 		mCursor = (int)pos;
 
 	moveCursor(0);
+}
+
+void TextEditComponent::handlePaste() {
+    // Controlla se il componente è in modalità modifica e se c'è testo negli appunti
+    if (mEditing && SDL_HasClipboardText()) { // mEditing indica se il componente sta accettando input testuale
+        char* clipboardText_cstr = SDL_GetClipboardText();
+        if (clipboardText_cstr) {
+            std::string clipboardText = clipboardText_cstr; // Copia in una std::string
+            SDL_free(clipboardText_cstr); // *** IMPORTANTE: Libera la memoria allocata da SDL ***
+
+            // Opzionale: Pulisci/filtra il testo (es. rimuovi ritorni a capo se non è multiriga)
+            if (!isMultiline()) { // Controlla se il campo è multiriga
+               clipboardText = Utils::String::replace(clipboardText, "\n", "");
+               clipboardText = Utils::String::replace(clipboardText, "\r", "");
+            }
+
+            // Inserisci il testo alla posizione corrente del cursore
+            mText.insert(mCursor, clipboardText); // mText è la stringa del componente, mCursor la posizione
+            mCursor += (unsigned int)clipboardText.length(); // Aggiorna la posizione del cursore
+
+            // Aggiorna la cache del testo e la posizione dello scroll/cursore
+            onTextChanged();   // Funzione per aggiornare la visualizzazione del testo
+            onCursorChanged(); // Funzione per aggiustare lo scroll in base al cursore
+        }
+    }
 }
 
 void TextEditComponent::onTextChanged()

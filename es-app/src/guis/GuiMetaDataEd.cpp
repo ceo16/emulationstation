@@ -531,12 +531,101 @@ void GuiMetaDataEd::fetchDone(const ScraperSearchResult& result)
 		if ((key == "image" || key == "thumbnail" || key == "marquee" || key == "fanart" || key == "titleshot" || key == "manual" || key == "map" || key == "video" || key == "magazine") && result.mdl.get(key).empty())
 			continue;
 
-		mEditors.at(i)->setValue(result.mdl.get(key));
+		{ // Blocco aggiunto per limitare lo scope delle variabili
+    MetaDataId id = mMetaData->getId(key);
+    // Salta se l'ID non è valido (o aggiungi altri ID da saltare se necessario)
+  //  if (id != MetaDataId::Undefined) // Assicurati che Undefined esista nel tuo MetaData.h, altrimenti rimuovi questo check
+    {
+         const MetaDataDecl& decl = MetaDataList::getMDD()[id];
+         std::string newValue = result.mdl.get(id); // Prendi valore con ID
+
+         // Controlla se il valore ottenuto con la CHIAVE è diverso dal default
+         if (result.mdl.get(decl.key) != decl.defaultValue)
+         {
+             // Se diverso, imposta il valore (eventualmente converti bool)
+             if (decl.type == MD_BOOL) {
+                newValue = (Utils::String::toLower(newValue) == "true" || newValue == "1") ? "true" : "false";
+             }
+             mEditors.at(i)->setValue(newValue);
+         }
+         // Altrimenti (se uguale al default), NON FARE NULLA
+    }
+}
+// --- FINE BLOCCO DA SOSTITUIRE ALLA RIGA SINGOLA ---
 	}
 
 	mScrappedPk2 = result.p2k;
-}
+LOG(LogDebug) << "GuiMetaDataEd::fetchDone >> Applying media URLs from result.urls map (using absolute paths).";
 
+    std::string gamelistDir = Utils::FileSystem::getParent(mScraperParams.system->getGamelistPath(true));
+    std::string mediaDir = Utils::FileSystem::combine(gamelistDir, "images");
+    if (!Utils::FileSystem::exists(mediaDir))
+        Utils::FileSystem::createDirectory(mediaDir);
+
+    for (auto const& [id, searchItem] : result.urls)
+    {
+        if (!searchItem.url.empty())
+        {
+            LOG(LogDebug) << "GuiMetaDataEd::fetchDone >> Found URL for MetaDataId: " << id << " -> " << searchItem.url;
+
+            std::shared_ptr<GuiComponent> editor = nullptr;
+            std::string editorKey;
+
+            for (const auto& ed : mEditors)
+            {
+                editorKey = ed->getTag();
+                MetaDataId editorId = mMetaData->getId(editorKey);
+
+                // !!! CORREZIONE 1: Rimosso controllo per MetaDataId::Undefined !!!
+                if (/* editorId != MetaDataId::Undefined && */ editorId == id)
+                {
+                    editor = ed;
+                    LOG(LogDebug) << "GuiMetaDataEd::fetchDone >> Found matching editor for key: '" << editorKey << "' (ID: " << id << ")";
+                    break;
+                }
+            }
+
+            if (editor != nullptr)
+            {
+                // --- Logica per Percorso Assoluto ---
+                std::string extension = searchItem.format;
+                if (extension.empty()) extension = Utils::FileSystem::getExtension(searchItem.url);
+                if (!extension.empty() && extension[0] != '.') extension = "." + extension;
+
+                // !!! CORREZIONE 2: Rimosso MetaDataId::Box2d dall'if (ipotizzando non esista) !!!
+                //     Verifica se hai altri tipi come BoxArt nel tuo MetaData.h da usare qui.
+                if (extension.length() < 2 || extension.find_first_not_of(".abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789") != std::string::npos)
+                {
+                    MetaDataId media_id = id;
+                    if (media_id == MetaDataId::Video) extension = ".mp4";
+                    else if (media_id == MetaDataId::Marquee || media_id == MetaDataId::Image || /* media_id == MetaDataId::Box2d || */ media_id == MetaDataId::BoxBack || media_id == MetaDataId::Cartridge || media_id == MetaDataId::TitleShot || media_id == MetaDataId::Wheel) extension = ".png";
+                    else extension = ".jpg";
+                    LOG(LogWarning) << "GuiMetaDataEd::fetchDone >> Invalid/missing extension for URL '" << searchItem.url << "', defaulting to '" << extension << "' based on MetaDataId " << id;
+                }
+
+                std::string baseFilename;
+                if (mScraperParams.game != nullptr) baseFilename = mScraperParams.game->getMetadata(MetaDataId::EpicCatalogId);
+                if (baseFilename.empty()) baseFilename = Utils::FileSystem::getStem(mScraperParams.game->getPath());
+
+                std::string invalidChars = "\\/:*?\"<>|";
+                for (char& c : baseFilename) { if (invalidChars.find(c) != std::string::npos) c = '_'; }
+
+                std::string mediaTypeKey = MetaDataList::getMDD()[id].key;
+                std::string localFilename = baseFilename + "-" + mediaTypeKey + extension;
+                std::string absoluteLocalPath = Utils::FileSystem::combine(mediaDir, localFilename);
+                absoluteLocalPath = Utils::FileSystem::getCanonicalPath(absoluteLocalPath);
+
+                editor->setValue(absoluteLocalPath);
+                LOG(LogInfo) << "GuiMetaDataEd::fetchDone >> Set editor for '" << editorKey << "' to ABSOLUTE path: " << absoluteLocalPath;
+
+            } else {
+                 LOG(LogWarning) << "GuiMetaDataEd::fetchDone >> Could not find matching UI editor for MetaDataId: " << id;
+            }
+        }
+    }
+    LOG(LogDebug) << "GuiMetaDataEd::fetchDone >> Finished applying media URLs.";
+
+} // <-- Fine della funzione fetchDone
 void GuiMetaDataEd::close(bool closeAllWindows)
 {
 	// find out if the user made any changes
