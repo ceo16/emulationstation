@@ -50,7 +50,7 @@
  
 
   void startLoginFlow();
-  void processAuthCode(const std::string& authCode);
+   bool processAuthCode(const std::string& authCodeInput);
   static std::string getEpicGameId(const std::string& path);
   std::vector<EpicGameInfo> getInstalledEpicGamesWithDetails();
 

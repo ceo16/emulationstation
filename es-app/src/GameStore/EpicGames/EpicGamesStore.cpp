@@ -547,30 +547,28 @@ void EpicGamesStore::startLoginFlow() {
 }
 
 
-void EpicGamesStore::processAuthCode(const std::string& authCode) {
-    LOG(LogDebug) << "EpicGamesStore: Processing auth code: " << authCode;
-    std::string accessToken; // Variabile per ricevere il token
-    std::string cleanCode = Utils::String::trim(authCode); // <<< DICHIARAZIONE DI cleanCode
-    // Verifica che mAuth sia valido
+bool EpicGamesStore::processAuthCode(const std::string& authCodeInput) {
+    LOG(LogDebug) << "EpicGamesStore: Processing auth code: " << authCodeInput;
+    
+    std::string cleanCode = Utils::String::trim(authCodeInput); 
+
     if (!mAuth) {
         LOG(LogError) << "EpicGamesStore::processAuthCode - mAuth is null!";
-         if(mWindow) mWindow->pushGui(new GuiMsgBox(mWindow, "Errore interno: Oggetto autenticazione mancante.", "OK"));
-        return;
+        // Non mostrare GuiMsgBox qui. Il chiamante dovrà farlo.
+        return false; // Indica fallimento
     }
 
-    // Chiama getAccessToken (che ora usa le credenziali Playnite)
-    bool success = mAuth->getAccessToken(cleanCode, accessToken);
+    bool exchangeSuccessful = mAuth->exchangeAuthCodeForToken(cleanCode);
 
-    // Informa l'utente del risultato
-    if (success && !accessToken.empty()) {
-        LOG(LogInfo) << "Epic Login Successful!";
-        if(mWindow) mWindow->pushGui(new GuiMsgBox(mWindow, "Login a Epic Games completato con successo!", "OK", [this] {
-             // Azione opzionale dopo successo, es. tornare al menu o mostrare libreria
-             // showGameList(mWindow, this); // Esempio
-        }));
+    if (exchangeSuccessful && mAuth->isAuthenticated()) {
+        LOG(LogInfo) << "Epic Login Successful! Account ID: " << (mAuth ? mAuth->getAccountId() : "N/A");
+        // Non mostrare GuiMsgBox qui.
+        return true; // Indica successo
     } else {
-        LOG(LogError) << "Epic Login Failed.";
-        if(mWindow) mWindow->pushGui(new GuiMsgBox(mWindow, "Login a Epic Games fallito.\nControlla il codice inserito o riprova.", "OK"));
+        LOG(LogError) << "Epic Login Failed. exchangeAuthCodeForToken result: " << (exchangeSuccessful ? "true" : "false")
+                      << ", isAuthenticated: " << (mAuth ? (mAuth->isAuthenticated() ? "true" : "false") : "mAuth_null");
+        // Non mostrare GuiMsgBox qui.
+        return false; // Indica fallimento
     }
 }
 

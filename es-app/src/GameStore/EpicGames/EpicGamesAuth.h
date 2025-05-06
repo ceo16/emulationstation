@@ -1,74 +1,72 @@
 #pragma once
+
 #ifndef ES_CORE_EPICGAMESAUTH_H
 #define ES_CORE_EPICGAMESAUTH_H
 
 #include <string>
 #include <functional>
-#include <chrono> // <-- Aggiunto
-#include "json.hpp"  
+#include <chrono>
+#include <filesystem>
+#include "json.hpp"
 
-// Forward declaration
 using json = nlohmann::json;
 
 class EpicGamesAuth {
 public:
-    // Costruttori e Distruttore
+    // Costruttori dal tuo file originale
     EpicGamesAuth(std::function<void(const std::string&)> setStateCallback);
-    EpicGamesAuth();
+    EpicGamesAuth(); // Costruttore di default
     ~EpicGamesAuth();
 
-    // Metodi flusso OAuth
-    std::string getAuthorizationUrl(std::string& state);
-    bool getAccessToken(const std::string& authCode, std::string& outAccessToken); // Ottiene token con codice
+    std::string getAuthorizationUrl(std::string& state_out_param_not_really_used);
+    
+    // Modificato per riflettere il tuo uso originale: scambia il codice e restituisce successo/fallimento.
+    // Il token viene poi recuperato tramite il getter.
+    bool exchangeAuthCodeForToken(const std::string& authCode);
 
-    // Metodi per accedere ai dati (getAccessToken restituisce solo la stringa)
+    bool refreshAccessToken();
+
     std::string getAccessToken() const;
-    std::string getAccountId() const { return mAccountId; } // Utile per UI/debug
-    std::string getRefreshToken() const { return mRefreshToken; } // Potrebbe servire per refresh manuale
+    std::string getRefreshToken() const;
+    std::string getAccountId() const;
+    std::string getDisplayName() const;
+    std::chrono::time_point<std::chrono::system_clock> getTokenExpiry() const;
 
-    // --- NUOVO Metodo di Controllo ---
-    /**
-     * @brief Controlla se esiste un token di accesso valido e non scaduto.
-     * @return true se il token è considerato valido, false altrimenti.
-     */
     bool isAuthenticated() const;
-
-    // --- NUOVO Metodo per Logout/Pulizia Manuale ---
-    /**
-     * @brief Pulisce tutte le informazioni del token (memoria e file). Da chiamare per il logout.
-     */
     void clearAllTokenData();
+    bool loadTokenData();
 
-
-    // Metodo esistente per stato OAuth
-    std::string getCurrentState() const { return mAuthState; }
-
+    // std::string getCurrentState() const; // Se mAuthState è un membro
 
 private:
-    // Metodi helper
     std::string generateRandomState();
-    void loadTokenData(); // Carica TUTTI i dati salvati
-    void saveTokenData(); // Salva TUTTI i dati correnti
-    void parseAndStoreTokenResponse(const nlohmann::json& response); // Analizza risposta e salva
+    void saveTokenData();
+    bool processTokenResponse(const nlohmann::json& response, bool isRefreshing = false);
 
     // Membri
-    std::function<void(const std::string&)> mSetStateCallback;
-    std::string mAuthState; // Stato per il flusso OAuth
+    std::function<void(const std::string&)> mSetStateCallback; // Dal tuo codice
+    // std::string mAuthState; // Dal tuo codice, se lo usi ancora internamente
 
-    // Dati del Token
     std::string mAccessToken;
     std::string mRefreshToken;
     std::string mAccountId;
+    std::string mDisplayName;
     std::chrono::time_point<std::chrono::system_clock> mTokenExpiry;
-    bool mHasValidTokenInfo; // Flag per sapere se abbiamo caricato/ottenuto dati token
+    bool mHasValidTokenInfo;
 
-    // Costanti per Nomi File
-    static const std::string ACCESS_TOKEN_FILE;
-    static const std::string REFRESH_TOKEN_FILE;
-    static const std::string EXPIRY_FILE;
-    static const std::string ACCOUNT_ID_FILE;
-    // STATE_FILE_NAME non serve più se mAuthState non è persistente
-    // static const std::string STATE_FILE_NAME;
+    std::filesystem::path mTokenStoragePath;
+
+    const std::string EPIC_CLIENT_ID = "34a02cf8f4414e29b15921876da36f9a";
+    const std::string EPIC_CLIENT_SECRET = "daafbccc737745039dffe53d94fc76cf";
+    const std::string TOKEN_ENDPOINT_URL = "https://account-public-service-prod03.ol.epicgames.com/account/api/oauth/token";
+    const std::string AUTHORIZE_URL_MANUAL_CODE = "https://www.epicgames.com/id/api/redirect?clientId=" + EPIC_CLIENT_ID + "&responseType=code";
+
+    // Nomi file come nel tuo .cpp
+    // Potrebbero essere static const std::string qui o definiti nel .cpp
+    static const std::string ACCESS_TOKEN_FILENAME_DEF; // Uso _DEF per evitare conflitti se li definisci anche nel cpp
+    static const std::string REFRESH_TOKEN_FILENAME_DEF;
+    static const std::string ACCOUNT_ID_FILENAME_DEF;
+    static const std::string EXPIRY_FILENAME_DEF;
 };
 
 #endif // ES_CORE_EPICGAMESAUTH_H
