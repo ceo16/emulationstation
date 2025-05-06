@@ -1205,7 +1205,7 @@ if (gsm) {
 			deltaTime = 1000;
 
 		TRYCATCH("Window.update" ,window.update(deltaTime))	
-		LOG(LogInfo) << "[DEBUG_POPUP] Main loop calling window.render() NOW."; // <-- AGGIUNGI QUESTA RIGA QUI
+	//	LOG(LogInfo) << "[DEBUG_POPUP] Main loop calling window.render() NOW."; // <-- AGGIUNGI QUESTA RIGA QUI
 		TRYCATCH("Window.render", window.render())
 
 /*

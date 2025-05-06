@@ -550,7 +550,7 @@ void EpicGamesStore::startLoginFlow() {
 void EpicGamesStore::processAuthCode(const std::string& authCode) {
     LOG(LogDebug) << "EpicGamesStore: Processing auth code: " << authCode;
     std::string accessToken; // Variabile per ricevere il token
-
+    std::string cleanCode = Utils::String::trim(authCode); // <<< DICHIARAZIONE DI cleanCode
     // Verifica che mAuth sia valido
     if (!mAuth) {
         LOG(LogError) << "EpicGamesStore::processAuthCode - mAuth is null!";
@@ -559,7 +559,7 @@ void EpicGamesStore::processAuthCode(const std::string& authCode) {
     }
 
     // Chiama getAccessToken (che ora usa le credenziali Playnite)
-    bool success = mAuth->getAccessToken(authCode, accessToken);
+    bool success = mAuth->getAccessToken(cleanCode, accessToken);
 
     // Informa l'utente del risultato
     if (success && !accessToken.empty()) {
@@ -1000,12 +1000,19 @@ std::future<void> EpicGamesStore::updateGamesMetadataAsync(SystemData* system, c
              // Prepara itemsToFetch (come nel tuo codice)
              for (const std::string& gamePath : gameIdsToUpdate) {
                  auto mapIt = gameMap.find(gamePath);
-                 if (mapIt == gameMap.end() || !mapIt->second) { skippedCount++; continue; }
+                 if (mapIt == gameMap.end() || !mapIt->second) {
+                 LOG(LogWarning) << "Epic Store Meta Update: Skipped - FileData not found for path [" << gamePath << "]";
+                 skippedCount++; continue;
+             }
                  FileData* fileData = mapIt->second;
                  MetaDataList& metadata = fileData->getMetadata();
                  std::string ns = metadata.get(MetaDataId::EpicNamespace);
                  std::string item = metadata.get(MetaDataId::EpicCatalogId);
-                 if (ns.empty() || item.empty()) { skippedCount++; continue; }
+                 if (ns.empty() || item.empty()) {
+                 // *** LOG DI VERIFICA AGGIUNTO ***
+                 LOG(LogWarning) << "Epic Store Meta Update: Skipped Game [" << fileData->getName() << "] due to missing IDs in metadata. NS=[" << ns << "], CatalogID=[" << item << "]";
+                 skippedCount++; continue; // Salta se mancano gli ID necessari per l'API
+             }
                  itemsToFetch.push_back({ns, item});
                  itemKeyToGamePath[item] = gamePath; // Usa item (CatalogID) come chiave
              }
@@ -1039,6 +1046,10 @@ std::future<void> EpicGamesStore::updateGamesMetadataAsync(SystemData* system, c
             if (fdIt == gameMap.end() || !fdIt->second) { errorCount++; continue; }
             FileData* fileData = fdIt->second;
             MetaDataList& metadata = fileData->getMetadata(); // Riferimento
+
+// *** Log di Debug Aggiuntivo ***
+LOG(LogDebug) << "Epic Store Meta: API Data Check for '" << fileData->getName() << "' - Received Developer: [" << details.developer << "]";
+// *** Fine Log ***
 
             LOG(LogDebug) << "Epic Store Meta: Processing details for " << gamePath << " ('" << details.title << "')";
             bool gameMetadataChanged = false; // Flag per questo gioco

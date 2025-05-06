@@ -1153,6 +1153,12 @@ if (epicSystem != nullptr && systemNeedsPopulation)
                                 installedFileData->getMetadata().set(MetaDataId::EpicId, installedGame.id); // <<< USA 'id' o il nome corretto
                                 installedFileData->getMetadata().set(MetaDataId::EpicNamespace, installedGame.catalogNamespace); // <<< USA 'catalogNamespace' o il nome corretto
                                 installedFileData->getMetadata().set(MetaDataId::EpicCatalogId, installedGame.catalogItemId);
+								
+								// *** LOG DI VERIFICA AGGIUNTO ***
+                            LOG(LogDebug) << "[EpicInstalledInit] Set IDs for '" << installedFileData->getName() << "' (Path: " << installedPath << "): "
+                                          << "NS=[" << installedFileData->getMetadata().get(MetaDataId::EpicNamespace) << "], "
+                                          << "CatalogID=[" << installedFileData->getMetadata().get(MetaDataId::EpicCatalogId) << "]";
+                            // *** FINE LOG *
 
                                 installedFileData->getMetadata().resetChangedFlag();
                                 installedProcessed++;

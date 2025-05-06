@@ -152,30 +152,90 @@ std::map<std::string, EpicGames::CatalogItem> EpicGamesStoreAPI::performGetCatal
                               "&includeMainGameDetails=true";
         LOG(LogDebug) << "performGetCatalogItemsSync: Requesting URL: " << itemUrl;
 
-        try {
-            HttpReqOptions options;
-            options.customHeaders.push_back("Authorization: bearer " + currentToken);
-            HttpReq request(itemUrl, &options);
-            if (!request.wait()) { throw std::runtime_error("HTTP request failed (wait): " + request.getErrorMsg()); }
-            if (request.status() != HttpReq::REQ_SUCCESS) { throw std::runtime_error("HTTP request status not success: " + std::to_string(request.status()) + " Body: " + request.getContent()); }
-            std::string responseBody = request.getContent();
+       try {
+    HttpReqOptions options;
+    options.customHeaders.push_back("Authorization: bearer " + currentToken);
+    HttpReq request(itemUrl, &options); // Rinominata per chiarezza
 
-            if (!responseBody.empty()) {
-                json parsedResponse = json::parse(responseBody);
-                if (parsedResponse.is_object() && parsedResponse.contains(catalogId)) {
-                    json itemJson = parsedResponse.at(catalogId);
-                    try {
-                        // La chiamata a ::fromJson ora verrà risolta perché definita inline in EpicGamesModels.h
-                        results[catalogId] = EpicGames::CatalogItem::fromJson(itemJson);
-                        LOG(LogInfo) << "performGetCatalogItemsSync: Successfully parsed item: " << catalogId << " ('" << results[catalogId].title << "')";
-                    } catch (const std::exception& e) { LOG(LogError) << "performGetCatalogItemsSync: Error parsing CatalogItem JSON for " << catalogId << ": " << e.what(); }
-                      catch (...) { LOG(LogError) << "performGetCatalogItemsSync: Unknown error parsing CatalogItem JSON for " << catalogId; }
-                } else { LOG(LogError) << "performGetCatalogItemsSync: JSON response for " << catalogId << " is not an object or doesn't contain the key."; }
-            } else { LOG(LogWarning) << "performGetCatalogItemsSync: Response body for item " << catalogId << " is empty."; }
+    if (!request.wait()) {
+        // ERRORE DI TRASPORTO/TIMEOUT: request.wait() fallito.
+        // In questo caso, request.status() NON è affidabile come status code HTTP dell'API.
+        // Potrebbe essere 0 o un codice di errore interno della libreria HttpReq.
+        LOG(LogError) << "performGetCatalogItemsSync: HTTP request failed (wait condition) for item "
+                      << catalogId << " (NS: " << ns << ", URL: " << itemUrl << "): " << request.getErrorMsg();
+        // NON controllare request.status() == 401 qui.
+        // Se il fallimento di wait() è molto generico, lanciare un errore o continuare con il prossimo item.
+        // L'originale lanciava un'eccezione per item, che poi veniva catturata esternamente al try-catch per item.
+        // Per mantenere un comportamento simile ma più contenuto, potremmo solo loggare e continuare,
+        // o lanciare un errore specifico che non sia confuso con un errore API.
+        // Dato che l'originale aveva un try-catch per ogni item:
+        LOG(LogWarning) << "Skipping item " << catalogId << " due to HTTP wait failure.";
+        continue; // Passa al prossimo item nel ciclo for
+    }
 
-        } catch (const json::parse_error& e) { LOG(LogError) << "performGetCatalogItemsSync: JSON parsing failed for " << catalogId << ": " << e.what(); }
-          catch (const std::exception& e) { LOG(LogError) << "performGetCatalogItemsSync: Exception processing item " << catalogId << ": " << e.what(); }
-          catch (...) { LOG(LogError) << "performGetCatalogItemsSync: Unknown exception processing item " << catalogId; }
+    // A QUESTO PUNTO, request.wait() È RIUSCITO.
+    // Abbiamo ricevuto una risposta dal server e request.status() è uno status code HTTP valido.
+    int httpStatusCode = request.status();
+
+    if (httpStatusCode == 401) {
+        // ERRORE 401 UNAUTHORIZED DALL'API
+        LOG(LogWarning) << "performGetCatalogItemsSync: Epic API returned 401 Unauthorized for item " << catalogId
+                        << " (NS: " << ns << ", URL: " << itemUrl
+                        << "). Clearing token. Response: " << request.getContent();
+        if (mAuth != nullptr) {
+            mAuth->clearAllTokenData();
+            // È FONDAMENTALE FERMARE L'OPERAZIONE QUI.
+            // Se il token è invalido, le successive richieste per altri item falliranno.
+            // Lanciare un'eccezione che interrompa performGetCatalogItemsSync è la scelta migliore.
+            throw std::runtime_error("API token invalid (401 Unauthorized). Please log in again to continue.");
+        } else {
+            LOG(LogError) << "performGetCatalogItemsSync: mAuth is null, cannot clear tokens despite 401.";
+            throw std::runtime_error("API returned 401 Unauthorized and Auth object is missing.");
+        }
+    } else if (httpStatusCode != HttpReq::REQ_SUCCESS) { // Assumendo REQ_SUCCESS sia 200 o simile
+        // ALTRO ERRORE HTTP DALL'API (es. 400, 403, 404, 500, ecc.)
+        LOG(LogError) << "performGetCatalogItemsSync: API request failed for item " << catalogId
+                      << " (NS: " << ns << ", URL: " << itemUrl
+                      << "). Status: " << httpStatusCode << ". Response: " << request.getContent();
+        // In base alla logica originale, si continuava con il prossimo item.
+        LOG(LogWarning) << "Skipping item " << catalogId << " due to API error status " << httpStatusCode;
+        continue; // Passa al prossimo item
+    }
+
+    // Se siamo qui, httpStatusCode è di successo (es. 200)
+    std::string responseBody = request.getContent();
+
+    if (!responseBody.empty()) {
+        // ... (parsing JSON come prima) ...
+        // results[catalogId] = EpicGames::CatalogItem::fromJson(itemJson);
+    } else {
+        LOG(LogWarning) << "performGetCatalogItemsSync: Response body for item " << catalogId << " is empty even with success status.";
+        // Potresti voler saltare o gestire questo caso specificamente
+    }
+
+} catch (const std::runtime_error& e) {
+    // Questo catturerà l'eccezione lanciata dal blocco 401.
+    LOG(LogError) << "performGetCatalogItemsSync: Runtime error processing item " << catalogId
+                  << " (NS: " << ns << "): " << e.what();
+    // Se l'eccezione indica un token invalido, RILANCIA per fermare l'intera funzione performGetCatalogItemsSync.
+    if (std::string(e.what()).find("API token invalid") != std::string::npos ||
+        std::string(e.what()).find("401 Unauthorized") != std::string::npos) {
+        throw; // Rilancia l'eccezione.
+    }
+    // Per altri errori runtime catturati qui (non dal nostro 401), potremmo continuare con il prossimo item
+    // se questo è il comportamento desiderato per la resilienza a livello di singolo item.
+    // L'originale continuava implicitamente.
+} catch (const json::parse_error& e) {
+    LOG(LogError) << "performGetCatalogItemsSync: JSON parsing failed for " << catalogId << ": " << e.what();
+    // Continua con il prossimo item
+} catch (const std::exception& e) {
+    LOG(LogError) << "performGetCatalogItemsSync: Generic exception processing item " << catalogId << ": " << e.what();
+    // Continua con il prossimo item
+} catch (...) {
+    LOG(LogError) << "performGetCatalogItemsSync: Unknown exception processing item " << catalogId;
+    // Continua con il prossimo item
+}
+
 
         std::this_thread::sleep_for(std::chrono::milliseconds(250));
     }

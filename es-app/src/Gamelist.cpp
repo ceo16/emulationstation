@@ -25,144 +25,225 @@ std::string getGamelistRecoveryPath(SystemData* system)
 
 FileData* findOrCreateFile(SystemData* system, const std::string& path, FileType type, std::unordered_map<std::string, FileData*>& fileMap)
 {
-    // --- Gestisci SUBITO i percorsi VIRTUALI ---
-    if (Utils::String::startsWith(path, "epic:/")) // Controlla se è virtuale
+    // --- Gestione Percorsi VIRTUALI (Invariato) ---
+    if (Utils::String::startsWith(path, "epic:/"))
     {
-        // ---> NUOVO: Controlla se esiste GIÀ un figlio con questo path nella root folder <---
-        // Questo serve perché initEpicGamesStore potrebbe averlo già aggiunto prima che parseGamelist venga chiamato.
         FolderData* rootCheck = system->getRootFolder();
         if (rootCheck != nullptr)
         {
             FileData* existingChild = nullptr;
-            // Scorri i figli DIRETTI della root folder
             for(FileData* child : rootCheck->getChildren()) {
-                 // Confronta il percorso completo
                  if(child->getPath() == path) {
                       existingChild = child;
-                      break; // Trovato!
+                      break;
                  }
             }
-
-            // Se l'abbiamo trovato tra i figli diretti, restituisci quello esistente
             if (existingChild != nullptr) {
                 LOG(LogDebug) << "findOrCreateFile: Trovato FileData virtuale ESISTENTE tramite ricerca figli root per path: " << path;
-                // Aggiungilo alla mappa locale di questo parsing per coerenza
                 fileMap[path] = existingChild;
-                return existingChild; // Evita di creare un duplicato
+                return existingChild;
             }
         }
-        // ---> FINE NUOVO CONTROLLO <---
-
-        // Se non trovato nella root, controlla nella mappa locale di questo parsing (poco probabile ora, ma sicuro)
         auto virtual_it = fileMap.find(path);
         if (virtual_it != fileMap.end()) {
             LOG(LogDebug) << "findOrCreateFile: Trovato FileData virtuale ESISTENTE tramite mappa locale per path: " << path;
             return virtual_it->second;
         }
-
-        // Se ancora non trovato da nessuna parte, ALLORA crealo (come prima)
         LOG(LogInfo) << "findOrCreateFile: Creazione NUOVO FileData virtuale per path: " << path;
         if (type != GAME) {
              LOG(LogWarning) << "findOrCreateFile: Virtual path encountered for non-GAME type? Path: " << path;
              return NULL;
         }
-
         FileData* virtualItem = new FileData(GAME, path, system);
-        fileMap[path] = virtualItem; // Aggiungi alla mappa locale
-
-        if (rootCheck) { rootCheck->addChild(virtualItem); } // Aggiungi alla root folder
+        fileMap[path] = virtualItem;
+        if (rootCheck) { rootCheck->addChild(virtualItem); }
         else { LOG(LogError) << "findOrCreateFile: Could not get root folder for system " << system->getName() << " while adding virtual game."; }
         return virtualItem;
     }
     // --- FINE Gestione Percorsi VIRTUALI ---
 
-    // --- Se NON è VIRTUAL, prosegui con la logica originale ---
+    // --- Se NON è VIRTUAL ---
 
-    // Controlla prima la cache (usando la variabile 'pGame' originale)
+    // Controlla cache prima di tutto (usando il path assoluto come chiave)
     auto pGame = fileMap.find(path);
-    if (pGame != fileMap.end())
-        return pGame->second; // Trovato nella cache
+    if (pGame != fileMap.end()) {
+        LOG(LogDebug) << "findOrCreateFile: Found item in fileMap cache for path: " << path;
+        return pGame->second;
+    }
 
-    // Controllo se il percorso è dentro la root (usando la variabile 'root' originale)
-    // Dichiariamo 'root' qui per la logica dei percorsi non-virtuali.
     FolderData* root = system->getRootFolder();
     bool contains = false;
     std::string relative = Utils::FileSystem::removeCommonPath(path, root->getPath(), contains);
 
-    if(!contains)
+    // --- INIZIO NUOVA GESTIONE SEPARATA PER ESTERNI/INTERNI ---
+    if (!contains) // Il percorso è ESTERNO alla cartella root del sistema
     {
-        LOG(LogWarning) << "File path \"" << path << "\" is outside system path \"" << system->getStartPath() << "\"";
-        return NULL;
+        if (system->getName() == "epicgamestore") // Ed è il sistema Epic
+        {
+            LOG(LogDebug) << "findOrCreateFile: Handling external path for epicgamestore system: " << path;
+            bool pathExists = Utils::FileSystem::exists(path);
+            if (!pathExists) {
+                LOG(LogWarning) << "gameList: External game path from gamelist does not exist on disk, ignoring: " << path;
+                return NULL;
+            }
+            bool isDirectory = Utils::FileSystem::isDirectory(path);
+
+            // Verifica consistenza tipo
+            if (type == FOLDER && !isDirectory) {
+                LOG(LogWarning) << "gameList: Path specified as folder in gamelist, but is not a directory on disk: " << path;
+                return NULL;
+            }
+            if (type == GAME && !isDirectory) { // File Game
+                if (!system->getSystemEnvData()->isValidExtension(Utils::String::toLower(Utils::FileSystem::getExtension(path)))) {
+                    LOG(LogWarning) << "gameList: External game file extension is not known by systemlist, ignoring: " << path;
+                    return NULL;
+                }
+            }
+            // (Implicitamente, se type==GAME e isDirectory==true, è OK per Epic; se type==FOLDER e isDirectory==true, è OK)
+
+            // Crea e aggiungi direttamente alla root
+            FileData* newItem = (type == GAME) ? (FileData*)new FileData(GAME, path, system) : (FileData*)new FolderData(path, system);
+            if (newItem != nullptr) {
+                fileMap[path] = newItem; // Aggiungi alla mappa locale usando path assoluto
+                root->addChild(newItem); // Aggiungi come figlio diretto della root
+                LOG(LogDebug) << "findOrCreateFile: Successfully created/added external item: " << path;
+                return newItem; // *** IMPORTANTE: Termina qui per percorsi esterni ***
+            } else {
+                LOG(LogError) << "findOrCreateFile: Failed to create FileData/FolderData for external path: " << path;
+                return NULL;
+            }
+        }
+        else // Percorso esterno, ma NON è epicgamestore -> Rifiuta
+        {
+             LOG(LogWarning) << "File path \"" << path << "\" is outside system path \"" << system->getStartPath() << "\"";
+             return NULL;
+        }
+    }
+    // --- FINE NUOVA GESTIONE SEPARATA ---
+
+    // --- Logica Originale (modificata leggermente) per Percorsi INTERNI (contains == true) ---
+    LOG(LogDebug) << "findOrCreateFile: Processing internal path: " << path << " (Relative: " << relative << ")";
+    auto pathList = Utils::FileSystem::getPathList(relative);
+    if (pathList.empty()) {
+         LOG(LogWarning) << "findOrCreateFile: Path list is empty for internal path: " << path;
+         if (path == root->getPath() && root->getType() == type) return root; // Potrebbe essere la root stessa
+         return NULL;
     }
 
-	auto pathList = Utils::FileSystem::getPathList(relative);
 	auto path_it = pathList.begin();
-	FolderData* treeNode = root;
+	FolderData* treeNode = root; // Nodo corrente nell'albero in memoria
 
 	while(path_it != pathList.end())
 	{
-		std::string key = Utils::FileSystem::combine(treeNode->getPath(), *path_it);
-		FileData* item = (fileMap.find(key) != fileMap.end()) ? fileMap[key] : nullptr;
-		if (item != nullptr)
+        std::string currentSegment = *path_it;
+        std::string key = Utils::FileSystem::combine(treeNode->getPath(), currentSegment); // Percorso completo del segmento corrente
+		FileData* item = nullptr;
+
+        // Cerca tra i figli del nodo corrente se esiste già un FileData per questo segmento
+        for (auto child : treeNode->getChildren()) {
+            if (child->getPath() == key) {
+                item = child;
+                break;
+            }
+        }
+
+		if (item != nullptr) // Trovato elemento esistente (figlio diretto di treeNode)
 		{
-			if (item->getType() == FOLDER)
-				treeNode = (FolderData*) item;
-			else
-				return item;
+            LOG(LogDebug) << "findOrCreateFile: Found existing child node for segment: " << key;
+			if (item->getType() == FOLDER) {
+				treeNode = (FolderData*) item; // Scendi nell'albero
+            } else { // È un file
+                 // Se siamo all'ultimo segmento, abbiamo trovato il file, altrimenti errore
+                 if (path_it == --pathList.end()) {
+                     // Verifica che il tipo corrisponda a quello richiesto dalla gamelist
+                     if (item->getType() == type) {
+                          // Aggiungi alla mappa se non c'è già (improbabile ma sicuro)
+                          if (fileMap.find(path) == fileMap.end()) fileMap[path] = item;
+                          return item;
+                     } else {
+                          LOG(LogWarning) << "findOrCreateFile: Type mismatch for existing file " << path << " (Expected " << type << ", Got " << item->getType() << ")";
+                          return NULL;
+                     }
+                 } else {
+                     LOG(LogError) << "findOrCreateFile: Path continues after finding a file: " << path;
+                     return NULL;
+                 }
+            }
 		}
-		
-		// this is the end
-		if(path_it == --pathList.end())
-		{
-			if(type == FOLDER)
-			{
-				LOG(LogWarning) << "gameList: folder doesn't already exist, won't create";
-				return NULL;
-			}
+        else // item == nullptr -> Elemento NON trovato tra i figli di treeNode per questo segmento
+        {
+            LOG(LogDebug) << "findOrCreateFile: No existing child node for segment: " << key;
+            // Dobbiamo creare il FileData/FolderData in memoria, ma solo se esiste sul disco
 
-			// Skip if the extension in the gamelist is unknown
-			if (!system->getSystemEnvData()->isValidExtension(Utils::String::toLower(Utils::FileSystem::getExtension(path))))
-			{
-				LOG(LogWarning) << "gameList: file extension is not known by systemlist";
-				return NULL;
-			}
+            // Se siamo all'ultimo segmento del percorso
+		    if(path_it == --pathList.end())
+		    {
+			    if(type == FOLDER) // La Gamelist dice che questo è una cartella
+			    {
+				    if (!Utils::FileSystem::isDirectory(path)) { // Verifica sul disco
+					    LOG(LogWarning) << "gameList: folder from gamelist does not exist on disk, ignoring: " << path;
+                        return NULL;
+                    }
+                    // Crea FolderData in memoria
+                    item = new FolderData(path, system);
+                    fileMap[path] = item;
+                    treeNode->addChild(item);
+                    LOG(LogDebug) << "findOrCreateFile: Created FOLDER object for final segment: " << path;
+                    return item;
+			    }
+			    else // type == GAME -> La Gamelist dice che questo è un gioco
+			    {
+                    // Verifica esistenza e estensione
+				    if (!Utils::FileSystem::exists(path)) {
+                        LOG(LogWarning) << "gameList: game file from gamelist does not exist on disk, ignoring: " << path;
+                        return NULL;
+                    }
+                    if (!system->getSystemEnvData()->isValidExtension(Utils::String::toLower(Utils::FileSystem::getExtension(path)))) {
+				        LOG(LogWarning) << "gameList: game file extension is not known by systemlist, ignoring: " << path;
+				        return NULL;
+                    }
 
-			// Add final game
-			item = new FileData(GAME, path, system);
-			if (!item->isArcadeAsset())
-			{
-				fileMap[key] = item;
-				treeNode->addChild(item);
-			}
-
-			return item;
-		}
-
-		if(item == nullptr)
-		{
-			// don't create folders unless it's leading up to a game
-			// if type is a folder it's gonna be empty, so don't bother
-			if(type == FOLDER)
-			{
-				LOG(LogWarning) << "gameList: folder doesn't already exist, won't create";
-				return NULL;
-			}
-
-			// create missing folder
-			FolderData* folder = new FolderData(treeNode->getPath() + "/" + *path_it, system);
-			fileMap[key] = folder;
-			treeNode->addChild(folder);
-			treeNode = folder;
-		}
+				    // Crea FileData in memoria
+				    item = new FileData(GAME, path, system);
+				    if (!item->isArcadeAsset())
+				    {
+					    fileMap[path] = item;
+					    treeNode->addChild(item);
+                        LOG(LogDebug) << "findOrCreateFile: Created GAME object for final segment: " << path;
+				    } else { // Ignora asset arcade in questa fase
+                        LOG(LogDebug) << "findOrCreateFile: Ignoring arcade asset: " << path;
+                        delete item;
+                        item = nullptr;
+                    }
+				    return item;
+			    }
+		    }
+            else // Non siamo all'ultimo elemento, dobbiamo creare una cartella intermedia
+            {
+                 // Verifica che la cartella intermedia esista sul disco
+                 if (Utils::FileSystem::isDirectory(key))
+                 {
+                      LOG(LogDebug) << "findOrCreateFile: Creating intermediate FOLDER object for: " << key;
+                      FolderData* folder = new FolderData(key, system);
+                      fileMap[key] = folder; // Aggiungi la cartella intermedia alla mappa
+                      treeNode->addChild(folder);
+                      treeNode = folder; // Scendi nella cartella appena creata
+                 } else {
+                      LOG(LogWarning) << "gameList: intermediate folder from gamelist does not exist on disk, cannot proceed: " << key;
+                      return NULL; // Non possiamo continuare se manca un pezzo del percorso
+                 }
+            }
+        } // fine else (item == nullptr)
 
 		path_it++;
-	}
+	} // fine while
 
-	return NULL;
+    LOG(LogError) << "findOrCreateFile: Reached unexpected end after loop for internal path: " << path;
+	return NULL; // Non dovrebbe arrivare qui
 }
 
 std::vector<FileData*> loadGamelistFile(const std::string xmlpath, SystemData* system, std::unordered_map<std::string, FileData*>& fileMap, size_t checkSize, bool fromFile)
-{	
+{
 	std::vector<FileData*> ret;
 
 	LOG(LogInfo) << "Parsing XML file \"" << xmlpath << "\"...";
@@ -176,8 +257,8 @@ std::vector<FileData*> loadGamelistFile(const std::string xmlpath, SystemData* s
 		return ret;
 	}
 
-	pugi::xml_node root = doc.child("gameList");
-	if (!root)
+	pugi::xml_node rootNode = doc.child("gameList"); // Rinominato per chiarezza
+	if (!rootNode)
 	{
 		LOG(LogError) << "Could not find <gameList> node in gamelist \"" << xmlpath << "\"!";
 		return ret;
@@ -185,7 +266,7 @@ std::vector<FileData*> loadGamelistFile(const std::string xmlpath, SystemData* s
 
 	if (checkSize != SIZE_MAX)
 	{
-		auto parentSize = root.attribute("parentHash").as_uint();
+		auto parentSize = rootNode.attribute("parentHash").as_uint();
 		if (parentSize != checkSize)
 		{
 			LOG(LogWarning) << "gamelist size don't match !";
@@ -196,10 +277,9 @@ std::vector<FileData*> loadGamelistFile(const std::string xmlpath, SystemData* s
 	std::string relativeTo = system->getStartPath();
 	bool trustGamelist = Settings::ParseGamelistOnly();
 
-	for (pugi::xml_node fileNode : root.children())
+	for (pugi::xml_node fileNode : rootNode.children())
 	{
 		FileType type = GAME;
-
 		std::string tag = fileNode.name();
 
 		if (tag == "folder")
@@ -208,81 +288,127 @@ std::vector<FileData*> loadGamelistFile(const std::string xmlpath, SystemData* s
 			continue;
 
 		const std::string path = Utils::FileSystem::resolveRelativePath(fileNode.child("path").text().get(), relativeTo, false);
-		
+
 		FileData* file = nullptr;
 
 		if (trustGamelist)
+		{
+			// Se ci fidiamo ciecamente della gamelist, cerchiamo o creiamo l'elemento
 			file = findOrCreateFile(system, path, type, fileMap);
-	else // Questo corrisponde a: if (!trustGamelist)
-  {
-   // --- INIZIO BLOCCO CORRETTO v3 (Bypass Estensione per Virtuali) ---
-   LOG(LogDebug) << "loadGamelistFile: Processing path (trustGamelist=false): " << path;
-   auto mapEntry = fileMap.find(path);
-   if (mapEntry != fileMap.end())
-   {
-    LOG(LogDebug) << "  Found path in fileMap.";
-    file = mapEntry->second;
-   }
-   else
-   {
-    LOG(LogDebug) << "  Path NOT found in fileMap. Checking virtual/existence...";
-    bool isVirtualPath = Utils::String::startsWith(path, "epic:/");
-    bool fileExists = !isVirtualPath && Utils::FileSystem::exists(path);
-    LOG(LogDebug) << "  isVirtualPath: " << (isVirtualPath ? "true" : "false") << ", fileExists: " << (fileExists ? "true" : "false");
+		}
+		else // Se NON ci fidiamo (caso standard e quello problematico per Epic)
+		{
+			// --- NUOVO BLOCCO CORRETTO ---
+			LOG(LogDebug) << "loadGamelistFile: Processing path (trustGamelist=false): " << path;
+			auto mapEntry = fileMap.find(path);
 
-    // Controlla l'estensione SOLO se NON è un percorso virtuale
-    bool isValidExtensionNonVirtual = !isVirtualPath && system->getSystemEnvData()->isValidExtension(Utils::String::toLower(Utils::FileSystem::getExtension(path)));
-    LOG(LogDebug) << "  isValidExtensionNonVirtual: " << (isValidExtensionNonVirtual ? "true" : "false");
+			if (mapEntry != fileMap.end())
+			{
+				// Trovato nella mappa locale (già processato dal filesystem scan?)
+				LOG(LogDebug) << "  Found path in fileMap.";
+				file = mapEntry->second;
+			}
+			else
+			{
+				// Non trovato nella mappa locale, controlliamo esistenza e validità
+				LOG(LogDebug) << "  Path NOT found in fileMap. Checking virtual/existence/type...";
+				bool isVirtualPath = Utils::String::startsWith(path, "epic:/"); // Specifico per Epic
+				bool pathExists = !isVirtualPath && Utils::FileSystem::exists(path);
+				bool isDirectory = pathExists && Utils::FileSystem::isDirectory(path);
+				bool isFile = pathExists && !isDirectory; // Assumiamo sia un file se esiste e non è directory
 
-    // Se è un percorso virtuale (ignoriamo estensione) OPPURE se esiste fisicamente ED ha estensione valida
-    if (isVirtualPath || (fileExists && isValidExtensionNonVirtual))
-    {
-     LOG(LogDebug) << "  Condition MET: Calling findOrCreateFile.";
-     file = findOrCreateFile(system, path, type, fileMap);
-     if (file != nullptr)
-         LOG(LogDebug) << "   findOrCreateFile successful.";
-     else
-         LOG(LogDebug) << "   findOrCreateFile returned NULL.";
-    }
-    else
-    {
-     // Se non è virtuale E (non esiste O estensione non valida), ignoralo.
-     LOG(LogWarning) << "  Condition NOT MET: File \"" << path << "\" is not virtual and (does not exist or has invalid extension)! Ignoring."; // Messaggio Warning aggiornato
-     continue; // Salta al prossimo nodo nel gamelist.xml
-    }
-   }
-   // --- FINE BLOCCO CORRETTO v3 ---
-  }
+				LOG(LogDebug) << "  isVirtualPath: " << (isVirtualPath ? "true" : "false")
+				              << ", pathExists: " << (pathExists ? "true" : "false")
+				              << ", isDirectory: " << (isDirectory ? "true" : "false")
+				              << ", isFile: " << (isFile ? "true" : "false");
 
+				// Determina se il percorso è valido per essere processato ulteriormente
+				bool isValidPath = false;
+				if (isVirtualPath) {
+					// I percorsi virtuali sono sempre considerati validi a questo punto
+					isValidPath = true;
+					LOG(LogDebug) << "  Path is VIRTUAL. Considered valid.";
+				} else if (pathExists) {
+					// Se il percorso esiste fisicamente
+					if (isDirectory) {
+						// Le directory sono valide (per FolderData o potenzialmente per tipi speciali di GameData)
+						isValidPath = true;
+						LOG(LogDebug) << "  Path EXISTS and is a DIRECTORY. Considered valid.";
+					} else if (isFile) {
+						// I file devono avere un'estensione valida definita per il sistema
+						std::string ext = Utils::String::toLower(Utils::FileSystem::getExtension(path));
+						if (system->getSystemEnvData()->isValidExtension(ext)) {
+							isValidPath = true;
+							LOG(LogDebug) << "  Path EXISTS, is a FILE, and has a VALID EXTENSION ('" << ext << "'). Considered valid.";
+						} else {
+							LOG(LogWarning) << "  Path EXISTS and is a FILE, but has INVALID extension ('" << ext << "'). Ignoring node.";
+						}
+					}
+				} else {
+					// Se non è virtuale e non esiste
+					LOG(LogWarning) << "  Path is NOT virtual and DOES NOT EXIST. Ignoring node.";
+				}
+
+				// Se il percorso è valido (virtuale, directory esistente, o file esistente con estensione valida)
+				if (isValidPath)
+				{
+					LOG(LogDebug) << "  Condition MET: Calling findOrCreateFile.";
+					file = findOrCreateFile(system, path, type, fileMap); // Cerca o crea il FileData in memoria
+					if (file != nullptr)
+						LOG(LogDebug) << "   findOrCreateFile successful.";
+					else // findOrCreateFile potrebbe fallire per altre ragioni (es. fuori dal path di sistema)
+						LOG(LogWarning) << "   findOrCreateFile returned NULL for valid path: " << path;
+				} else {
+					// Se il percorso non è valido (inesistente, o file con estensione errata), salta questo nodo XML
+					continue;
+				}
+			}
+			// --- FINE NUOVO BLOCCO CORRETTO ---
+		} // Fine blocco if(!trustGamelist)
+
+
+		// Se non siamo riusciti a trovare o creare il FileData corrispondente, saltiamo questo nodo XML
 		if (file == nullptr)
-		{			
-			LOG(LogError) << "Error finding/creating FileData for \"" << path << "\", skipping.";
+		{
+			// findOrCreateFile dovrebbe aver già loggato un Warning/Error se necessario
+			// LOG(LogError) << "Error finding/creating FileData for \"" << path << "\", skipping XML node.";
 			continue;
 		}
-		
-		if (!trustGamelist || !file->isArcadeAsset()) // arcade assets already filtered when !trustGamelist
+
+        // Se arriviamo qui, abbiamo un 'file' (FileData*) valido a cui applicare i metadati
+		// (Il controllo isArcadeAsset è probabilmente superfluo se findOrCreateFile li gestisce)
+		if (!trustGamelist || !file->isArcadeAsset())
 		{
 			MetaDataList& mdl = file->getMetadata();
 			mdl.loadFromXML(type == FOLDER ? FOLDER_METADATA : GAME_METADATA, fileNode, system);
-			mdl.migrate(file, fileNode);
+			mdl.migrate(file, fileNode); // Gestisce eventuali conversioni da formati vecchi
 
-			// Make sure name gets set if one didn't exist
+			// Assicura che il nome sia impostato se mancava
 			if (mdl.getName().empty())
 				mdl.set(MetaDataId::Name, file->getDisplayName());
 
+			// Aggiorna lo stato 'hidden' se il file system dice che è nascosto ma la gamelist no
 			if (!trustGamelist && !file->getHidden() && Utils::FileSystem::isHidden(path))
 				mdl.set(MetaDataId::Hidden, "true");
 
+			// Converte i generi stringa in ID (se applicabile)
 			Genres::convertGenreToGenreIds(&mdl);
 
-			if (checkSize != SIZE_MAX)
+			// Gestisce lo stato 'dirty' (modificato)
+			if (checkSize != SIZE_MAX) // Se stiamo caricando da un file di recovery
 				mdl.setDirty();
-			else
-				mdl.resetChangedFlag();
+			else // Se stiamo caricando il gamelist principale
+				mdl.resetChangedFlag(); // Considera i dati come non modificati inizialmente
 
-			ret.push_back(file);
+			ret.push_back(file); // Aggiungi alla lista dei file processati con successo
 		}
-	}
+		else if (trustGamelist && file->isArcadeAsset()) {
+			// Se trustGamelist=true, gli asset arcade vengono creati da findOrCreateFile,
+			// ma potremmo voler evitare di processare i loro metadati qui se già gestiti altrove.
+			LOG(LogDebug) << "Skipping metadata load for arcade asset (trustGamelist=true): " << path;
+		}
+
+	} // Fine ciclo for sui nodi XML
 
 	return ret;
 }

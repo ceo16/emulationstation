@@ -14,6 +14,7 @@
 #include <functional>
 #include <cstring>                         // Per strlen
 #include "guis/GuiBusyInfoPopup.h"
+#include "GameStore/EpicGames/EpicGamesAuth.h"
 
 
 
@@ -42,7 +43,7 @@ void EpicGamesUI::showMainMenu(Window* window, EpicGamesStore* store) {
         std::string msg =
             "Si aprirà il browser per l'accesso a Epic Games.\n\n"
             "Dopo aver effettuato l'accesso, Epic mostrerà una pagina con un CODICE DI AUTORIZZAZIONE (una lunga stringa di lettere e numeri).\n\n"
-            "Questo codice NON è facilmente copiabile. Dovrai **SCRIVERLO A MANO** nella finestra successiva.\nPresta molta attenzione!";
+            "Puoi usare CTRL+V";
 
         window->pushGui(new GuiMsgBox(window, msg, "HO CAPITO, APRI IL BROWSER",
             [window, store]() { // Eseguita dopo OK sul messaggio
@@ -79,49 +80,43 @@ void EpicGamesUI::showMainMenu(Window* window, EpicGamesStore* store) {
     }, // Fine lambda principale addEntry
  "iconFolder");
 // --- NUOVA VOCE: Aggiorna Libreria Giochi ---
-if (store && store->getAuth() && !store->getAuth()->getAccessToken().empty()) {
-    menu->addEntry(
-        "Scarica/Aggiorna Libreria Giochi Online",
-        true,
-        [window, store, menu]() { // Inizio lambda UI
-            LOG(LogInfo) << "User triggered 'Scarica/Aggiorna Libreria Giochi Online'";
+ EpicGamesAuth* auth = store->getAuth();
+    bool isEpicAuthenticated = (auth && auth->isAuthenticated()); // Controlla lo stato UNA VOLTA
 
-            // 1. Mostra il Popup
-            LOG(LogWarning) << "[DEBUG_POPUP] Pushing GuiBusyInfoPopup NOW.";
-            GuiBusyInfoPopup* busyPopup = new GuiBusyInfoPopup(window, _("AGGIORNAMENTO EPIC IN CORSO..."));
-            window->pushGui(busyPopup);
-            // RenderFrame rimosso
+    // --- NUOVA VOCE: Aggiorna Libreria Giochi Online ---
+    // Mostra solo se autenticato
+    if (isEpicAuthenticated)
+    {
+        menu->addEntry(
+            _("Scarica/Aggiorna Libreria Giochi Online"),
+            true,
+            [window, store, menu]() { // Non serve catturare 'auth' qui
+                LOG(LogInfo) << "User triggered 'Scarica/Aggiorna Libreria Giochi Online' (Authenticated)";
 
-            // 2. Chiudi il menu corrente
-            if(menu) menu->close();
+                // 1. Mostra il Popup di attesa
+                GuiBusyInfoPopup* busyPopup = new GuiBusyInfoPopup(window, _("AGGIORNAMENTO EPIC IN CORSO..."));
+                window->pushGui(busyPopup);
 
-            // 3. Avvia il Task Asincrono DOPO un piccolo ritardo
-            std::thread delayedLaunchThread([store, window]() { // Inizio lambda per thread ritardato
-                // Breve pausa
-                std::this_thread::sleep_for(std::chrono::milliseconds(100));
+                // 2. Chiudi il menu corrente
+                if(menu) menu->close();
 
-                LOG(LogWarning) << "[DEBUG_POPUP] Starting refreshGamesListAsync NOW (after delay).";
+                // 3. Avvia il Task Asincrono DOPO un piccolo ritardo
+                std::thread delayedLaunchThread([store, window]() {
+                    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+                    LOG(LogInfo) << "Starting refreshGamesListAsync (Authenticated)";
+                    if (store) {
+                        store->refreshGamesListAsync();
+                    } else { LOG(LogError) << "Delayed Launch: Store pointer became null!"; }
+                });
+                delayedLaunchThread.detach();
+                LOG(LogDebug) << "UI Action Lambda finished, delayed launch thread detached.";
 
-                // Esegui il task effettivo
-                if (store) {
-                    store->refreshGamesListAsync();
-                } else {
-                     LOG(LogError) << "Delayed Launch: Store pointer became null!";
-                     // Gestire l'errore qui è complicato, per ora logghiamo solo.
-                }
-            }); // Fine lambda per thread ritardato
+            },
+            "iconSync");
+    } // Fine if (isEpicAuthenticated)
 
-            // Stacca il thread per permettergli di continuare autonomamente
-            delayedLaunchThread.detach();
-
-            LOG(LogDebug) << "UI Action Lambda finished, delayed launch thread detached.";
-
-        }, // Fine lambda UI
-        "iconSync");
-}
-
- window->pushGui(menu);
-}
+    window->pushGui(menu);
+} // Fine showMainMenu
 
 // --- Funzione showLogin (Probabilmente non più necessaria) ---
 void EpicGamesUI::showLogin(Window* window, EpicGamesStore* store) {

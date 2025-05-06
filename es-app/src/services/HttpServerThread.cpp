@@ -231,7 +231,7 @@ void HttpServerThread::run()
 			"</body>\r\n</html>", "text/html");
 	});
 
-mHttpServer->Get("/epic_login", [this](const httplib::Request& req, httplib::Response& res) {
+/*mHttpServer->Get("/epic_login", [this](const httplib::Request& req, httplib::Response& res) {
   std::string state;
   std::string clientId = Settings::getInstance()->getString("EpicGames.ClientId"); // Load from settings!
   if (clientId.empty()) {
@@ -292,7 +292,7 @@ mHttpServer->Get("/epic_login", [this](const httplib::Request& req, httplib::Res
 
    std::async(std::launch::async, [this, authCode]() {
     std::string accessToken;
-    if (mAuth.getAccessToken(authCode, accessToken)) {
+    if (mAuth.retrieveAndStoreTokens(authCode, accessToken)) {
      mWindow->postToUiThread([this, accessToken]() {
       if (mEpicLoginCallback) {
        mEpicLoginCallback(accessToken);
@@ -309,7 +309,7 @@ mHttpServer->Get("/epic_login", [this](const httplib::Request& req, httplib::Res
    res.set_content("Epic Games login failed: Empty authorization code.", "text/plain");
    res.status = 400;
   }
- });
+ });*/
   
  
 	mHttpServer->Get("/quit", [this](const httplib::Request& req, httplib::Response& res)
