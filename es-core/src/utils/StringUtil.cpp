@@ -4,6 +4,9 @@
 #include <algorithm>
 #include <stdarg.h>
 #include <cstring>
+#include <iostream> // Temporaneo per debug se serve
+#include <regex>
+#include <sstream>
 
 #if defined(_WIN32)
 #include <Windows.h>
@@ -254,7 +257,8 @@ namespace Utils
             while ((out.size() % 4) != 0) out.push_back('=');
             return out;
         }
-
+		
+		
 		std::string unicode2Chars(const unsigned int _unicode)
 		{
 			std::string result;
@@ -382,6 +386,102 @@ namespace Utils
 
 			return text;
 		}
+		// Implementazione di stripHtmlTags
+		std::string stripHtmlTags(const std::string& text)
+		{
+			if (text.empty())
+			{
+				return "";
+			}
+
+			std::string result = text;
+
+			// 1. Semplice rimozione dei tag: trova '<' e poi il successivo '>'
+			// Questo è un approccio naive e può essere ingannato da '<' o '>' in attributi
+			// o CDATA, ma è un punto di partenza.
+			size_t start_pos = 0;
+			while ((start_pos = result.find("<", start_pos)) != std::string::npos)
+			{
+				size_t end_pos = result.find(">", start_pos);
+				if (end_pos != std::string::npos)
+				{
+					result.erase(start_pos, end_pos - start_pos + 1);
+					// Non incrementare start_pos qui, perché la stringa è stata modificata
+					// e la prossima ricerca dovrebbe ripartire dalla stessa posizione.
+				}
+				else
+				{
+					// Tag aperto senza chiusura, potrebbe essere un errore o la fine della stringa.
+					// Per sicurezza, esci o rimuovi il resto. Qui usciamo.
+					break;
+				}
+			}
+
+			// 2. Sostituisci le entità HTML comuni.
+			//    Questa lista può essere estesa.
+			//    L'ordine è importante per evitare sostituzioni parziali errate (es. &amp; prima di &).
+			const std::vector<std::pair<std::string, std::string>> entities = {
+				{"&quot;", "\""},
+				{"&apos;", "'"},
+				{"&amp;", "&"}, // Deve essere prima di &lt; e &gt; se questi usano &
+				{"&lt;", "<"},
+				{"&gt;", ">"},
+				{"&nbsp;", " "},
+				{"&iexcl;", "¡"},
+				{"&cent;", "¢"},
+				{"&pound;", "£"},
+				{"&curren;", "¤"},
+				{"&yen;", "¥"},
+				{"&brvbar;", "¦"},
+				{"&sect;", "§"},
+				{"&uml;", "¨"},
+				{"&copy;", "©"},
+				{"&ordf;", "ª"},
+				{"&laquo;", "«"},
+				{"&not;", "¬"},
+				{"&shy;", ""}, // Soft hyphen, di solito si rimuove
+				{"&reg;", "®"},
+				{"&macr;", "¯"},
+				{"&deg;", "°"},
+				{"&plusmn;", "±"},
+				{"&sup2;", "²"},
+				{"&sup3;", "³"},
+				{"&acute;", "´"},
+				{"&micro;", "µ"},
+				{"&para;", "¶"},
+				{"&middot;", "·"},
+				{"&cedil;", "¸"},
+				{"&sup1;", "¹"},
+				{"&ordm;", "º"},
+				{"&raquo;", "»"},
+				{"&frac14;", "¼"},
+				{"&frac12;", "½"},
+				{"&frac34;", "¾"},
+				{"&iquest;", "¿"},
+				{"&times;", "×"},
+				{"&divide;", "÷"},
+
+			};
+
+			for (const auto& entity_pair : entities)
+			{
+				size_t pos = 0;
+				while ((pos = result.find(entity_pair.first, pos)) != std::string::npos)
+				{
+					result.replace(pos, entity_pair.first.length(), entity_pair.second);
+					pos += entity_pair.second.length(); // Avanza oltre il testo sostituito
+				}
+			}
+            
+            // Potrebbero esserci degli spazi multipli dopo la rimozione dei tag,
+            // potresti volerli normalizzare a uno spazio singolo (opzionale)
+            // result = Utils::String::replace(result, "  ", " "); // Esegui più volte o usa regex
+            // result = Utils::String::trim(result); // Rimuovi spazi iniziali/finali
+
+			return result;
+		}
+		
+
 
 		std::string toUpper(const std::string& _string) 
 		{

@@ -1,8 +1,11 @@
 #include "GameStore/EpicGames/GameStoreManager.h"
 #include "GameStore/EpicGames/EpicGamesStore.h"
 #include "GameStore/EpicGames/PlaceholderStore.h"
+#include "GameStore/EpicGames/EpicGamesStore.h" // Includi EpicGamesStore
+#include "GameStore/Steam/SteamStore.h"
 #include "guis/GuiMenu.h"
 #include "Log.h"
+#include "Window.h"
 
 GameStoreManager* GameStoreManager::sInstance = nullptr;
 
@@ -15,8 +18,11 @@ GameStoreManager* GameStoreManager::get() {
 
 GameStoreManager::GameStoreManager(std::function<void(const std::string&)> setStateCallback) : setStateCallback(setStateCallback) {
     LOG(LogDebug) << "GameStoreManager: Constructor (with callback)";
-  //  registerStore(new PlaceholderStore());
-  //  registerStore(new EpicGamesStore(setStateCallback))
+  LOG(LogDebug) << "GameStoreManager: Attempting to register SteamStore.";
+SteamAuth* steamAuthInstance = new SteamAuth();
+SteamStore* steamStoreInstance = new SteamStore(steamAuthInstance);
+registerStore(steamStoreInstance);
+LOG(LogInfo) << "GameStoreManager: SteamStore registered successfully.";
 }
 
 GameStoreManager::~GameStoreManager() {

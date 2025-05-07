@@ -86,6 +86,8 @@ enum MetaDataId
     EpicId = 47,        // <<< OK (ri-numerato)
     EpicNamespace = 48, // <<< OK (ri-numerato)
     EpicCatalogId = 49, // <<< OK (ri-numerato)
+	SteamAppId = 50,
+	Path = 51,
 
 
     // Assicurati che gli ID siano sequenziali e univoci

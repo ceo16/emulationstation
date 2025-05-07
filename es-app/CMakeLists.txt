@@ -37,6 +37,11 @@ set(ES_HEADERS
 	${CMAKE_CURRENT_SOURCE_DIR}/src/GameStore/GameStore.h
 	${CMAKE_CURRENT_SOURCE_DIR}/src/GameStore/EpicGames/PlaceholderStore.h
 	${CMAKE_CURRENT_SOURCE_DIR}/src/GameStore/EpicGames/EpicGamesModels.h
+	${CMAKE_CURRENT_SOURCE_DIR}/src/GameStore/Steam/SteamAuth.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/GameStore/Steam/SteamStoreAPI.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/GameStore/Steam/SteamStore.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/GameStore/Steam/SteamUI.h
+
 	
 
     # GuiComponents    
@@ -95,6 +100,7 @@ set(ES_HEADERS
 	${CMAKE_CURRENT_SOURCE_DIR}/src/scrapers/HfsDBScraper.h
     ${CMAKE_CURRENT_SOURCE_DIR}/src/scrapers/ScreenScraper.h
     ${CMAKE_CURRENT_SOURCE_DIR}/src/scrapers/EpicGamesScraper.h    
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/scrapers/SteamScraper.h
 
     # Views
     ${CMAKE_CURRENT_SOURCE_DIR}/src/views/gamelist/BasicGameListView.h
@@ -155,6 +161,11 @@ set(ES_SOURCES
 	${CMAKE_CURRENT_SOURCE_DIR}/src/GameStore/GameStore.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/src/GameStore/EpicGames/PlaceholderStore.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/src/GameStore/EpicGames/EpicGamesModels.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/src/GameStore/Steam/SteamAuth.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/GameStore/Steam/SteamStoreAPI.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/GameStore/Steam/SteamStore.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/GameStore/Steam/SteamUI.cpp
+    
 
     # GuiComponents    
     ${CMAKE_CURRENT_SOURCE_DIR}/src/components/ScraperSearchComponent.cpp	
@@ -209,6 +220,7 @@ set(ES_SOURCES
 	${CMAKE_CURRENT_SOURCE_DIR}/src/scrapers/HfsDBScraper.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/scrapers/ScreenScraper.cpp	
 	${CMAKE_CURRENT_SOURCE_DIR}/src/scrapers/EpicGamesScraper.cpp 
+	${CMAKE_CURRENT_SOURCE_DIR}/src/scrapers/SteamScraper.cpp
 
     # Views
     ${CMAKE_CURRENT_SOURCE_DIR}/src/views/gamelist/BasicGameListView.cpp
@@ -258,7 +270,8 @@ include_directories(
     ${COMMON_INCLUDE_DIRS}
     ${CMAKE_CURRENT_SOURCE_DIR}/src
     ${CMAKE_CURRENT_SOURCE_DIR}/src/GamesStore
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/GamesStore/EpicGames  # Add this line
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/GamesStore/EpicGames
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/GamesStore/Steam	# Add this line
 )
 add_executable(emulationstation ${ES_SOURCES} ${ES_HEADERS})
 target_link_libraries(emulationstation ${COMMON_LIBRARIES} es-core)

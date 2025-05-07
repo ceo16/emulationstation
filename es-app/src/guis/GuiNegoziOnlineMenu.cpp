@@ -1,6 +1,7 @@
 #include "guis/GuiNegoziOnlineMenu.h"
 #include "Log.h" // Per logging se necessario
 #include "LocaleES.h" // Per _()
+#include "guis/GuiMsgBox.h"
 // GameStoreManager.h è già incluso tramite GuiNegoziOnlineMenu.h
 
 GuiNegoziOnlineMenu::GuiNegoziOnlineMenu(Window* window) :
@@ -36,7 +37,14 @@ void GuiNegoziOnlineMenu::loadMenuEntries()
         // delete this; // Opzionale, come sopra
     }, "iconGames"); // Usa un'icona appropriata se disponibile
 
-    // Qui potresti aggiungere altre voci per altri store in futuro
+      mMenu.addEntry(_("STEAM STORE"), true, [this] {
+        if (GameStoreManager::get()->getStore("SteamStore")) { // Controlla se lo store è registrato
+            GameStoreManager::get()->getStore("SteamStore")->showStoreUI(mWindow);
+        } else {
+            LOG(LogError) << "SteamStore non registrato nel GameStoreManager!";
+            mWindow->pushGui(new GuiMsgBox(mWindow, _("ERRORE"), _("STEAM STORE NON ANCORA IMPLEMENTATO CORRETTAMENTE.")));
+        }
+    }, "iconGames"); // TODO: Aggiungi un'icona per Steam (es. "iconSteam")
 
     // Aggiungi un'opzione per chiudere questo sottomenu
     mMenu.addEntry(_("CHIUDI"), false, [this] { // "CLOSE"

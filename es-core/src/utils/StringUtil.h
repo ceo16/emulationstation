@@ -5,6 +5,7 @@
 #include <string>
 #include <cstring>
 #include <vector>
+#include <algorithm>
 
 namespace Utils
 {
@@ -28,7 +29,7 @@ namespace Utils
 		stringVector commaStringToVector(const std::string& _string);
 		std::string  format             (const char* _string, ...);
 		std::string  scramble           (const std::string& _input, const std::string& key);
-
+        std::string stripHtmlTags(const std::string& text);
 		std::vector<std::string> split  (const std::string& s, char seperator, bool removeEmptyEntries = false);
 		std::vector<std::string> splitAny(const std::string& s, const std::string& seperator, bool removeEmptyEntries = false);
 		std::vector<std::string> extractStrings(const std::string& _string, const std::string& startDelimiter, const std::string& endDelimiter, bool keepDelimiter = false);
