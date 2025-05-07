@@ -103,6 +103,7 @@ private:
 	void	 renderExtras(const Transform4x4f& parentTrans, float lower, float upper);
 	void	 renderInfoBar(const Transform4x4f& trans);
 	
+	
 	ControlWrapper						mCarousel;
 
 	TextComponent						mSystemInfo;

@@ -85,6 +85,7 @@ set(ES_HEADERS
 	${CMAKE_CURRENT_SOURCE_DIR}/src/guis/GuiSaveState.h
 	${CMAKE_CURRENT_SOURCE_DIR}/src/guis/GuiFileBrowser.h	
     ${CMAKE_CURRENT_SOURCE_DIR}/src/guis/GuiBusyInfoPopup.h
+	${CMAKE_CURRENT_SOURCE_DIR}/src/guis/GuiNegoziOnlineMenu.h
 	
     # Scrapers
     ${CMAKE_CURRENT_SOURCE_DIR}/src/scrapers/Scraper.h
@@ -197,6 +198,7 @@ set(ES_SOURCES
 	${CMAKE_CURRENT_SOURCE_DIR}/src/guis/GuiSaveState.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/src/guis/GuiFileBrowser.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/src/guis/GuiBusyInfoPopup.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/src/guis/GuiNegoziOnlineMenu.cpp
     
 
     # Scrapers

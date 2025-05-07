@@ -28,6 +28,7 @@
 #include "BindingManager.h"
 #include "guis/GuiRetroAchievements.h"
 #include "components/CarouselComponent.h"
+#include "guis/GuiNegoziOnlineMenu.h" 
 
 SystemView::SystemView(Window* window) : GuiComponent(window),
 	mViewNeedsReload(true),
@@ -389,142 +390,105 @@ SystemData* SystemView::getSelected()
 
 bool SystemView::input(InputConfig* config, Input input)
 {
-	if (mYButton.isShortPressed(config, input))
-	{
-		showQuickSearch();
-		return true;
-	}
+    // Gestione del Quick Search con mYButton (dal tuo codice originale)
+    if (mYButton.isShortPressed(config, input))
+    {
+        showQuickSearch();
+        return true;
+    }
 
-	// Move selection fast using group (manufacturers)
-	if (mCarousel.isCarousel() || mCarousel.isTextList())
-	{
-		if (input.value != 0)
-		{
-			auto mCursor = mCarousel.getCursorIndex();
+    // ----- GESTIONE INPUT DA CONTROLLER PER "SHOPS ONLINE" SUL PULSANTE "X" (QUANDO NETPLAY È OFF) -----
+    bool netPlayActiveForInput = SystemData::isNetplayActivated() && SystemConf::getInstance()->getBool("global.netplay");
+    if (!netPlayActiveForInput && input.value != 0 && config->isMappedTo("x", input)) // Per input da controller/tastiera
+{
+    if (mWindow != nullptr)
+        mWindow->pushGui(new GuiNegoziOnlineMenu(mWindow));
+    return true; 
+}
 
-			auto carousel = mCarousel.asCarousel();
-			if (carousel != nullptr && carousel->isHorizontalCarousel())
-			{
-				if (config->isMappedLike("left", input) || config->isMappedLike("l2", input))
-				{
-					mCarousel.moveSelectionBy(-1);
-					return true;
-				}
-				if (config->isMappedLike("right", input) || config->isMappedLike("r2", input))
-				{
-					mCarousel.moveSelectionBy(1);
-					return true;
-				}
-				if ((Settings::getInstance()->getBool("QuickSystemSelect") && config->isMappedLike("down", input)) || config->isMappedTo("pagedown", input))
-				{
-					int cursor = moveCursorFast(true);
-					mCarousel.moveSelectionBy(cursor - mCursor);
-					return true;
-				}
-				if ((Settings::getInstance()->getBool("QuickSystemSelect") && config->isMappedLike("up", input)) || config->isMappedTo("pageup", input))
-				{
-					int cursor = moveCursorFast(false);
-					mCarousel.moveSelectionBy(cursor - mCursor);
-					return true;
-				}
-			}
-			else
-			{
-				if (config->isMappedLike("up", input) || config->isMappedLike("l2", input))
-				{
-					mCarousel.moveSelectionBy(-1);
-					return true;
-				}
-				if (config->isMappedLike("down", input) || config->isMappedLike("r2", input))
-				{
-					mCarousel.moveSelectionBy(1);
-					return true;
-				}
-				if ((Settings::getInstance()->getBool("QuickSystemSelect") && config->isMappedLike("right", input)) || config->isMappedTo("pagedown", input))
-				{
-					int cursor = moveCursorFast(true);
-					mCarousel.moveSelectionBy(cursor - mCursor);
-					return true;
-				}
-				if ((Settings::getInstance()->getBool("QuickSystemSelect") && config->isMappedLike("left", input)) || config->isMappedTo("pageup", input))
-				{
-					int cursor = moveCursorFast(false);
-					mCarousel.moveSelectionBy(cursor - mCursor);
-					return true;
-				}
-			}
-		}
-		else
-		{
-			if (config->isMappedLike("left", input) ||
-				config->isMappedLike("right", input) ||
-				config->isMappedLike("up", input) ||
-				config->isMappedLike("down", input) ||
-				config->isMappedLike("pagedown", input) ||
-				config->isMappedLike("pageup", input) ||
-				config->isMappedLike("l2", input) ||
-				config->isMappedLike("r2", input))
-				mCarousel.moveSelectionBy(0);
-		}
-	}
+    if (mCarousel.isCarousel() || mCarousel.isTextList())
+    {
+        if (input.value != 0)
+        {
+            int currentCarouselCursor = mCarousel.getCursorIndex();
+            auto carouselComponentPtr = mCarousel.asCarousel();
+            if (carouselComponentPtr != nullptr && carouselComponentPtr->isHorizontalCarousel())
+            {
+                if (config->isMappedLike("left", input) || config->isMappedLike("l2", input)) { mCarousel.moveSelectionBy(-1); return true; }
+                if (config->isMappedLike("right", input) || config->isMappedLike("r2", input)) { mCarousel.moveSelectionBy(1); return true; }
+                if ((Settings::getInstance()->getBool("QuickSystemSelect") && config->isMappedLike("down", input)) || config->isMappedTo("pagedown", input)) { int nc = moveCursorFast(true); mCarousel.moveSelectionBy(nc - currentCarouselCursor); return true; }
+                if ((Settings::getInstance()->getBool("QuickSystemSelect") && config->isMappedLike("up", input)) || config->isMappedTo("pageup", input)) { int nc = moveCursorFast(false); mCarousel.moveSelectionBy(nc - currentCarouselCursor); return true; }
+            }
+            else
+            {
+                if (config->isMappedLike("up", input) || config->isMappedLike("l2", input)) { mCarousel.moveSelectionBy(-1); return true; }
+                if (config->isMappedLike("down", input) || config->isMappedLike("r2", input)) { mCarousel.moveSelectionBy(1); return true; }
+                if ((Settings::getInstance()->getBool("QuickSystemSelect") && config->isMappedLike("right", input)) || config->isMappedTo("pagedown", input)) { int nc = moveCursorFast(true); mCarousel.moveSelectionBy(nc - currentCarouselCursor); return true; }
+                if ((Settings::getInstance()->getBool("QuickSystemSelect") && config->isMappedLike("left", input)) || config->isMappedTo("pageup", input)) { int nc = moveCursorFast(false); mCarousel.moveSelectionBy(nc - currentCarouselCursor); return true; }
+            }
+        }
+        else
+        {
+            if (config->isMappedLike("left", input) || config->isMappedLike("right", input) || config->isMappedLike("up", input) || config->isMappedLike("down", input) || config->isMappedTo("pagedown", input) || config->isMappedTo("pageup", input) || config->isMappedLike("l2", input) || config->isMappedLike("r2", input))
+                mCarousel.moveSelectionBy(0);
+        }
+    }
 
-	if (mCarousel.input(config, input))
-		return true;
+    if (mCarousel.input(config, input))
+        return true;
 
-	if (input.value != 0)
-	{
-		bool netPlay = SystemData::isNetplayActivated() && SystemConf::getInstance()->getBool("global.netplay");
-		if (netPlay && config->isMappedTo("x", input))
-		{
-			showNetplay();
-			return true;
-		}
+    if (input.value != 0)
+    {
+        if (netPlayActiveForInput && config->isMappedTo("x", input))
+        {
+            showNetplay();
+            return true;
+        }
 
-		if (config->getDeviceId() == DEVICE_KEYBOARD && input.value && input.id == SDLK_r && SDL_GetModState() & KMOD_LCTRL && Settings::getInstance()->getBool("Debug"))
-		{
-			LOG(LogInfo) << " Reloading all";
-			ViewController::get()->reloadAll();
-			return true;
-		}
+        if (config->getDeviceId() == DEVICE_KEYBOARD && input.id == SDLK_r && (SDL_GetModState() & KMOD_LCTRL) && Settings::getInstance()->getBool("Debug"))
+        {
+            LOG(LogInfo) << " Reloading all";
+            if (ViewController::get() != nullptr)
+                ViewController::get()->reloadAll();
+            return true;
+        }
 
 #ifdef _ENABLE_FILEMANAGER_
-		if (UIModeController::getInstance()->isUIModeFull()) {
-			if (config->getDeviceId() == DEVICE_KEYBOARD && input.value && input.id == SDLK_F1)
-			{
-				ApiSystem::getInstance()->launchFileManager(mWindow);
-				return true;
-			}
-		}
+        if (UIModeController::getInstance() != nullptr && UIModeController::getInstance()->isUIModeFull()) {
+            if (config->getDeviceId() == DEVICE_KEYBOARD && input.id == SDLK_F1)
+            {
+                if (ApiSystem::getInstance() != nullptr && mWindow != nullptr)
+                    ApiSystem::getInstance()->launchFileManager(mWindow);
+                return true;
+            }
+        }
 #endif
 
-		if (config->isMappedTo(BUTTON_OK, input))
-		{
-			mCarousel.stopScrolling();
-			ViewController::get()->goToGameList(getSelected());
-			return true;
-		}
+        if (config->isMappedTo(BUTTON_OK, input))
+        {
+            mCarousel.stopScrolling();
+            SystemData* selectedSystem = getSelected();
+            if (selectedSystem != nullptr && ViewController::get() != nullptr) {
+                 ViewController::get()->goToGameList(selectedSystem);
+            }
+            return true;
+        }
 
-		if (config->isMappedTo(BUTTON_BACK, input))
-		{
-			if (showNavigationBar())
-				return true;
-		}
+        if (config->isMappedTo(BUTTON_BACK, input))
+        {
+            if (SystemData::IsManufacturerSupported && showNavigationBar())
+                return true;
+        }
 
-		if (config->isMappedTo("x", input))
-		{
-			mCarousel.setCursor(SystemData::getRandomSystem());
-			return true;
-		}
+        if (config->isMappedTo("select", input))
+        {
+            if (mWindow != nullptr)
+                GuiMenu::openQuitMenu_static(mWindow, true);
+            return true;
+        }
+    }
 
-		if (config->isMappedTo("select", input))
-		{
-			GuiMenu::openQuitMenu_static(mWindow, true);
-			return true;
-		}
-
-	}
-
-	return GuiComponent::input(config, input);
+    return GuiComponent::input(config, input);
 }
 
 bool SystemView::showNavigationBar()
@@ -869,7 +833,7 @@ void SystemView::onCursorChanged(const CursorState& state)
 void SystemView::render(const Transform4x4f& parentTrans)
 {
 	if (mEntries.size() == 0 || !mVisible)
-		return;  // nothing to render
+		return; 
 
 	Transform4x4f trans = getTransform() * parentTrans;
 
@@ -903,34 +867,64 @@ void SystemView::render(const Transform4x4f& parentTrans)
 
 std::vector<HelpPrompt> SystemView::getHelpPrompts()
 {
-	std::vector<HelpPrompt> prompts = mCarousel.getHelpPrompts();
+    // 1. Ottieni i prompt di base dal carosello (come dalla tua funzione originale)
+    // Assumendo che mCarousel sia un oggetto e abbia questo metodo.
+    std::vector<HelpPrompt> prompts = mCarousel.getHelpPrompts();
 
-	prompts.push_back(HelpPrompt(BUTTON_OK, _("SELECT"), [&] {ViewController::get()->goToGameList(getSelected()); }));
+    // 2. Aggiungi il tuo prompt esistente per BUTTON_OK (SELECT sul sistema)
+    // Assicurati che getSelected() sia un metodo di SystemView e restituisca SystemData*
+    // e che ViewController::get()->goToGameList(SystemData*) sia una chiamata valida.
+    prompts.push_back(HelpPrompt(BUTTON_OK, _("SELECT"), [this] {
+        SystemData* selectedSystem = getSelected();
+        if (selectedSystem != nullptr && ViewController::get() != nullptr) { // Usa ViewController::get()
+             ViewController::get()->goToGameList(selectedSystem);
+        }
+    }));
 
-	bool netPlay = SystemData::isNetplayActivated() && SystemConf::getInstance()->getBool("global.netplay");
+    bool netPlay = SystemData::isNetplayActivated() && SystemConf::getInstance()->getBool("global.netplay");
 
-	if (netPlay)
-	{
-		prompts.push_back(HelpPrompt("x", _("NETPLAY"), [&] { showNetplay(); }));
-		prompts.push_back(HelpPrompt("y", _("SEARCH") + std::string("/") + _("RANDOM"), [&] { showQuickSearch(); })); // QUICK 
-	}
-	else
-	{
-		prompts.push_back(HelpPrompt("x", _("RANDOM")));
-		if (SystemData::getSystem("all") != nullptr)
-			prompts.push_back(HelpPrompt("y", _("SEARCH"), [&] { showQuickSearch(); })); // QUICK 
-	}
+    // 3. Aggiungi i prompt contestuali per Netplay, Search, ecc. come nel tuo codice originale
+    if (netPlay)
+    {
+        // showNetplay() deve essere un metodo di SystemView o accessibile.
+        prompts.push_back(HelpPrompt("x", _("NETPLAY"), [this] { showNetplay(); }));
+        // showQuickSearch() deve essere un metodo di SystemView o accessibile.
+        prompts.push_back(HelpPrompt("y", _("SEARCH") + std::string("/") + _("RANDOM"), [this] { showQuickSearch(); }));
+    }
+    else
+    {
+        // "X" è libero quando Netplay è OFF. Lo useremo per "SHOPS ONLINE" più sotto.
+        if (SystemData::getSystem("all") != nullptr) {
+            // showQuickSearch() deve essere un metodo di SystemView o accessibile.
+            prompts.push_back(HelpPrompt("y", _("SEARCH"), [this] { showQuickSearch(); }));
+        }
+    }
 
-	if (SystemData::IsManufacturerSupported)
-		prompts.push_back(HelpPrompt("b", _("NAVIGATION BAR"), [&] { showNavigationBar(); }));
+    if (SystemData::IsManufacturerSupported) {
+        // showNavigationBar() deve essere un metodo di SystemView o accessibile.
+        prompts.push_back(HelpPrompt("b", _("NAVIGATION BAR"), [this] { showNavigationBar(); }));
+    }
 
 #ifdef _ENABLE_FILEMANAGER_
-	if (UIModeController::getInstance()->isUIModeFull()) {
-		prompts.push_back(HelpPrompt("F1", _("FILES")));
-	}
+    // Assumendo che UIModeController::getInstance() sia corretto e accessibile
+    if (UIModeController::getInstance() != nullptr && UIModeController::getInstance()->isUIModeFull()) {
+        prompts.push_back(HelpPrompt("F1", _("FILES"))); // L'azione per F1 è gestita in input()
+    }
 #endif
 
-	return prompts;
+    // ----- AGGIUNGI IL PROMPT "SHOPS ONLINE" QUI, ALLA FINE DELLA LISTA -----
+    //     Usiamo il pulsante "x" solo se Netplay è disattivato, per coerenza.
+    //     La lambda aprirà direttamente il nostro GuiNegoziOnlineMenu.
+    if (!netPlay) {
+        prompts.push_back(HelpPrompt("x", _("SHOPS ONLINE"), [this] { // Testo del prompt
+            if (mWindow != nullptr) { // Controllo di sicurezza
+                mWindow->pushGui(new GuiNegoziOnlineMenu(mWindow)); // Azione da eseguire
+            }
+        }));
+    }
+
+
+    return prompts;
 }
 
 HelpStyle SystemView::getHelpStyle()
