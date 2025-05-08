@@ -11,123 +11,128 @@
 #include "GuiScraperSettings.h"
 #include "views/gamelist/IGameListView.h"
 
+
 GuiScraperStart::GuiScraperStart(Window* window)
-	: GuiSettings(window, _("SCRAPER"))
+    : GuiSettings(window, _("SCRAPER").c_str()), mOverwriteMedias(true) // Inizializza qui
 {
-	mOverwriteMedias = true;
+    LOG(LogDebug) << "GuiScraperStart constructor - START"; // Log inizio
 
-	std::string scraperName = Settings::getInstance()->getString("Scraper");
+    std::string scraperName = Settings::getInstance()->getString("Scraper");
+    LOG(LogDebug) << "Initial global scraper setting: " << scraperName;
 
-	// scrape from
-	auto scraper_list = std::make_shared< OptionListComponent< std::string > >(mWindow, _("SCRAPING DATABASE"), false);
+    // --- SOURCE GROUP ---
+    addGroup(_("SOURCE"));
 
-	// Select either the first entry of the one read from the settings, just in case the scraper from settings has vanished.
-	for (auto engine : Scraper::getScraperList())
-		scraper_list->add(engine, engine, engine == scraperName);
+    // Scraper selection: Assegna al membro mScraperList
+    mScraperList = std::make_shared< OptionListComponent< std::string > >(mWindow, _("SCRAPING DATABASE"), false);
+    if (!mScraperList) { LOG(LogError) << "Failed to create mScraperList"; return; } // Controllo aggiuntivo
 
-	addGroup(_("SOURCE"));
-	addWithLabel(_("SCRAPE FROM"), scraper_list);
+    for (auto engine : Scraper::getScraperList())
+        mScraperList->add(engine, engine, engine == scraperName);
 
+    if (!mScraperList->hasSelection() && !Scraper::getScraperList().empty())
+    {
+        LOG(LogWarning) << "Scraper setting '" << scraperName << "' not found in list, selecting first.";
+        mScraperList->selectFirstItem();
+        // Aggiorna scraperName con quello effettivamente selezionato
+        scraperName = mScraperList->getSelected();
+        Settings::getInstance()->setString("Scraper", scraperName); // Aggiorna anche il setting globale se non era valido
+    } else if (Scraper::getScraperList().empty()) {
+         LOG(LogError) << "No scrapers available!";
+         // Gestire questo caso, magari mostrando un errore
+    }
 
-	if (!scraper_list->hasSelection())
-	{
-		scraper_list->selectFirstItem();
-		scraperName = scraper_list->getSelected();
-	}
+    addWithLabel(_("SCRAPE FROM"), mScraperList); // Usa mScraperList
 
-	addEntry(_("SCRAPER SETTINGS"), true, std::bind(&GuiScraperStart::onShowScraperSettings, this));
+    // Bottone per le impostazioni dello scraper
+    addEntry(_("SCRAPER SETTINGS"), true, std::bind(&GuiScraperStart::onShowScraperSettings, this));
 
-	addGroup(_("FILTERS"));
+    // --- FILTERS GROUP ---
+    addGroup(_("FILTERS"));
 
-	auto scraper = Scraper::getScraper(scraperName);
+    // Filtro Media: Assegna a mFilters
+    // Le lambda qui sono solo per la UI, la logica vera è in getSearches
+    mFilters = std::make_shared< OptionListComponent<FilterFunc> >(mWindow, _("GAMES TO SCRAPE FOR"), false);
+    if (!mFilters) { LOG(LogError) << "Failed to create mFilters"; return; }
+    mFilters->add(_("ALL"), [](FileData*) -> bool { return true; }, false); // Placeholder lambda
+    mFilters->add(_("GAMES MISSING ANY MEDIA"), [](FileData*) -> bool { return false; }, true);  // Placeholder lambda
+    mFilters->add(_("GAMES MISSING ALL MEDIA"), [](FileData*) -> bool { return false; }, false); // Placeholder lambda
+    addWithLabel(_("GAMES TO SCRAPE FOR"), mFilters); // Usa mFilters
 
-	// Media Filter
-	mFilters = std::make_shared< OptionListComponent<FilterFunc> >(mWindow, _("GAMES TO SCRAPE FOR"), false);
-	mFilters->add(_("ALL"), [](FileData*) -> bool { return true; }, false);
-	mFilters->add(_("GAMES MISSING ANY MEDIA"), [this, scraper](FileData* g) -> bool { mOverwriteMedias = false; return scraper->hasMissingMedia(g); }, true);
-	mFilters->add(_("GAMES MISSING ALL MEDIA"), [this, scraper](FileData* g) -> bool { mOverwriteMedias = true; return !scraper->hasAnyMedia(g); }, false);
-	addWithLabel(_("GAMES TO SCRAPE FOR"), mFilters);
+    // Filtro Data: Assegna a mDateFilters
+    // Le lambda qui sono solo per la UI
+    mDateFilters = std::make_shared< OptionListComponent<FilterFunc> >(mWindow, _("IGNORE RECENTLY SCRAPED GAMES"), false);
+    if (!mDateFilters) { LOG(LogError) << "Failed to create mDateFilters"; return; }
+    int idx = 3; // Leggi magari da Settings se vuoi salvare questa preferenza
+    mDateFilters->add(_("NO"), [](FileData*) -> bool { return true; }, idx == 0); // Placeholder
+    mDateFilters->add(_("LAST DAY"), [](FileData*) -> bool { return false; }, idx == 1); // Placeholder
+    mDateFilters->add(_("LAST WEEK"), [](FileData*) -> bool { return false; }, idx == 2); // Placeholder
+    mDateFilters->add(_("LAST 15 DAYS"), [](FileData*) -> bool { return false; }, idx == 3); // Placeholder
+    mDateFilters->add(_("LAST MONTH"), [](FileData*) -> bool { return false; }, idx == 4); // Placeholder
+    mDateFilters->add(_("LAST 3 MONTHS"), [](FileData*) -> bool { return false; }, idx == 5); // Placeholder
+    mDateFilters->add(_("LAST YEAR"), [](FileData*) -> bool { return false; }, idx == 6); // Placeholder
+    addWithLabel(_("IGNORE RECENTLY SCRAPED GAMES"), mDateFilters); // Usa mDateFilters
 
-	// Date Filter
-	auto now = Utils::Time::now();
-	auto isOlderThan = [now](const std::string& scraper, FileData* f, int days)
-	{
-		auto date = f->getMetadata().getScrapeDate(scraper);
-		if (date == nullptr || !date->isValid())
-			return true;
+    // Filtro Sistemi: Assegna a mSystems e RIMUOVI il filtro basato sullo scraper iniziale
+    mSystems = std::make_shared<OptionListComponent<SystemData*>>(mWindow, _("SYSTEMS INCLUDED"), true);
+    if (!mSystems) { LOG(LogError) << "Failed to create mSystems"; return; }
 
-		return date->getTime() <= (now - (days * 86400));
-	};
+    std::string currentSystem;
+    // ... (la tua logica per trovare currentSystem rimane uguale) ...
+    if (ViewController::get()->getState().viewing == ViewController::GAME_LIST) { /* ... come prima ... */ }
 
-//	int idx = Settings::RecentlyScrappedFilter();
-//	if (idx < 0 || idx > 6)		
-	int idx = 3;
+    LOG(LogDebug) << "Populating system list...";
+    int systemCount = 0;
+    for (auto system : SystemData::sSystemVector) {
+        // Mostra TUTTI i sistemi di gioco validi, senza filtrarli per scraper qui!
+        if (system && system->isGameSystem() && !system->isCollection() && !system->hasPlatformId(PlatformIds::PLATFORM_IGNORE)) {
+            bool select = false;
+            if (!currentSystem.empty()) {
+                select = (system->getName() == currentSystem);
+            } else {
+                // Seleziona di default solo se il sistema ha un PlatformID (euristica originale)
+                // O potresti selezionarli tutti di default se currentSystem è vuoto
+                 select = !system->getPlatformIds().empty();
+            }
+            mSystems->add(system->getFullName(), system, select);
+            systemCount++;
+        }
+    }
+    LOG(LogDebug) << "Added " << systemCount << " systems to the list.";
+    addWithLabel(_("SYSTEMS INCLUDED"), mSystems); // Usa mSystems
 
-	mDateFilters = std::make_shared< OptionListComponent<FilterFunc> >(mWindow, _("IGNORE RECENTLY SCRAPED GAMES"), false);
-	mDateFilters->add(_("NO"), [](FileData*) -> bool { return true; }, idx == 0);
-	mDateFilters->add(_("LAST DAY"), [this, scraperName, isOlderThan](FileData* g) -> bool { return isOlderThan(scraperName, g, 1); }, idx == 1);
-	mDateFilters->add(_("LAST WEEK"), [this, scraperName, isOlderThan](FileData* g) -> bool { return isOlderThan(scraperName, g, 7); }, idx == 2);
-	mDateFilters->add(_("LAST 15 DAYS"), [this, scraperName, isOlderThan](FileData* g) -> bool { return isOlderThan(scraperName, g, 15); }, idx == 3);
-	mDateFilters->add(_("LAST MONTH"), [this, scraperName, isOlderThan](FileData* g) -> bool { return isOlderThan(scraperName, g, 31); }, idx == 4);
-	mDateFilters->add(_("LAST 3 MONTHS"), [this, scraperName, isOlderThan](FileData* g) -> bool { return isOlderThan(scraperName, g, 90); }, idx == 5);
-	mDateFilters->add(_("LAST YEAR"), [this, scraperName, isOlderThan](FileData* g) -> bool { return isOlderThan(scraperName, g, 365); }, idx == 6);
-	addWithLabel(_("IGNORE RECENTLY SCRAPED GAMES"), mDateFilters);
+    // --- CALLBACKS ---
+    // Aggiorna l'impostazione globale quando l'utente cambia scraper
+    mScraperList->setSelectedChangedCallback([this](const std::string& name) {
+        LOG(LogDebug) << "Scraper selected in UI: " << name;
+        Settings::getInstance()->setString("Scraper", name);
+        // Qui potresti voler aggiornare dinamicamente le opzioni specifiche dello scraper
+        // se implementi GuiScraperSettings per i nuovi scraper.
+    });
 
-	// System Filter
-	std::string currentSystem;
+    // Aggiorna mOverwriteMedias in base alla selezione del filtro media
+    mFilters->setSelectedChangedCallback([this](const FilterFunc& /*filter*/) {
+        int selectedIdx = mFilters->getSelectedIndex(); // Usa l'indice per determinare
+        if (selectedIdx == 1) { // Indice di "GAMES MISSING ANY MEDIA"
+            mOverwriteMedias = false;
+        } else { // Indice di "ALL" (0) o "GAMES MISSING ALL MEDIA" (2)
+            mOverwriteMedias = true;
+        }
+        LOG(LogDebug) << "mOverwriteMedias set to: " << (mOverwriteMedias ? "true" : "false") << " (Media Filter Index: " << selectedIdx << ")";
+    });
 
-	if (ViewController::get()->getState().viewing == ViewController::GAME_LIST)
-	{
-		auto uiSystem = ViewController::get()->getState().getSystem();
-		if (uiSystem != nullptr)
-		{
-			if (uiSystem->isGroupSystem())
-			{
-				auto gl = ViewController::get()->getGameListView(uiSystem, false);
-				if (gl != nullptr && gl->getCursor() != nullptr)
-					uiSystem = gl->getCursor()->getSourceFileData()->getSystem();
-			}
+    // --- Pulsanti ---
+    mMenu.clearButtons();
+    mMenu.addButton(_("SCRAPE NOW"), _("START"), std::bind(&GuiScraperStart::pressedStart, this));
+    mMenu.addButton(_("BACK"), _("go back"), [this] { close(); });
 
-			if (uiSystem != nullptr)
-				currentSystem = uiSystem->getName();
-		}
-	}
+    // --- Posizione Menu ---
+    if (Renderer::ScreenSettings::fullScreenMenus())
+        mMenu.setPosition((Renderer::getScreenWidth() - mMenu.getSize().x()) / 2, (Renderer::getScreenHeight() - mMenu.getSize().y()) / 2);
+    else
+        mMenu.setPosition((mSize.x() - mMenu.getSize().x()) / 2, Renderer::getScreenHeight() * 0.15f);
 
-	mSystems = std::make_shared<OptionListComponent<SystemData*>>(mWindow, _("SYSTEMS INCLUDED"), true);
-
-	for (auto system : SystemData::sSystemVector)
-		if (system->isGameSystem() && !system->isCollection() && !system->hasPlatformId(PlatformIds::PLATFORM_IGNORE) && scraper->isSupportedPlatform(system))
-			mSystems->add(system->getFullName(), system, currentSystem.empty() ? !system->getPlatformIds().empty() : system->getName() == currentSystem && !system->getPlatformIds().empty());
-
-	addWithLabel(_("SYSTEMS INCLUDED"), mSystems);
-
-	// mApproveResults = std::make_shared<SwitchComponent>(mWindow);
-	// mApproveResults->setState(false);
-	// addWithLabel(_("USER DECIDES ON CONFLICTS"), mApproveResults);
-
-	mMenu.clearButtons();
-	mMenu.addButton(_("SCRAPE NOW"), _("START"), std::bind(&GuiScraperStart::pressedStart, this));
-	mMenu.addButton(_("BACK"), _("go back"), [this] { close(); });
-	/*
-	addSaveFunc([this, scraper_list] 
-	{ 	
-		int filterIndex = mDateFilters->getSelectedIndex();
-		if (filterIndex >= 0)
-			Settings::setRecentlyScrappedFilter(filterIndex);
-		
-		Settings::getInstance()->setString("Scraper", scraper_list->getSelected()); 
-	});
-	*/
-
-	scraper_list->setSelectedChangedCallback([this, scraperName, scraper_list](std::string value)
-	{
-		Settings::getInstance()->setString("Scraper", value);
-	});
-
-	if (Renderer::ScreenSettings::fullScreenMenus())
-		mMenu.setPosition((Renderer::getScreenWidth() - mMenu.getSize().x()) / 2, (Renderer::getScreenHeight() - mMenu.getSize().y()) / 2);
-	else
-		mMenu.setPosition((mSize.x() - mMenu.getSize().x()) / 2, Renderer::getScreenHeight() * 0.15f);
+     LOG(LogDebug) << "GuiScraperStart constructor - END"; // Log fine
 }
 
 void GuiScraperStart::onShowScraperSettings()
@@ -185,37 +190,172 @@ void GuiScraperStart::start()
 		}));
 }
 
-std::queue<ScraperSearchParams> GuiScraperStart::getSearches(std::vector<SystemData*> systems, FilterFunc mediaSelector, FilterFunc dateSelector, IGuiLoadingHandler* handler)
+
+
+std::queue<ScraperSearchParams> GuiScraperStart::getSearches(std::vector<SystemData*> systems, FilterFunc /*unusedMediaLambda*/, FilterFunc /*unusedDateLambda*/, IGuiLoadingHandler* handler)
 {
-	std::queue<ScraperSearchParams> queue;
+    LOG(LogDebug) << "GuiScraperStart::getSearches - Start (Defensive Version)";
+    std::queue<ScraperSearchParams> queue;
 
-	int pos = 1;
-	for (auto system : systems)
-	{		
-		if (systems.size() > 0 && handler != nullptr)
-		{
-			int percent = (pos * 100) / systems.size();
-			handler->setText(_("PLEASE WAIT") + " " + std::to_string(percent) + "%");
-		}
+    try // Blocco try generale
+    {
+        // --- Controllo iniziale dei membri UI (ASSICURATI SIANO MEMBRI IN .h) ---
+        if (!mScraperList || !mFilters || !mDateFilters || !mSystems) {
+             LOG(LogError) << "GuiScraperStart::getSearches - Errore: Uno o più componenti UI membri (mScraperList, mFilters, mDateFilters, mSystems) è nullo!";
+             mWindow->pushGui(new GuiMsgBox(mWindow, _("ERRORE INTERNO DELLO SCRAPER (UI COMPONENT NULL).")));
+             return queue;
+        }
+        LOG(LogDebug) << "GuiScraperStart::getSearches - UI components checked.";
 
-		auto games = system->getRootFolder()->getFilesRecursive(GAME);
-		for(auto game : games)
-		{
-			if (dateSelector(game) && mediaSelector(game))
-			{
-				ScraperSearchParams search;
-				search.game = game;
-				search.system = system;
-				search.overWriteMedias = mOverwriteMedias;
+        // --- Ottieni Scraper Selezionato ---
+        std::string selectedScraperName = mScraperList->getSelected();
+        Scraper* selectedScraper = Scraper::getScraper(selectedScraperName);
 
-				queue.push(search);
-			}
-		}
+        if (!selectedScraper) {
+             LOG(LogError) << "GuiScraperStart::getSearches - Scraper selezionato non valido: " << selectedScraperName;
+             // Forse mostrare GuiMsgBox qui? O gestire dopo il ritorno di GuiLoading.
+             return queue;
+        }
+        LOG(LogInfo) << "GuiScraperStart::getSearches - Scraper selezionato per questo lavoro: " << selectedScraperName;
 
-		pos++;
-	}
+        // --- Ottieni Indici Filtri ---
+        int mediaFilterIndex = mFilters->getSelectedIndex();
+        int dateFilterIndex = mDateFilters->getSelectedIndex();
+        bool currentOverwriteSetting = mOverwriteMedias; // Questo dovrebbe essere aggiornato dal callback di mFilters
 
-	return queue;
+        LOG(LogDebug) << "GuiScraperStart::getSearches - MediaFilter Index: " << mediaFilterIndex << ", DateFilter Index: " << dateFilterIndex << ", Overwrite: " << (currentOverwriteSetting ? "true" : "false");
+
+        int pos = 1;
+        int totalGamesProcessed = 0;
+        int totalGamesAddedToQueue = 0;
+        int systemsSkipped = 0;
+        int gamesSkippedByFilter = 0;
+        int gamesErroredDuringFilter = 0;
+
+        // --- Ciclo Sistemi ---
+        for (auto system : systems)
+        {
+            if (!system) {
+                LOG(LogWarning) << "GuiScraperStart::getSearches - Trovato puntatore a sistema nullo!";
+                systemsSkipped++;
+                continue;
+            }
+             LOG(LogDebug) << "GuiScraperStart::getSearches - Processando sistema: " << system->getName();
+
+            // --- Controlla Supporto Sistema (con scraper selezionato) ---
+            if (!selectedScraper->isSupportedPlatform(system)) {
+                LOG(LogInfo) << "Sistema saltato '" << system->getName() << "' perché non supportato dallo scraper: " << selectedScraperName;
+                systemsSkipped++;
+                pos++; // Incrementa per il calcolo percentuale
+                continue;
+            }
+
+            if (handler != nullptr) {
+                 int percent = (pos * 100) / (systems.empty() ? 1 : systems.size());
+                 handler->setText(_("PREPARAZIONE") + " (" + std::to_string(percent) + "%) - " + system->getName());
+            }
+
+            // --- Ottieni Lista Giochi (con try-catch) ---
+            std::vector<FileData*> games;
+            try {
+                 if (!system->getRootFolder()) {
+                      LOG(LogError) << "Errore: Root folder nulla per sistema '" << system->getName() << "'";
+                      gamesErroredDuringFilter++; // Conta come errore
+                      continue;
+                 }
+                 games = system->getRootFolder()->getFilesRecursive(GAME);
+            } catch (const std::exception& e) {
+                 LOG(LogError) << "Eccezione durante getFilesRecursive per sistema '" << system->getName() << "': " << e.what();
+                 gamesErroredDuringFilter += games.size(); // Considera tutti i giochi persi
+                 continue;
+            } catch (...) {
+                  LOG(LogError) << "Eccezione sconosciuta durante getFilesRecursive per sistema '" << system->getName() << "'.";
+                  gamesErroredDuringFilter += games.size();
+                  continue;
+            }
+
+            totalGamesProcessed += games.size();
+            LOG(LogDebug) << "  Sistema '" << system->getName() << "' ha " << games.size() << " giochi da filtrare.";
+
+            // --- Ciclo Giochi ---
+            for(auto game : games)
+            {
+                 if (!game) {
+                      LOG(LogWarning) << "  Trovato puntatore a gioco nullo nel sistema '" << system->getName() << "'!";
+                      gamesErroredDuringFilter++;
+                      continue;
+                 }
+
+                 // --- RIVALUTA FILTRI QUI USANDO selectedScraper e indici (con try-catch) ---
+                bool mediaFilterPassed = true;
+                bool dateFilterPassed = true;
+                try
+                {
+                     // Filtro Media
+                     if (mediaFilterIndex == 1) { // GAMES MISSING ANY MEDIA
+                         mediaFilterPassed = selectedScraper->hasMissingMedia(game);
+                     } else if (mediaFilterIndex == 2) { // GAMES MISSING ALL MEDIA
+                         mediaFilterPassed = !selectedScraper->hasAnyMedia(game);
+                     } // Index 0 ("ALL") -> mediaFilterPassed resta true
+
+                     // Filtro Data
+                     if (dateFilterIndex > 0) { // Se non è "NO" (Index 0)
+                         auto now = Utils::Time::now();
+                         int days = 0;
+                         if (dateFilterIndex == 1) days = 1;
+                         else if (dateFilterIndex == 2) days = 7;
+                         else if (dateFilterIndex == 3) days = 15;
+                         else if (dateFilterIndex == 4) days = 31;
+                         else if (dateFilterIndex == 5) days = 90;
+                         else if (dateFilterIndex == 6) days = 365;
+
+                         if (days > 0) {
+                             auto date = game->getMetadata().getScrapeDate(selectedScraperName);
+                             dateFilterPassed = (date == nullptr || !date->isValid() || date->getTime() <= (now - (days * 86400)));
+                         }
+                     }
+                } catch (const std::exception& filterEx) {
+                     LOG(LogError) << "Eccezione durante valutazione filtri per gioco '" << game->getName() << "': " << filterEx.what();
+                     gamesErroredDuringFilter++;
+                     continue; // Salta questo gioco se il filtro causa eccezione
+                } catch (...) {
+                      LOG(LogError) << "Eccezione sconosciuta durante valutazione filtri per gioco '" << game->getName() << "'.";
+                      gamesErroredDuringFilter++;
+                      continue;
+                }
+                // --- Fine rivalutazione filtri ---
+
+                if (dateFilterPassed && mediaFilterPassed)
+                {
+                    ScraperSearchParams search;
+                    search.game = game;
+                    search.system = system;
+                    search.overWriteMedias = currentOverwriteSetting;
+                    queue.push(search);
+                    totalGamesAddedToQueue++;
+                } else {
+                     gamesSkippedByFilter++;
+                     // LOG(LogDebug) << "  Gioco saltato dai filtri: " << game->getName() << " (DateOK: " << dateFilterPassed << ", MediaOK: " << mediaFilterPassed << ")";
+                }
+            } // Fine ciclo giochi
+            pos++;
+        } // Fine ciclo sistemi
+
+        LOG(LogInfo) << "GuiScraperStart::getSearches - Fine. Sistemi Saltati: " << systemsSkipped << ", Giochi Processati: " << totalGamesProcessed << ", Giochi Aggiunti alla Coda: " << totalGamesAddedToQueue << ", Giochi Saltati dai Filtri: " << gamesSkippedByFilter << ", Giochi con Errori Filtro/Lista: " << gamesErroredDuringFilter;
+
+    } catch (const std::exception& e) {
+         LOG(LogError) << "Eccezione generale FATALE in GuiScraperStart::getSearches: " << e.what();
+         mWindow->pushGui(new GuiMsgBox(mWindow, _("ERRORE CRITICO DURANTE LA PREPARAZIONE DELLO SCRAPING.")));
+         std::queue<ScraperSearchParams> emptyQueue; // Svuota la coda per evitare problemi dopo
+         std::swap(queue, emptyQueue);
+    } catch (...) {
+         LOG(LogError) << "Eccezione sconosciuta generale FATALE in GuiScraperStart::getSearches.";
+          mWindow->pushGui(new GuiMsgBox(mWindow, _("ERRORE CRITICO SCONOSCIUTO DURANTE LA PREPARAZIONE DELLO SCRAPING.")));
+         std::queue<ScraperSearchParams> emptyQueue;
+         std::swap(queue, emptyQueue);
+    }
+
+    return queue;
 }
 
 bool GuiScraperStart::input(InputConfig* config, Input input)

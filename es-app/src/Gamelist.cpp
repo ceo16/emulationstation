@@ -60,7 +60,7 @@ FileData* findOrCreateFile(SystemData* system, const std::string& path, FileType
         else { LOG(LogError) << "findOrCreateFile: Could not get root folder for system " << system->getName() << " while adding virtual game (Epic)."; }
         return virtualItem;
     }
-    else if (Utils::String::startsWith(path, "steam://")) // <<< NUOVA SEZIONE PER STEAM
+    else if (Utils::String::startsWith(path, "steam:/")) // <<< NUOVA SEZIONE PER STEAM
     {
         FolderData* rootCheck = system->getRootFolder(); // Il 'system' dovrebbe essere "steam"
         if (rootCheck != nullptr)
@@ -350,7 +350,7 @@ std::vector<FileData*> loadGamelistFile(const std::string xmlpath, SystemData* s
 			{
 				// Non trovato nella mappa locale, controlliamo esistenza e validità
 				LOG(LogDebug) << "  Path NOT found in fileMap. Checking virtual/existence/type...";
-				bool isVirtualPath = Utils::String::startsWith(path, "epic:/"); // Specifico per Epic
+				bool isVirtualPath = Utils::String::startsWith(path, "epic:/") || Utils::String::startsWith(path, "steam:"); // O "steam://" se usi quello // Specifico per Epic
 				bool pathExists = !isVirtualPath && Utils::FileSystem::exists(path);
 				bool isDirectory = pathExists && Utils::FileSystem::isDirectory(path);
 				bool isFile = pathExists && !isDirectory; // Assumiamo sia un file se esiste e non è directory

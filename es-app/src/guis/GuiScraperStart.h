@@ -36,6 +36,9 @@ private:
 	std::shared_ptr<OptionListComponent<FilterFunc>> mDateFilters;
 	std::shared_ptr<OptionListComponent<FilterFunc>> mFilters;
 	std::shared_ptr<OptionListComponent<SystemData*>> mSystems;
+	 std::shared_ptr< OptionListComponent<std::string> > mScraperList;
+    std::shared_ptr<SwitchComponent> mApproveResults; // Se usi anche questo
+
 
 	bool mOverwriteMedias;
 };

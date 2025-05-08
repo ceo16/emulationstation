@@ -1304,10 +1304,17 @@ void SystemData::loadAdditionnalConfig(pugi::xml_node& srcSystems)
  
   // Create SystemEnvironmentData (THIS IS CRITICAL - FIND CORRECT PATHS!)
   SystemEnvironmentData* envData_steam = new SystemEnvironmentData();
-  envData_steam->mStartPath = "";  // DETERMINE STEAM ROMS PATH
-  envData_steam->mSearchExtensions = {".url"};  // Or whatever is appropriate
-  envData_steam->mPlatformIds = {PlatformIds::PC};
-  envData_steam->mLaunchCommand = "";  // Set a default if needed
+ std::string exePath = Paths::getExePath(); // Usa lo stesso metodo
+ std::string exeDir = Utils::FileSystem::getParent(exePath);
+ std::string steamRomPath = Utils::FileSystem::getGenericPath(exeDir + "/roms/steam"); // Specifica per Steam
+ LOG(LogInfo) << "Dynamic Steam System: Setting StartPath to: " << steamRomPath;
+
+ envData_steam->mStartPath = steamRomPath; // <<< IMPOSTA QUESTO PERCORSO!
+ // --- FINE CORREZIONE ---
+
+ envData_steam->mSearchExtensions = {}; // Probabilmente vuoto
+ envData_steam->mPlatformIds = {PlatformIds::PC};
+ envData_steam->mLaunchCommand = "";
  
   // Create Emulators vector (empty for now)
   std::vector<EmulatorData> steamEmulators;
