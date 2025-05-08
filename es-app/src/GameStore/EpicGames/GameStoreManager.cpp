@@ -18,11 +18,11 @@ GameStoreManager* GameStoreManager::get() {
 
 GameStoreManager::GameStoreManager(std::function<void(const std::string&)> setStateCallback) : setStateCallback(setStateCallback) {
     LOG(LogDebug) << "GameStoreManager: Constructor (with callback)";
-  LOG(LogDebug) << "GameStoreManager: Attempting to register SteamStore.";
-SteamAuth* steamAuthInstance = new SteamAuth();
-SteamStore* steamStoreInstance = new SteamStore(steamAuthInstance);
-registerStore(steamStoreInstance);
-LOG(LogInfo) << "GameStoreManager: SteamStore registered successfully.";
+ LOG(LogDebug) << "GameStoreManager: Attempting to register SteamStore.";
+    SteamAuth* steamAuthInstance = new SteamAuth();
+    SteamStore* steamStoreInstance = new SteamStore(steamAuthInstance);
+    registerStore(steamStoreInstance); // Solo registra
+    LOG(LogInfo) << "GameStoreManager: SteamStore registered successfully.";
 }
 
 GameStoreManager::~GameStoreManager() {
@@ -33,6 +33,7 @@ GameStoreManager::~GameStoreManager() {
     }
     mStores.clear();
 }
+
 
 void GameStoreManager::registerStore(GameStore* store) { // Back to raw pointer
     LOG(LogDebug) << "GameStoreManager: Registering store " << store->getStoreName();
@@ -84,8 +85,12 @@ void GameStoreManager::showIndividualStoreUI(Window* window) {
 
 void GameStoreManager::initAllStores(Window* window) {
   LOG(LogDebug) << "GameStoreManager: Initializing all stores";
+  // Questo ciclo scorre TUTTI gli store registrati in mStores
+  // 'pair.first' è probabilmente il nome dello store (es. "SteamStore")
+  // 'pair.second' è il puntatore all'oggetto GameStore* (es. SteamStore*)
   for (auto& pair : mStores) {
-   if (pair.second) {
+   if (pair.second) { // Controlla che il puntatore sia valido
+     // Chiama il metodo init() sull'oggetto store (SteamStore, EpicGamesStore, ecc.)
     if (!pair.second->init(window)) {
      LOG(LogError) << "GameStoreManager: Failed to initialize store " << pair.first;
     }

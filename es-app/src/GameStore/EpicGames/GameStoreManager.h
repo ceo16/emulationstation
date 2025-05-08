@@ -23,6 +23,7 @@ public:
     void showIndividualStoreUI(Window* window);
     void initAllStores(Window* window);
     void shutdownAllStores();
+	
 
     void setSetStateCallback(std::function<void(const std::string&)> setStateCallback);
 

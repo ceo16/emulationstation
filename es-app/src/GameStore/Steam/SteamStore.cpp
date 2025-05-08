@@ -292,14 +292,45 @@ std::vector<FileData*> SteamStore::getGamesList() {
     // Cattura 'this' per accedere ai membri e metodi della classe
     return std::async(std::launch::async, [this]() {
         LOG(LogInfo) << "Steam Store Refresh BG: Starting...";
+         LOG(LogInfo) << "Steam Store Refresh BG: Starting...";
         auto startTime = std::chrono::high_resolution_clock::now();
 
-        if (!this->_initialized || !this->mAPI) { // Accedi a _initialized (protetto) o mAPI
-            LOG(LogError) << "Steam Store Refresh BG: Store not initialized or API unavailable.";
-            return;
+        // <<< AGGIUNGI QUESTO BLOCCO DI LOG DETTAGLIATO >>>
+        LOG(LogDebug) << "Steam Store Refresh BG: Checking pointers RIGHT BEFORE THE IF condition:";
+        LOG(LogDebug) << "  - this pointer: " << this;
+        if (this) { // Controlla se 'this' è valido prima di dereferenziarlo
+             LOG(LogDebug) << "  - this->_initialized: " << this->_initialized;
+             LOG(LogDebug) << "  - this->mAuth pointer: " << this->mAuth;
+             LOG(LogDebug) << "  - this->mAPI pointer: " << this->mAPI;
+             if (this->mAuth) {
+                 LOG(LogDebug) << "  - this->mAuth->isAuthenticated() inside BG: " << this->mAuth->isAuthenticated();
+             } else {
+                 LOG(LogDebug) << "  - this->mAuth is NULL, cannot check isAuthenticated().";
+             }
+        } else {
+             LOG(LogDebug) << "  - 'this' pointer is NULL!";
         }
+        // <<< FINE BLOCCO DI LOG DETTAGLIATO >>>
 
-        SystemData* steamSystem = SystemData::getSystem(this->getStoreName());
+        // Il controllo che genera l'errore (aggiungendo '!this' per sicurezza)
+        if (!this || !this->_initialized || !this->mAuth || !this->mAPI) {
+            LOG(LogError) << "Steam Store Refresh BG: Precondition failed: Store not initialized, Auth unavailable, or API unavailable.";
+            // Log specifici per capire quale condizione ha fallito
+            if (!this) LOG(LogError) << " - Reason: 'this' pointer is NULL!";
+            else if (!this->_initialized) LOG(LogError) << " - Reason: _initialized is false";
+            else if (!this->mAuth) LOG(LogError) << " - Reason: mAuth is NULL";
+            else if (!this->mAPI) LOG(LogError) << " - Reason: mAPI is NULL";
+            return;
+        
+        }
+		   // Ricontrollo stato autenticazione (dalla proposta precedente, mantenerlo non fa male)
+        if (!this->mAuth->isAuthenticated()) {
+             LOG(LogError) << "Steam Store Refresh BG: Stato autenticazione e' FALSE dentro il task BG! Annullamento.";
+             return;
+        }
+        LOG(LogInfo) << "Steam Store Refresh BG: Stato autenticazione verificato come TRUE dentro il task BG.";
+        LOG(LogInfo) << "Steam Store Refresh BG: Stato autenticazione verificato come TRUE dentro il task BG.";
+         SystemData* steamSystem = SystemData::getSystem("steam");
         if (!steamSystem || !steamSystem->getRootFolder()) {
             LOG(LogError) << "Steam Store Refresh BG: Cannot find Steam system or its root folder (" << this->getStoreName() << ").";
             return;
