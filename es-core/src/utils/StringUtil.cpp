@@ -481,7 +481,15 @@ namespace Utils
 			return result;
 		}
 		
-
+bool isNumber(const std::string& str) {
+            if (str.empty()) return false;
+            for (char c : str) {
+                if (!std::isdigit(static_cast<unsigned char>(c))) { // Cast to unsigned char
+                    return false;
+                }
+            }
+            return true;
+        }
 
 		std::string toUpper(const std::string& _string) 
 		{

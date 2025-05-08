@@ -16,6 +16,7 @@
 #include "HfsDBScraper.h"
 #include "utils/Uri.h"
 #include "scrapers/EpicGamesScraper.h" 
+#include "scrapers/SteamScraper.h"
 
 #define OVERQUOTA_RETRY_DELAY 15000
 #define OVERQUOTA_RETRY_COUNT 5
@@ -35,7 +36,8 @@ std::vector<std::pair<std::string, Scraper*>> Scraper::scrapers
 #endif
 
 	{ "ArcadeDB", new ArcadeDBScraper() },
-	{ "EPIC GAMES STORE", new EpicGamesScraper() }
+	{ "EPIC GAMES STORE", new EpicGamesScraper() },
+	{ "STEAM", new SteamScraper() }
 };
 
 std::string Scraper::getScraperName(Scraper* scraper)

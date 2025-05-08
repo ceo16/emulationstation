@@ -100,7 +100,7 @@ public:
 	inline bool hasPlatformId(PlatformIds::PlatformId id) { if (!mEnvData) return false; return std::find(mEnvData->mPlatformIds.cbegin(), mEnvData->mPlatformIds.cend(), id) != mEnvData->mPlatformIds.cend(); }
 	inline const SystemMetadata& getSystemMetadata() const { return mMetadata; }
 	 void populateEpicGamesVirtual(EpicGamesStoreAPI* epicApi, const std::map<std::string, std::string>& existingNames); // << ASSICURATI CHE SIA COSI'
-
+void populateSteamVirtual(SystemData* system); // Add this line!
 
 	inline const std::shared_ptr<ThemeData>& getTheme() const { return mTheme; }
 

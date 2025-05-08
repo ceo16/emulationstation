@@ -38,6 +38,12 @@ public:
 	GuiMsgBox(Window* window, const std::string& text,
 		const std::string& name1 = "OK", const std::function<void()>& func1 = nullptr,
 		GuiMsgBoxIcon icon = ICON_AUTOMATIC);
+	GuiMsgBox(Window* window, const std::string& text, const std::string& title,
+    const std::string& name1, const std::function<void()>& func1,
+    const std::string& name2, const std::function<void()>& func2,
+    const std::string& name3, const std::function<void()>& func3,
+    const std::string& name4, const std::function<void()>& func4,
+    GuiMsgBoxIcon icon = ICON_AUTOMATIC);
 
 	bool input(InputConfig* config, Input input) override;
 	void onSizeChanged() override;

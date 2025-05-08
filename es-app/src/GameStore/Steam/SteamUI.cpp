@@ -22,17 +22,23 @@ SteamUI::SteamUI()
 void SteamUI::reloadSettingsMenu(Window* window, SteamStore* store, GuiComponent* currentMenu)
 {
     LOG(LogDebug) << "SteamUI: reloadSettingsMenu - Inizio. CurrentMenu: " << currentMenu;
-    if (currentMenu) {
-        // È cruciale che currentMenu (che è GuiSettings*) sia cancellato correttamente.
-        // 'delete' è spesso corretto per GUI create con 'new' e passate come puntatori grezzi,
-        // assumendo che la Window o altri sistemi non stiano gestendo la sua memoria in modo esclusivo.
-        LOG(LogDebug) << "SteamUI: reloadSettingsMenu - Cancellazione del menu GuiSettings corrente.";
-        delete currentMenu;
-        currentMenu = nullptr; // Buona pratica
+    if (!window || !store) {
+        LOG(LogError) << "SteamUI: reloadSettingsMenu - Window o Store sono nulli.";
+        return;
     }
-    LOG(LogDebug) << "SteamUI: reloadSettingsMenu - Creazione e visualizzazione nuovo menu.";
-    // Crea un nuovo oggetto SteamUI temporaneo per chiamare il metodo.
-    SteamUI().showSteamSettingsMenu(window, store);
+    if (currentMenu) {
+        LOG(LogDebug) << "SteamUI: reloadSettingsMenu - Cancellazione del menu GuiSettings corrente.";
+        delete currentMenu; // Prova a cancellare
+        currentMenu = nullptr;
+    } else {
+         LOG(LogWarning) << "SteamUI: reloadSettingsMenu - currentMenu era già nullo?";
+    }
+
+    // Ora, invece di creare un SteamUI() temporaneo, chiama DI NUOVO il metodo
+    // showStoreUI dello store. Sarà lo store a usare la sua mUI membro per
+    // mostrare il menu aggiornato. Questo è un flusso più pulito.
+    LOG(LogDebug) << "SteamUI: reloadSettingsMenu - Chiamata a store->showStoreUI per mostrare il menu aggiornato.";
+    store->showStoreUI(window); // Chiedi allo store di mostrare di nuovo la sua UI principale
 }
 
 void SteamUI::showSteamSettingsMenu(Window* window, SteamStore* store)
@@ -52,6 +58,12 @@ void SteamUI::showSteamSettingsMenu(Window* window, SteamStore* store)
         return;
     }
 
+bool currentAuthState = auth->isAuthenticated();
+    LOG(LogDebug) << "SteamUI: showSteamSettingsMenu - Stato letto da auth->isAuthenticated(): " << currentAuthState;
+    LOG(LogDebug) << "SteamUI: showSteamSettingsMenu - Valore di auth->hasCredentials(): " << auth->hasCredentials();
+    LOG(LogDebug) << "SteamUI: showSteamSettingsMenu - Valore di auth->getUserPersonaName(): " << auth->getUserPersonaName();
+	
+	
     // CORREZIONE: Usa Utils::String::toUpper e passa std::string al costruttore
     GuiSettings* menu = new GuiSettings(window, Utils::String::toUpper(_("IMPOSTAZIONI ACCOUNT STEAM")));
     LOG(LogDebug) << "SteamUI: GuiSettings menu creato: " << menu;
@@ -160,36 +172,33 @@ void SteamUI::showSteamSettingsMenu(Window* window, SteamStore* store)
         });
     }
 
-    // --- Opzione per Cancellare Credenziali ---
-    if (auth->hasCredentials()) {
-        menu->addEntry(_("CANCELLA CREDENZIALI SALVATE"), true, [window, auth, store, menu_ptr = menu] {
-            LOG(LogDebug) << "SteamUI: Entry 'CANCELLA CREDENZIALI SALVATE' selezionata.";
 
-            // CORREZIONE Errore 4: Crea variabili esplicite per forzare il matching del costruttore corretto
-              // ---- CODICE ORIGINALE COMMENTATO ----
-    /*
-    std::function<void()> yesCallback = [window, auth, store, menu_ptr]() {
-        LOG(LogInfo) << "SteamUI: Conferma cancellazione ricevuta (SÌ).";
-        auth->clearCredentials();
-        reloadSettingsMenu(window, store, menu_ptr);
-    };
-    std::function<void()> noCallback = nullptr;
-    std::string yesButtonText = "SI";
-    std::string noButtonText = "NO";
+if (auth->hasCredentials()) {
+    menu->addEntry(_("CANCELLA CREDENZIALI SALVATE"), true, [window, auth, store, menu_ptr = menu] {
+        LOG(LogDebug) << "SteamUI: Entry 'CANCELLA CREDENZIALI SALVATE' selezionata.";
 
-    // LA CHIAMATA PROBLEMATICA:
-    window->pushGui(new GuiMsgBox(window,
-        _("CONFERMA CANCELLAZIONE"),
-        _("Sei sicuro di voler cancellare le credenziali Steam salvate?"),
-        yesButtonText,  // Arg 4
-        yesCallback,    // Arg 5
-        noButtonText,   // Arg 6
-        noCallback      // Arg 7
-    ));
-    */
-});
-        
-    }
+        std::function<void()> yesCallback = [window, auth, store, menu_ptr]() {
+            LOG(LogInfo) << "SteamUI: Conferma cancellazione ricevuta (SÌ).";
+            auth->clearCredentials();
+            reloadSettingsMenu(window, store, menu_ptr);
+        };
+        std::function<void()> noCallback = nullptr;
+        std::string yesButtonText = "SI";
+        std::string noButtonText = "NO";
+
+        window->pushGui(new GuiMsgBox(window,
+            _("CONFERMA CANCELLAZIONE"),
+            _("SI"),
+            yesCallback,
+            _("NO"),
+            noCallback,
+            _("Sei sicuro di voler cancellare le credenziali Steam salvate?"),
+            nullptr,
+            GuiMsgBoxIcon::ICON_QUESTION
+        ));
+
+    });
+}
 
     // --- Guida per ottenere API Key e SteamID ---
     menu->addEntry(_("COME OTTENERE API KEY E STEAMID64?"), true, [window] {

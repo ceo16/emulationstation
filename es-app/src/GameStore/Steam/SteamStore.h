@@ -33,6 +33,7 @@ public:
     void shutdown() override;
     void showStoreUI(Window* window) override;
     std::string getStoreName() const override;
+	SteamStoreAPI* getApi() { return mAPI; } // Add this line
 
     std::vector<FileData*> getGamesList() override; // Mostra giochi installati e/o posseduti online
     bool installGame(const std::string& gameId) override;   // gameId qui è l'appId
@@ -43,7 +44,9 @@ public:
     // std::future<void> refreshGamesListAsync();
 
     SteamAuth* getAuth() { return mAuth; }
-    SteamStoreAPI* getApi() { return mAPI; }
+	std::string getGameLaunchUrl(unsigned int appId) const;
+	std::vector<SteamInstalledGameInfo> findInstalledSteamGames(); // Cerca i file appmanifest_*.acf
+	 bool checkInstallationStatus(unsigned int appId, const std::vector<SteamInstalledGameInfo>& installedGames);
 
 
 private:
@@ -53,13 +56,13 @@ private:
     Window* mWindow;        // Non posseduto
     bool mInitialized;
 
-    std::string getGameLaunchUrl(unsigned int appId) const;
-    bool checkInstallationStatus(unsigned int appId, const std::vector<SteamInstalledGameInfo>& installedGames);
+
+   
 
     // Logica per trovare giochi installati (da Playnite)
     std::string getSteamInstallationPath(); // Trova dove è installato Steam
     std::vector<std::string> getSteamLibraryFolders(const std::string& steamPath); // Legge libraryfolders.vdf
-    std::vector<SteamInstalledGameInfo> findInstalledSteamGames(); // Cerca i file appmanifest_*.acf
+    
     SteamInstalledGameInfo parseAppManifest(const std::string& acfFilePath); // Parsa un singolo file .acf
 
     // TODO: Funzione helper per convertire stringa data Steam (es. "14 Nov, 2019") in formato ES
