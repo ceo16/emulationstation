@@ -25,7 +25,7 @@ std::string getGamelistRecoveryPath(SystemData* system)
 
 FileData* findOrCreateFile(SystemData* system, const std::string& path, FileType type, std::unordered_map<std::string, FileData*>& fileMap)
 {
-    // --- Gestione Percorsi VIRTUALI (Invariato) ---
+    // --- Gestione Percorsi VIRTUALI ---
     if (Utils::String::startsWith(path, "epic:/"))
     {
         FolderData* rootCheck = system->getRootFolder();
@@ -39,25 +39,64 @@ FileData* findOrCreateFile(SystemData* system, const std::string& path, FileType
                  }
             }
             if (existingChild != nullptr) {
-                LOG(LogDebug) << "findOrCreateFile: Trovato FileData virtuale ESISTENTE tramite ricerca figli root per path: " << path;
-                fileMap[path] = existingChild;
+                LOG(LogDebug) << "findOrCreateFile: Trovato FileData virtuale ESISTENTE (Epic) tramite ricerca figli root per path: " << path;
+                fileMap[path] = existingChild; // Assicurati che sia aggiunto alla mappa locale se trovato così
                 return existingChild;
             }
         }
         auto virtual_it = fileMap.find(path);
         if (virtual_it != fileMap.end()) {
-            LOG(LogDebug) << "findOrCreateFile: Trovato FileData virtuale ESISTENTE tramite mappa locale per path: " << path;
+            LOG(LogDebug) << "findOrCreateFile: Trovato FileData virtuale ESISTENTE (Epic) tramite mappa locale per path: " << path;
             return virtual_it->second;
         }
-        LOG(LogInfo) << "findOrCreateFile: Creazione NUOVO FileData virtuale per path: " << path;
+        LOG(LogInfo) << "findOrCreateFile: Creazione NUOVO FileData virtuale (Epic) per path: " << path;
         if (type != GAME) {
-             LOG(LogWarning) << "findOrCreateFile: Virtual path encountered for non-GAME type? Path: " << path;
+             LOG(LogWarning) << "findOrCreateFile: Virtual path (Epic) encountered for non-GAME type? Path: " << path;
              return NULL;
         }
         FileData* virtualItem = new FileData(GAME, path, system);
         fileMap[path] = virtualItem;
         if (rootCheck) { rootCheck->addChild(virtualItem); }
-        else { LOG(LogError) << "findOrCreateFile: Could not get root folder for system " << system->getName() << " while adding virtual game."; }
+        else { LOG(LogError) << "findOrCreateFile: Could not get root folder for system " << system->getName() << " while adding virtual game (Epic)."; }
+        return virtualItem;
+    }
+    else if (Utils::String::startsWith(path, "steam://")) // <<< NUOVA SEZIONE PER STEAM
+    {
+        FolderData* rootCheck = system->getRootFolder(); // Il 'system' dovrebbe essere "steam"
+        if (rootCheck != nullptr)
+        {
+            FileData* existingChild = nullptr;
+            for(FileData* child : rootCheck->getChildren()) {
+                 if(child->getPath() == path) { // Confronta il percorso esatto
+                      existingChild = child;
+                      break;
+                 }
+            }
+            if (existingChild != nullptr) {
+                LOG(LogDebug) << "findOrCreateFile: Trovato FileData virtuale ESISTENTE (Steam) tramite ricerca figli root per path: " << path;
+                fileMap[path] = existingChild; // Assicurati che sia aggiunto alla mappa locale se trovato così
+                return existingChild;
+            }
+        }
+
+        auto virtual_it = fileMap.find(path);
+        if (virtual_it != fileMap.end()) {
+            LOG(LogDebug) << "findOrCreateFile: Trovato FileData virtuale ESISTENTE (Steam) tramite mappa locale per path: " << path;
+            return virtual_it->second;
+        }
+
+        LOG(LogInfo) << "findOrCreateFile: Creazione NUOVO FileData virtuale (Steam) per path: " << path;
+        if (type != GAME) { // I giochi degli store sono sempre di tipo GAME
+             LOG(LogWarning) << "findOrCreateFile: Percorso virtuale Steam per tipo non GAME? Path: " << path;
+             return NULL;
+        }
+        FileData* virtualItem = new FileData(GAME, path, system); // 'system' sarà l'oggetto SystemData per "steam"
+        fileMap[path] = virtualItem; // Aggiungi alla mappa locale
+        if (rootCheck) {
+            rootCheck->addChild(virtualItem); // Aggiungi come figlio della root del sistema Steam
+        } else {
+            LOG(LogError) << "findOrCreateFile: Impossibile ottenere root folder per sistema " << system->getName() << " aggiungendo gioco virtuale Steam.";
+        }
         return virtualItem;
     }
     // --- FINE Gestione Percorsi VIRTUALI ---
@@ -76,9 +115,22 @@ FileData* findOrCreateFile(SystemData* system, const std::string& path, FileType
     std::string relative = Utils::FileSystem::removeCommonPath(path, root->getPath(), contains);
 
     // --- INIZIO NUOVA GESTIONE SEPARATA PER ESTERNI/INTERNI ---
-    if (!contains) // Il percorso è ESTERNO alla cartella root del sistema
+    // Questa logica gestisce i percorsi fisici esterni alla rom folder del sistema,
+    // come nel caso dei giochi Epic installati in C:\Program Files\Epic Games.
+    // Per Steam, se i giochi sono "virtuali" (steam://), questa sezione non dovrebbe essere raggiunta.
+    // Se invece consideri un gioco Steam installato come "esterno" perché il suo path di installazione
+    // è fuori dalla rom folder di EmulationStation, allora dovrai adattare questa logica
+    // o assicurarti che i giochi Steam siano sempre gestiti come virtuali.
+    // Data la gestione attuale di Epic, sembra che l'approccio preferito sia trattare
+    // gli store games come entità virtuali basate su URI.
+    if (!contains)
     {
-        if (system->getName() == "epicgamestore") // Ed è il sistema Epic
+        // La logica per epicgamestore qui permette percorsi fisici esterni.
+        // Per Steam, se tutti i giochi sono `steam://...`, questa parte non è rilevante.
+        // Se hai giochi Steam con percorsi *fisici* esterni che vuoi gestire,
+        // dovresti aggiungere una condizione simile a `if (system->getName() == "steam")`.
+        // Tuttavia, è più probabile che tu voglia che i giochi Steam siano sempre virtuali.
+        if (system->getName() == "epicgamestore")
         {
             LOG(LogDebug) << "findOrCreateFile: Handling external path for epicgamestore system: " << path;
             bool pathExists = Utils::FileSystem::exists(path);
@@ -88,32 +140,28 @@ FileData* findOrCreateFile(SystemData* system, const std::string& path, FileType
             }
             bool isDirectory = Utils::FileSystem::isDirectory(path);
 
-            // Verifica consistenza tipo
             if (type == FOLDER && !isDirectory) {
                 LOG(LogWarning) << "gameList: Path specified as folder in gamelist, but is not a directory on disk: " << path;
                 return NULL;
             }
-            if (type == GAME && !isDirectory) { // File Game
+            if (type == GAME && !isDirectory) {
                 if (!system->getSystemEnvData()->isValidExtension(Utils::String::toLower(Utils::FileSystem::getExtension(path)))) {
                     LOG(LogWarning) << "gameList: External game file extension is not known by systemlist, ignoring: " << path;
                     return NULL;
                 }
             }
-            // (Implicitamente, se type==GAME e isDirectory==true, è OK per Epic; se type==FOLDER e isDirectory==true, è OK)
-
-            // Crea e aggiungi direttamente alla root
             FileData* newItem = (type == GAME) ? (FileData*)new FileData(GAME, path, system) : (FileData*)new FolderData(path, system);
             if (newItem != nullptr) {
-                fileMap[path] = newItem; // Aggiungi alla mappa locale usando path assoluto
-                root->addChild(newItem); // Aggiungi come figlio diretto della root
+                fileMap[path] = newItem;
+                root->addChild(newItem);
                 LOG(LogDebug) << "findOrCreateFile: Successfully created/added external item: " << path;
-                return newItem; // *** IMPORTANTE: Termina qui per percorsi esterni ***
+                return newItem;
             } else {
                 LOG(LogError) << "findOrCreateFile: Failed to create FileData/FolderData for external path: " << path;
                 return NULL;
             }
         }
-        else // Percorso esterno, ma NON è epicgamestore -> Rifiuta
+        else // Percorso esterno, ma NON è epicgamestore (o steam, se aggiunto sopra) -> Rifiuta
         {
              LOG(LogWarning) << "File path \"" << path << "\" is outside system path \"" << system->getStartPath() << "\"";
              return NULL;
@@ -122,24 +170,26 @@ FileData* findOrCreateFile(SystemData* system, const std::string& path, FileType
     // --- FINE NUOVA GESTIONE SEPARATA ---
 
     // --- Logica Originale (modificata leggermente) per Percorsi INTERNI (contains == true) ---
+    // Questa parte gestisce i file e le cartelle che si trovano all'interno della rom folder configurata per il sistema.
+    // Non dovrebbe essere impattata direttamente dalla gestione dei giochi virtuali Steam,
+    // a meno che tu non stia cercando di mappare percorsi `steam://` a file fisici in modo complesso.
     LOG(LogDebug) << "findOrCreateFile: Processing internal path: " << path << " (Relative: " << relative << ")";
     auto pathList = Utils::FileSystem::getPathList(relative);
     if (pathList.empty()) {
          LOG(LogWarning) << "findOrCreateFile: Path list is empty for internal path: " << path;
-         if (path == root->getPath() && root->getType() == type) return root; // Potrebbe essere la root stessa
+         if (path == root->getPath() && root->getType() == type) return root;
          return NULL;
     }
 
 	auto path_it = pathList.begin();
-	FolderData* treeNode = root; // Nodo corrente nell'albero in memoria
+	FolderData* treeNode = root;
 
 	while(path_it != pathList.end())
 	{
         std::string currentSegment = *path_it;
-        std::string key = Utils::FileSystem::combine(treeNode->getPath(), currentSegment); // Percorso completo del segmento corrente
+        std::string key = Utils::FileSystem::combine(treeNode->getPath(), currentSegment);
 		FileData* item = nullptr;
 
-        // Cerca tra i figli del nodo corrente se esiste già un FileData per questo segmento
         for (auto child : treeNode->getChildren()) {
             if (child->getPath() == key) {
                 item = child;
@@ -147,17 +197,14 @@ FileData* findOrCreateFile(SystemData* system, const std::string& path, FileType
             }
         }
 
-		if (item != nullptr) // Trovato elemento esistente (figlio diretto di treeNode)
+		if (item != nullptr)
 		{
             LOG(LogDebug) << "findOrCreateFile: Found existing child node for segment: " << key;
 			if (item->getType() == FOLDER) {
-				treeNode = (FolderData*) item; // Scendi nell'albero
-            } else { // È un file
-                 // Se siamo all'ultimo segmento, abbiamo trovato il file, altrimenti errore
+				treeNode = (FolderData*) item;
+            } else {
                  if (path_it == --pathList.end()) {
-                     // Verifica che il tipo corrisponda a quello richiesto dalla gamelist
                      if (item->getType() == type) {
-                          // Aggiungi alla mappa se non c'è già (improbabile ma sicuro)
                           if (fileMap.find(path) == fileMap.end()) fileMap[path] = item;
                           return item;
                      } else {
@@ -170,30 +217,25 @@ FileData* findOrCreateFile(SystemData* system, const std::string& path, FileType
                  }
             }
 		}
-        else // item == nullptr -> Elemento NON trovato tra i figli di treeNode per questo segmento
+        else
         {
             LOG(LogDebug) << "findOrCreateFile: No existing child node for segment: " << key;
-            // Dobbiamo creare il FileData/FolderData in memoria, ma solo se esiste sul disco
-
-            // Se siamo all'ultimo segmento del percorso
 		    if(path_it == --pathList.end())
 		    {
-			    if(type == FOLDER) // La Gamelist dice che questo è una cartella
+			    if(type == FOLDER)
 			    {
-				    if (!Utils::FileSystem::isDirectory(path)) { // Verifica sul disco
+				    if (!Utils::FileSystem::isDirectory(path)) {
 					    LOG(LogWarning) << "gameList: folder from gamelist does not exist on disk, ignoring: " << path;
                         return NULL;
                     }
-                    // Crea FolderData in memoria
                     item = new FolderData(path, system);
                     fileMap[path] = item;
                     treeNode->addChild(item);
                     LOG(LogDebug) << "findOrCreateFile: Created FOLDER object for final segment: " << path;
                     return item;
 			    }
-			    else // type == GAME -> La Gamelist dice che questo è un gioco
+			    else // type == GAME
 			    {
-                    // Verifica esistenza e estensione
 				    if (!Utils::FileSystem::exists(path)) {
                         LOG(LogWarning) << "gameList: game file from gamelist does not exist on disk, ignoring: " << path;
                         return NULL;
@@ -202,15 +244,13 @@ FileData* findOrCreateFile(SystemData* system, const std::string& path, FileType
 				        LOG(LogWarning) << "gameList: game file extension is not known by systemlist, ignoring: " << path;
 				        return NULL;
                     }
-
-				    // Crea FileData in memoria
 				    item = new FileData(GAME, path, system);
-				    if (!item->isArcadeAsset())
+				    if (!item->isArcadeAsset()) // isArcadeAsset è una logica specifica, mantienila se rilevante
 				    {
 					    fileMap[path] = item;
 					    treeNode->addChild(item);
                         LOG(LogDebug) << "findOrCreateFile: Created GAME object for final segment: " << path;
-				    } else { // Ignora asset arcade in questa fase
+				    } else {
                         LOG(LogDebug) << "findOrCreateFile: Ignoring arcade asset: " << path;
                         delete item;
                         item = nullptr;
@@ -218,28 +258,26 @@ FileData* findOrCreateFile(SystemData* system, const std::string& path, FileType
 				    return item;
 			    }
 		    }
-            else // Non siamo all'ultimo elemento, dobbiamo creare una cartella intermedia
+            else
             {
-                 // Verifica che la cartella intermedia esista sul disco
                  if (Utils::FileSystem::isDirectory(key))
                  {
                       LOG(LogDebug) << "findOrCreateFile: Creating intermediate FOLDER object for: " << key;
                       FolderData* folder = new FolderData(key, system);
-                      fileMap[key] = folder; // Aggiungi la cartella intermedia alla mappa
+                      fileMap[key] = folder;
                       treeNode->addChild(folder);
-                      treeNode = folder; // Scendi nella cartella appena creata
+                      treeNode = folder;
                  } else {
                       LOG(LogWarning) << "gameList: intermediate folder from gamelist does not exist on disk, cannot proceed: " << key;
-                      return NULL; // Non possiamo continuare se manca un pezzo del percorso
+                      return NULL;
                  }
             }
-        } // fine else (item == nullptr)
-
+        }
 		path_it++;
-	} // fine while
+	}
 
     LOG(LogError) << "findOrCreateFile: Reached unexpected end after loop for internal path: " << path;
-	return NULL; // Non dovrebbe arrivare qui
+	return NULL;
 }
 
 std::vector<FileData*> loadGamelistFile(const std::string xmlpath, SystemData* system, std::unordered_map<std::string, FileData*>& fileMap, size_t checkSize, bool fromFile)

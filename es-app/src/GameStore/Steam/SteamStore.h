@@ -22,6 +22,11 @@ struct SteamInstalledGameInfo {
     bool fullyInstalled = false;
 };
 
+struct NewSteamGameData {
+    std::string pseudoPath;                   // Es. "steam://launch/12345"
+    std::map<MetaDataId, std::string> metadataMap; // Mappa per contenere i metadati base
+    // Non servono altri campi qui se sono già nella mappa
+};
 
 class SteamStore : public GameStore
 {
@@ -39,6 +44,7 @@ public:
     bool installGame(const std::string& gameId) override;   // gameId qui è l'appId
     bool uninstallGame(const std::string& gameId) override; // gameId qui è l'appId
     bool updateGame(const std::string& gameId) override;    // gameId qui è l'appId
+	std::future<void> refreshSteamGamesListAsync();
 
     // TODO: Potrebbe servire un metodo per refreshare la lista giochi in background
     // std::future<void> refreshGamesListAsync();
@@ -54,7 +60,7 @@ private:
     SteamStoreAPI* mAPI;      // Creato e posseduto da SteamStore
     SteamUI mUI;          // TODO: Interfaccia utente specifica per Steam
     Window* mWindow;        // Non posseduto
-    bool mInitialized;
+
 
 
    
@@ -64,6 +70,7 @@ private:
     std::vector<std::string> getSteamLibraryFolders(const std::string& steamPath); // Legge libraryfolders.vdf
     
     SteamInstalledGameInfo parseAppManifest(const std::string& acfFilePath); // Parsa un singolo file .acf
+
 
     // TODO: Funzione helper per convertire stringa data Steam (es. "14 Nov, 2019") in formato ES
     // std::string convertSteamDateToESFormat(const std::string& steamDate);

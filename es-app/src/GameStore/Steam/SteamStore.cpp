@@ -1,16 +1,32 @@
 #include "GameStore/Steam/SteamStore.h"
-#include "guis/GuiMsgBox.h"
+#include "GameStore/Steam/SteamAuth.h"
+#include "GameStore/Steam/SteamStoreAPI.h"
+#include "SystemData.h"
+#include "FileData.h"
+#include "MetaData.h"
+#include "Log.h"
 #include "utils/Platform.h"
 #include "utils/FileSystemUtil.h"
 #include "utils/StringUtil.h"
+#include "utils/TimeUtil.h"         // Per timeToMetaDataString, NOT_A_DATE_TIME
 #include "Settings.h"
-#include "SystemData.h"
 #include "views/ViewController.h"
+#include "SdlEvents.h"              // Per SDL_STEAM_REFRESH_COMPLETE
 
 #include <fstream>
 #include <sstream>
 #include <map>
 #include <stack>
+#include <set>
+#include <future>
+#include <thread>
+#include <chrono>
+#include <iomanip>                  // Per std::get_time
+#include <ctime>                    // Per std::tm, mktime
+
+#ifdef _WIN32
+#include <windows.h>
+#endif
 
 // Helper Functions and Enums for VDF Parsing
 enum class VdfParseState {
@@ -115,12 +131,18 @@ static std::map<std::string, std::string> parseVdf(const std::string& filePath) 
 // --- SteamStore Class Implementation ---
 
 SteamStore::SteamStore(SteamAuth* auth)
-    : mAuth(auth), mAPI(nullptr), mWindow(nullptr), mInitialized(false) {
+    // Inizializza _initialized ereditato da GameStore
+    : GameStore(), mAuth(auth), mAPI(nullptr), mWindow(nullptr) {
     LOG(LogDebug) << "SteamStore: Constructor";
     if (!mAuth) {
         LOG(LogError) << "SteamStore: Auth object is null in constructor!";
     }
     mAPI = new SteamStoreAPI(mAuth);
+if (!mAPI) {
+    LOG(LogError) << "SteamStore: Failed to create SteamStoreAPI object! mAPI is NULL."; // Log più specifico
+} else {
+    LOG(LogDebug) << "SteamStore: SteamStoreAPI object created successfully. mAPI pointer: " << mAPI; // Log di successo
+}
 }
 
 SteamStore::~SteamStore() {
@@ -132,14 +154,16 @@ SteamStore::~SteamStore() {
 
 bool SteamStore::init(Window* window) {
     mWindow = window;
+    // _initialized è protetto, usa il metodo pubblico se necessario o accedi direttamente
+    _initialized = true;
     LOG(LogInfo) << "SteamStore: Initialized.";
-    mInitialized = true;
     return true;
 }
 
 void SteamStore::shutdown() {
     LOG(LogInfo) << "SteamStore: Shutdown.";
-    mInitialized = false;
+    _initialized = false;
+    // TODO: Gestire la terminazione sicura dei task async se necessario
 }
 
 void SteamStore::showStoreUI(Window* window) {
@@ -172,7 +196,7 @@ std::vector<FileData*> SteamStore::getGamesList() {
   std::vector<FileData*> gameList;
  
 
-  if (!mInitialized || !mAPI) {
+  if (!this->_initialized || !this->mAPI) {
   LOG(LogError) << "SteamStore not initialized or API unavailable.";
   return gameList;
   }
@@ -263,6 +287,130 @@ std::vector<FileData*> SteamStore::getGamesList() {
   LOG(LogInfo) << "SteamStore::getGamesList() - End, returned " << gameList.size() << " games.";
   return gameList;
  }
+ 
+ std::future<void> SteamStore::refreshSteamGamesListAsync() {
+    // Cattura 'this' per accedere ai membri e metodi della classe
+    return std::async(std::launch::async, [this]() {
+        LOG(LogInfo) << "Steam Store Refresh BG: Starting...";
+        auto startTime = std::chrono::high_resolution_clock::now();
+
+        if (!this->_initialized || !this->mAPI) { // Accedi a _initialized (protetto) o mAPI
+            LOG(LogError) << "Steam Store Refresh BG: Store not initialized or API unavailable.";
+            return;
+        }
+
+        SystemData* steamSystem = SystemData::getSystem(this->getStoreName());
+        if (!steamSystem || !steamSystem->getRootFolder()) {
+            LOG(LogError) << "Steam Store Refresh BG: Cannot find Steam system or its root folder (" << this->getStoreName() << ").";
+            return;
+        }
+
+        // --- Ottieni AppID esistenti dai FileData correnti ---
+        std::set<unsigned int> existingAppIds;
+        LOG(LogDebug) << "Steam Store Refresh BG: Collecting existing AppIDs...";
+        try {
+            // Ottieni la lista corrente PRIMA di iniziare le operazioni asincrone
+            std::vector<FileData*> currentFiles = steamSystem->getRootFolder()->getFilesRecursive(GAME);
+            for (FileData* fd : currentFiles) {
+                 if (!fd) continue;
+                 std::string appIdStr = fd->getMetadata().get(MetaDataId::SteamAppId);
+                 if (!appIdStr.empty()) {
+                     try { existingAppIds.insert(std::stoul(appIdStr)); } catch(...) {}
+                 }
+            }
+             LOG(LogDebug) << "Steam Store Refresh BG: Found " << existingAppIds.size() << " existing AppIDs.";
+        } catch (const std::exception& e) {
+             LOG(LogError) << "Steam Store Refresh BG: Exception while collecting existing AppIDs: " << e.what();
+             return; // Cruciale avere la lista esistente
+        }
+
+        // --- Trova giochi installati ---
+        LOG(LogInfo) << "Steam Store Refresh BG: Searching for installed games...";
+        std::vector<SteamInstalledGameInfo> installedGames = findInstalledSteamGames();
+        LOG(LogInfo) << "Steam Store Refresh BG: Found " << installedGames.size() << " installed games.";
+
+        // --- Trova giochi online (se autenticato) ---
+        std::vector<Steam::OwnedGame> onlineGames;
+        if (mAuth && mAuth->isAuthenticated()) {
+            LOG(LogInfo) << "Steam Store Refresh BG: Fetching online owned games...";
+            std::string steamId = mAuth->getSteamId();
+            std::string apiKey = mAuth->getApiKey();
+            if (!steamId.empty() && !apiKey.empty()) {
+                try {
+                    onlineGames = this->mAPI->GetOwnedGames(steamId, apiKey, true, true);
+                    LOG(LogInfo) << "Steam Store Refresh BG: Fetched " << onlineGames.size() << " online games.";
+                } catch (const std::exception& e) {
+                    LOG(LogError) << "Steam Store Refresh BG: Exception fetching owned games: " << e.what();
+                }
+            } else {
+                 LOG(LogWarning) << "Steam Store Refresh BG: SteamID or API Key missing.";
+            }
+        } else {
+             LOG(LogInfo) << "Steam Store Refresh BG: Not authenticated, skipping online games fetch.";
+        }
+
+        // --- Prepara Payload SOLO per giochi NUOVI (non in existingAppIds) ---
+        LOG(LogInfo) << "Steam Store Refresh BG: Identifying new games and preparing payload...";
+        auto newGamesPayload = new std::vector<NewSteamGameData>(); // Puntatore per SDL_Event
+        std::set<unsigned int> processedForPayload; // Per evitare duplicati nel payload
+
+        // Controlla installati: aggiungi al payload solo se AppID non è in existingAppIds
+        for (const auto& installedGame : installedGames) {
+             if (installedGame.appId == 0) continue;
+             if (existingAppIds.find(installedGame.appId) == existingAppIds.end()) { // È nuovo?
+                 if (processedForPayload.insert(installedGame.appId).second) { // Non già nel payload?
+                     NewSteamGameData data;
+                     data.pseudoPath = getGameLaunchUrl(installedGame.appId); // Usa funzione membro
+                     data.metadataMap[MetaDataId::Name] = installedGame.name;
+                     data.metadataMap[MetaDataId::SteamAppId] = std::to_string(installedGame.appId);
+                     data.metadataMap[MetaDataId::Installed] = "true";
+                     data.metadataMap[MetaDataId::Virtual] = "true";
+                     data.metadataMap[MetaDataId::InstallDir] = installedGame.libraryFolderPath + "/common/" + installedGame.installDir;
+                     data.metadataMap[MetaDataId::LaunchCommand] = data.pseudoPath;
+                     newGamesPayload->push_back(data);
+                      LOG(LogDebug) << "  Added NEW INSTALLED to payload: " << installedGame.name;
+                 }
+             }
+        }
+
+        // Controlla online: aggiungi al payload solo se AppID non è in existingAppIds E non già aggiunto da installati
+        for (const auto& onlineGame : onlineGames) {
+            if (onlineGame.appId == 0) continue;
+             if (existingAppIds.find(onlineGame.appId) == existingAppIds.end()) { // È nuovo?
+                 if (processedForPayload.insert(onlineGame.appId).second) { // Non già nel payload?
+                    NewSteamGameData data;
+                    data.pseudoPath = getGameLaunchUrl(onlineGame.appId); // Usa funzione membro
+                    data.metadataMap[MetaDataId::Name] = onlineGame.name.empty() ? ("Steam Game " + std::to_string(onlineGame.appId)) : onlineGame.name;
+                    data.metadataMap[MetaDataId::SteamAppId] = std::to_string(onlineGame.appId);
+                    data.metadataMap[MetaDataId::Installed] = "false"; // Presumiamo non installato se trovato solo online
+                    data.metadataMap[MetaDataId::Virtual] = "true";
+                    data.metadataMap[MetaDataId::LaunchCommand] = data.pseudoPath;
+                    newGamesPayload->push_back(data);
+                     LOG(LogDebug) << "  Added NEW ONLINE to payload: " << onlineGame.name;
+                 }
+             }
+        }
+
+        auto endTime = std::chrono::high_resolution_clock::now();
+        auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - startTime);
+
+        if (newGamesPayload->empty()) {
+            LOG(LogInfo) << "Steam Store Refresh BG: No new games found to add. Duration: " << duration.count() << " ms.";
+            delete newGamesPayload;
+        } else {
+            LOG(LogInfo) << "Steam Store Refresh BG: Found " << newGamesPayload->size() << " new games. Duration: " << duration.count() << " ms. Pushing event.";
+            // Invia evento SDL per aggiungere i nuovi giochi nel thread principale
+            SDL_Event event;
+            SDL_zero(event);
+            event.type = SDL_USEREVENT; // Usa tipo registrato o generico
+            event.user.code = SDL_STEAM_REFRESH_COMPLETE; // Assicurati sia definito
+            event.user.data1 = newGamesPayload; // Passa il payload
+            event.user.data2 = steamSystem;     // Passa il sistema
+            SDL_PushEvent(&event);
+            // Il gestore eventi farà delete newGamesPayload
+        }
+    }); // Fine lambda std::async
+}
 
 bool SteamStore::installGame(const std::string& gameId) {
     LOG(LogDebug) << "SteamStore::installGame for AppID: " << gameId;

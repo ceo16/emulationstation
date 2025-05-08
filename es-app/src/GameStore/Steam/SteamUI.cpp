@@ -12,6 +12,7 @@
 #include "utils/StringUtil.h"          // Per Utils::String::toUpper
 #include <functional> // Assicurati che <functional> sia incluso (GuiMsgBox.h dovrebbe farlo, ma non fa male)
 #include <string>     // Assicurati che <string> sia incluso
+#include "guis/GuiBusyInfoPopup.h"
 
 SteamUI::SteamUI()
 {
@@ -230,15 +231,40 @@ if (auth->hasCredentials()) {
     });
 
     // --- Opzione per Aggiornare Lista Giochi (se autenticato) ---
-    if (auth->isAuthenticated()) {
-        menu->addEntry(_("AGGIORNA LISTA GIOCHI ONLINE"), true, [window, store] {
-            LOG(LogInfo) << "SteamUI: Richiesto aggiornamento lista giochi online (TODO: implementare).";
-            // Firma probabile (window, title, msg, callback)
-            window->pushGui(new GuiMsgBox(window, _("OPERAZIONE AVVIATA"), _("L'aggiornamento della libreria Steam è in corso in background... (TODO: implementare feedback e logica asincrona)"), nullptr));
-            // store->refreshOnlineGamesListAsync(); // Chiamata futura
-        });
-    }
+  if (auth && auth->isAuthenticated()) { // Aggiunto controllo auth per sicurezza
+        menu->addEntry(_("AGGIORNA LISTA GIOCHI ONLINE"), true,
+            [window, store, menu_ptr = menu] { // Cattura window, store e menu
+                LOG(LogInfo) << "SteamUI: Pulsante 'AGGIORNA LISTA GIOCHI ONLINE' premuto.";
 
+                if (!store) {
+                    LOG(LogError) << "SteamUI: Store è nullo nel callback!";
+                    return;
+                }
+
+                // Mostra popup di attesa
+                GuiBusyInfoPopup* busyPopup = new GuiBusyInfoPopup(window, _("AGGIORNAMENTO LIBRERIA STEAM IN CORSO..."));
+                window->pushGui(busyPopup);
+
+                // Chiudi il menu corrente per evitare interazioni multiple
+                if (menu_ptr) menu_ptr->close();
+
+                // Avvia il task asincrono (magari con un piccolo delay)
+                std::thread delayedLaunchThread([store, window]() { // Non catturare busyPopup qui
+                    std::this_thread::sleep_for(std::chrono::milliseconds(150)); // Breve pausa
+                    if (store) {
+                        LOG(LogInfo) << "SteamUI: Avvio store->refreshSteamGamesListAsync()...";
+                        // --- CHIAMATA ALLA FUNZIONE CORRETTA ---
+                        store->refreshSteamGamesListAsync();
+                        // ---------------------------------------
+                        // Il busyPopup verrà gestito dal gestore eventi SDL_STEAM_REFRESH_COMPLETE
+                    } else {
+                        LOG(LogError) << "SteamUI: Store diventato nullo prima del lancio asincrono!";
+                    }
+                });
+                delayedLaunchThread.detach();
+
+            }); // Fine lambda aggiornamento lista
+    }
     LOG(LogDebug) << "SteamUI: Tutte le entry aggiunte a GuiSettings. Visualizzazione menu.";
     window->pushGui(menu);
 }

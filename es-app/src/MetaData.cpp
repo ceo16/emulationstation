@@ -21,7 +21,8 @@ MetaDataDecl(EpicNamespace, "epicns",      MD_STRING, "",       false, N_("Epic 
 MetaDataDecl(EpicCatalogId, "epiccstid",   MD_STRING, "",       false, N_("Epic Catalog"), N_("epic catalog id"),    false ), // <<< AGGIUNTA
 MetaDataDecl(InstallDir,    "installdir",  MD_PATH,   "",       false, N_("Install Dir"),  N_("game install path"),    false ), // <<< AGGIUNTA (se mancava)
 MetaDataDecl(Executable,    "executable",  MD_STRING, "",       false, N_("Executable"),   N_("game executable"),      false ), // <<< AGGIUNTA (se mancava)
-    // ...
+MetaDataDecl(SteamAppId,    "steamappid",  MD_STRING, "",       false, N_("Steam App ID"), N_("steam app id"),         false ),
+
 };
 
 
@@ -35,7 +36,9 @@ static std::map<std::string, int> KnowScrapersIds =
 	{ "ScreenScraper", 0 },
 	{ "TheGamesDB", 1 },
 	{ "HfsDB", 2 },
-	{ "ArcadeDB", 3 }
+	{ "ArcadeDB", 3 },
+    { "EPIC GAME STORE", 4 },
+	{ "STEAM", 5 }
 };
 
 void MetaDataList::initMetadata()
@@ -115,7 +118,8 @@ void MetaDataList::initMetadata()
         { EpicNamespace, "epicns",      MD_STRING,           "",                 false, N_("Epic Namespace"),N_("epic namespace"),          false },
         { EpicCatalogId, "epiccstid",   MD_STRING,           "",                 false, N_("Epic Catalog"), N_("epic catalog id"),        false },
         { InstallDir,    "installdir",  MD_PATH,             "",                 false, N_("Install Dir"),  N_("game install path"),        false },
-        { Executable,    "executable",  MD_STRING,           "",                 false, N_("Executable"),   N_("game executable"),          false }
+        { Executable,    "executable",  MD_STRING,           "",                 false, N_("Executable"),   N_("game executable"),          false },
+		{ SteamAppId,    "steamappid",  MD_STRING,           "",                 false, N_("Steam App ID"), N_("steam app id"),         false }
         // --- ***** FINE DICHIARAZIONI DA AGGIUNGERE ***** ---
 
 		
