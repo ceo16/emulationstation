@@ -170,12 +170,24 @@ Steam::AppDetails SteamStoreAPI::parseAppDetails(unsigned int appId, const nlohm
         }
     }
     if (data.contains("categories") && data["categories"].is_array()) {
-        for (const auto& catJson : data["categories"]) {
-             if (catJson.is_object() && catJson.contains("description") && catJson["description"].is_string()) {
-                details.categories.push_back({catJson.value("id", ""), catJson.value("description", "")});
+    for (const auto& catJson : data["categories"]) {
+        if (catJson.is_object() && catJson.contains("description") && catJson["description"].is_string()) {
+            std::string categoryIdStr;
+            if (catJson.contains("id")) { // Controlla se il campo "id" esiste
+                if (catJson["id"].is_number()) {
+                    categoryIdStr = std::to_string(catJson["id"].get<long long>()); // Leggi come numero, converti a stringa
+                } else if (catJson["id"].is_string()) {
+                    categoryIdStr = catJson["id"].get<std::string>(); // Se fosse una stringa, prendila
+                } else {
+                    LOG(LogWarning) << "SteamStoreAPI: Category ID di tipo inatteso per AppID " << appId;
+                    categoryIdStr = ""; // o un valore di default
+                }
             }
+            // Assumendo che Steam::Category sia { std::string id; std::string description; }
+            details.categories.push_back({categoryIdStr, catJson.value("description", "")});
         }
     }
+}
     if (data.contains("screenshots") && data["screenshots"].is_array()) {
         for (const auto& ssJson : data["screenshots"]) {
             if (ssJson.is_object()) {

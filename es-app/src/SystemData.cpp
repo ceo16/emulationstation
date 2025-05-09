@@ -284,32 +284,89 @@ void SystemData::removeMultiDiskContent(std::unordered_map<std::string, FileData
   }
  
 
-  for (const auto& installedGame : installedGames) {
-  if (installedGame.appId == 0) continue;
-  std::string pseudoPath = "steam://game/" + std::to_string(installedGame.appId);
-  FileData* game = new FileData(FileType::GAME, pseudoPath, system);
-  game->setMetadata(MetaDataId::Name, installedGame.name);
-  game->setMetadata(MetaDataId::SteamAppId, std::to_string(installedGame.appId));
-  game->setMetadata(MetaDataId::Installed, "true");
-  game->setMetadata(MetaDataId::Virtual, "false");
-  game->setMetadata(MetaDataId::Path, installedGame.libraryFolderPath + "/common/" + installedGame.installDir);
-  game->setMetadata(MetaDataId::LaunchCommand, steamStore->getGameLaunchUrl(installedGame.appId));
-  rootFolder->addChild(game);
-  }
- 
+ // --- GIOCHI INSTALLATI ---
+for (const auto& installedGame : installedGames) {
+    if (installedGame.appId == 0) continue;
 
-  for (const auto& onlineGame : onlineGames) {
-  if (onlineGame.appId == 0) continue;
-  if (rootFolder->FindByPath("steam://game/" + std::to_string(onlineGame.appId)) == nullptr) {
-  FileData* game = new FileData(FileType::GAME, "steam://game/" + std::to_string(onlineGame.appId), system);
-  game->setMetadata(MetaDataId::Name, onlineGame.name);
-  game->setMetadata(MetaDataId::SteamAppId, std::to_string(onlineGame.appId));
-  game->setMetadata(MetaDataId::Installed, steamStore->checkInstallationStatus(onlineGame.appId, installedGames) ? "true" : "false");
-  game->setMetadata(MetaDataId::Virtual, "true");
-  game->setMetadata(MetaDataId::LaunchCommand, steamStore->getGameLaunchUrl(onlineGame.appId));
-  rootFolder->addChild(game);
-  }
-  }
+    // 1. IDENTIFICATORE UNIVOCO DA USARE COME CHIAVE DEL FILEDATA (E NEL GAMELIST <path>)
+    std::string fileDataKeyPath = "steam://game/" + std::to_string(installedGame.appId);
+
+    // 2. COMANDO DI LANCIO EFFETTIVO (potrebbe essere diverso, es. steam://launch/)
+    std::string launchCommand = steamStore->getGameLaunchUrl(installedGame.appId); // Es. "steam://launch/APPID"
+
+    FileData* game = rootFolder->FindByPath(fileDataKeyPath);
+
+    if (game == nullptr) {
+        LOG(LogDebug) << "Steam Populator: Installed game " << installedGame.name << " (" << fileDataKeyPath << ") not found. Creating new FileData.";
+        game = new FileData(FileType::GAME, fileDataKeyPath, system); // Usa fileDataKeyPath
+        rootFolder->addChild(game);
+    } else {
+        LOG(LogDebug) << "Steam Populator: Installed game " << installedGame.name << " (" << fileDataKeyPath << ") already exists. Updating metadata.";
+    }
+
+    // Imposta/Aggiorna metadati
+    game->setMetadata(MetaDataId::Name, installedGame.name);
+    game->setMetadata(MetaDataId::SteamAppId, std::to_string(installedGame.appId));
+    game->setMetadata(MetaDataId::Installed, "true");
+    game->setMetadata(MetaDataId::Virtual, "false");
+    // Il percorso REALE sul disco. Questo NON è il fileDataKeyPath.
+    game->setMetadata(MetaDataId::Path, installedGame.libraryFolderPath + "/common/" + installedGame.installDir);
+    game->setMetadata(MetaDataId::LaunchCommand, launchCommand);
+}
+
+// --- GIOCHI ONLINE/VIRTUALI ---
+for (const auto& onlineGame : onlineGames) {
+    if (onlineGame.appId == 0) continue;
+
+    // 1. IDENTIFICATORE UNIVOCO DA USARE COME CHIAVE DEL FILEDATA (E NEL GAMELIST <path>)
+    std::string fileDataKeyPath = "steam://game/" + std::to_string(onlineGame.appId);
+
+    // 2. COMANDO DI LANCIO EFFETTIVO
+    std::string launchCommand = steamStore->getGameLaunchUrl(onlineGame.appId); // Es. "steam://launch/APPID"
+
+    FileData* game = rootFolder->FindByPath(fileDataKeyPath);
+
+    if (game == nullptr) {
+        LOG(LogDebug) << "Steam Populator: Online game " << onlineGame.name << " (" << fileDataKeyPath << ") not found. Creating new FileData.";
+        game = new FileData(FileType::GAME, fileDataKeyPath, system); // Usa fileDataKeyPath
+        rootFolder->addChild(game);
+        // Imposta metadati per un gioco nuovo (appena scoperto dall'API)
+        game->setMetadata(MetaDataId::Name, onlineGame.name);
+        game->setMetadata(MetaDataId::SteamAppId, std::to_string(onlineGame.appId));
+    } else {
+        LOG(LogDebug) << "Steam Populator: Online game " << onlineGame.name << " (" << fileDataKeyPath << ") already exists. Updating metadata.";
+        // Gioco già esistente (caricato da gamelist.xml), aggiorna il nome se necessario
+        if (game->getMetadata().get(MetaDataId::Name).empty() || game->getMetadata().get(MetaDataId::Name) == "N/A" || game->getMetadata().get(MetaDataId::Name) == ("Steam Game " + std::to_string(onlineGame.appId))) {
+             game->setMetadata(MetaDataId::Name, onlineGame.name);
+        }
+    }
+
+    // Aggiorna/Imposta sempre questi metadati per i giochi online
+    // (lo stato di installazione potrebbe cambiare tra le sessioni)
+    bool isActuallyInstalled = steamStore->checkInstallationStatus(onlineGame.appId, installedGames);
+    game->setMetadata(MetaDataId::Installed, isActuallyInstalled ? "true" : "false");
+    game->setMetadata(MetaDataId::Virtual, !isActuallyInstalled ? "true" : "false");
+    game->setMetadata(MetaDataId::LaunchCommand, launchCommand);
+
+    if (isActuallyInstalled) {
+        // Se è installato, assicurati che il metadato MetaDataId::Path (percorso disco) sia impostato
+        bool pathMetaFound = false;
+        for (const auto& instGame : installedGames) { // Cerca nella lista dei giochi installati precedentemente scansionata
+            if (instGame.appId == onlineGame.appId) {
+                game->setMetadata(MetaDataId::Path, instGame.libraryFolderPath + "/common/" + instGame.installDir);
+                pathMetaFound = true;
+                break;
+            }
+        }
+        if (!pathMetaFound) {
+             LOG(LogWarning) << "Steam Populator: Game " << onlineGame.name << " marked as installed but disk path not found in current scan.";
+        }
+    } else {
+        // Se è puramente virtuale (non installato), non ci sarà un MetaDataId::Path (percorso disco)
+        // Potresti volerlo pulire se esisteva da uno stato precedente:
+        // game->setMetadata(MetaDataId::Path, ""); // Opzionale
+    }
+}
  
 
   LOG(LogInfo) << "SystemData::populateSteamVirtual - ENDED";
