@@ -1368,29 +1368,57 @@ FileData* FolderData::findUniqueGameForFolder()
 
 
 
-void FolderData::getFilesRecursiveWithContext(std::vector<FileData*>& out, unsigned int typeMask, GetFileContext* filter, bool displayedOnly, SystemData* system, bool includeVirtualStorage) const
+void FolderData::getFilesRecursiveWithContext(
+    std::vector<FileData*>& out,
+    unsigned int typeMask,
+    GetFileContext* filter,
+    bool displayedOnly,
+    SystemData* system, // Questo è il 'pSystem' che useremo
+    bool includeVirtualStorage) const
 {
-	if (filter == nullptr)
+	if (filter == nullptr) {
+        // Aggiungi un log se il sistema è Steam e il filtro è nullo, potrebbe essere inaspettato
+        if (system && system->getName() == "steam") {
+            LOG(LogWarning) << "[FRWC_Steam_Call] Called for Steam, but GetFileContext* filter is NULL. Path: " << mPath;
+        }
 		return;
+    }
 
-	// Lambda per controllare le cartelle virtuali
-	auto isVirtualFolder = [](FileData* file) -> bool // Aggiunto -> bool per chiarezza
+	// Lambda per controllare le cartelle virtuali (sembra ok)
+	auto isVirtualFolder = [](FileData* file) -> bool
 	{
 		if (file == nullptr || file->getType() == GAME)
 			return false;
-
-		// Cast sicuro (anche se dynamic_cast sarebbe più sicuro se la gerarchia fosse complessa)
 		FolderData* fld = static_cast<FolderData*>(file);
 		return fld->isVirtualStorage();
 	};
 
-	SystemData* pSystem = (system != nullptr ? system : mSystem);
+	SystemData* pSystem = (system != nullptr ? system : mSystem); // Usa il sistema passato se fornito
     if (pSystem == nullptr) {
-        LOG(LogError) << "getFilesRecursiveWithContext: pSystem is null!";
+        LOG(LogError) << "getFilesRecursiveWithContext: pSystem is null! Cannot proceed. Folder path: " << mPath;
         return;
     }
 
-	FileFilterIndex* idx = pSystem->getIndex(false);
+    // Log parametri di ingresso QUANDO è per il sistema Steam e si cercano giochi
+    bool isSteamSystemAndGames = (pSystem->getName() == "steam" && (typeMask & GAME));
+    if (isSteamSystemAndGames) {
+        LOG(LogInfo) << "[FRWC_Steam_Entry] Called for Steam to find GAMEs. Folder: \"" << mPath << "\"";
+        LOG(LogInfo) << "[FRWC_Steam_Entry]   typeMask: " << typeMask;
+        LOG(LogInfo) << "[FRWC_Steam_Entry]   filter->showHiddenFiles: " << filter->showHiddenFiles;
+        LOG(LogInfo) << "[FRWC_Steam_Entry]   filter->filterKidGame: " << filter->filterKidGame;
+        LOG(LogInfo) << "[FRWC_Steam_Entry]   filter->hiddenExtensions.size(): " << filter->hiddenExtensions.size();
+        LOG(LogInfo) << "[FRWC_Steam_Entry]   displayedOnly: " << displayedOnly;
+        LOG(LogInfo) << "[FRWC_Steam_Entry]   includeVirtualStorage: " << includeVirtualStorage;
+    }
+
+	FileFilterIndex* idx = pSystem->getIndex(false); // Filtri utente dalla UI
+    if (isSteamSystemAndGames) { // Logga anche lo stato di idx per Steam
+        if (idx) {
+            LOG(LogInfo) << "[FRWC_Steam_Entry]   User Filters (idx) are ACTIVE. isFiltered(): " << idx->isFiltered();
+        } else {
+            LOG(LogInfo) << "[FRWC_Steam_Entry]   User Filters (idx) are INACTIVE (idx is NULL).";
+        }
+    }
 
 	// Ciclo sui figli diretti
 	for (auto it : mChildren)
@@ -1400,74 +1428,118 @@ void FolderData::getFilesRecursiveWithContext(std::vector<FileData*>& out, unsig
             continue;
         }
 
-		// Corrisponde al tipo richiesto? (es. GAME)
+		// Il figlio ('it') corrisponde al tipo richiesto da typeMask (es. GAME)?
 		if (it->getType() & typeMask)
 		{
-			// Determina se il filtro di base (FileFilterIndex) lo farebbe passare
-			bool passesFilterIndex = (!displayedOnly || idx == nullptr || !idx->isFiltered() || idx->showFile(it));
+            // Log specifici per giochi Steam prima di qualsiasi filtro
+            bool currentItemIsSteamGame = (isSteamSystemAndGames && Utils::String::startsWith(it->getPath(), "steam://"));
+            if (currentItemIsSteamGame) {
+                LOG(LogInfo) << "[FRWC_Steam_ItemEval] Evaluating Steam Game: " << it->getPath();
+                LOG(LogInfo) << "[FRWC_Steam_ItemEval]   IsInstalled: " << it->isInstalled(); // Assicurati che isInstalled() sia affidabile
+                LOG(LogInfo) << "[FRWC_Steam_ItemEval]   IsHidden: " << it->getHidden();
+                LOG(LogInfo) << "[FRWC_Steam_ItemEval]   IsKidGame: " << it->getKidGame();
+            }
 
-			// Determina se è un gioco Epic non installato
+			// Condizione 1: Passa i filtri utente (FileFilterIndex)?
+			bool passesFilterIndex = (!displayedOnly || idx == nullptr || !idx->isFiltered() || idx->showFile(it));
+            if (currentItemIsSteamGame) { // Logga il risultato di passesFilterIndex per i giochi Steam
+                LOG(LogInfo) << "[FRWC_Steam_ItemEval]   passesFilterIndex for " << it->getPath() << ": " << passesFilterIndex;
+                if (idx && idx->isFiltered() && displayedOnly) {
+                     LOG(LogInfo) << "[FRWC_Steam_ItemEval]     idx->showFile(it) specific result: " << idx->showFile(it);
+                }
+            }
+
+			// Condizione 2: È un gioco Epic non installato (caso speciale)?
             bool isUninstalledEpicGame = (it->getType() == GAME && !it->isInstalled() && pSystem->getName() == "epicgamestore");
 
-            // L'elemento passa se: il filtro normale lo accetta OPPURE è un gioco Epic non installato
-            if (passesFilterIndex || isUninstalledEpicGame)
+            // Condizione 3: È un gioco Steam virtuale/non installato (LA TUA MODIFICA)
+            bool isUninstalledOrVirtualSteamGame = (it->getType() == GAME &&
+                                       pSystem->getName() == "steam" && // Assicurati che sia il sistema steam
+                                       (Utils::String::startsWith(it->getPath(), "steam://")) &&
+                                       !it->isInstalled());
+            if (currentItemIsSteamGame) { // Logga il risultato di questa condizione per i giochi Steam
+                 LOG(LogInfo) << "[FRWC_Steam_ItemEval]   isUninstalledOrVirtualSteamGame for " << it->getPath() << ": " << isUninstalledOrVirtualSteamGame;
+            }
+
+
+            // L'elemento passa se: il filtro normale lo accetta OPPURE è un caso speciale Epic OPPURE un caso speciale Steam
+            if (passesFilterIndex || isUninstalledEpicGame || isUninstalledOrVirtualSteamGame)
             {
-				// Applica i filtri secondari (solo se displayedOnly)
-				bool keep = true;
-				if (displayedOnly)
+                if (currentItemIsSteamGame) {
+                    LOG(LogInfo) << "[FRWC_Steam_ItemEval]   PASSED primary filter condition for " << it->getPath();
+                }
+
+				bool keep = true; // Flag per decidere se tenerlo dopo i filtri secondari
+				if (displayedOnly) // Applica filtri secondari solo se stiamo cercando giochi "da visualizzare"
 				{
-					if (!filter->showHiddenFiles && it->getHidden())
-						keep = false;
+                    if (currentItemIsSteamGame) { LOG(LogInfo) << "[FRWC_Steam_ItemEval]   Applying secondary filters (displayedOnly=true) for " << it->getPath(); }
 
-					if (keep && filter->filterKidGame && it->getKidGame())
+					if (!filter->showHiddenFiles && it->getHidden()) {
+                        if (currentItemIsSteamGame) { LOG(LogInfo) << "[FRWC_Steam_ItemEval]     Filtered out by: Hidden (showHiddenFiles=false, getHidden=true)"; }
 						keep = false;
+                    }
 
-					// Usa it->getType() invece di typeMask qui per sicurezza
+					if (keep && filter->filterKidGame && it->getKidGame()) {
+                        if (currentItemIsSteamGame) { LOG(LogInfo) << "[FRWC_Steam_ItemEval]     Filtered out by: KidGame (filterKidGame=true, getKidGame=true)"; }
+						keep = false;
+                    }
+
 					if (keep && (it->getType() == GAME) && filter->hiddenExtensions.size() > 0)
 					{
-						// Usiamo getPath() per sicurezza, anche se getFileName() potrebbe bastare
 						std::string extlow = Utils::String::toLower(Utils::FileSystem::getExtension(it->getPath(), false));
-						if (!extlow.empty() && filter->hiddenExtensions.find(extlow) != filter->hiddenExtensions.cend())
+						if (!extlow.empty() && filter->hiddenExtensions.find(extlow) != filter->hiddenExtensions.cend()) {
+                            if (currentItemIsSteamGame) { LOG(LogInfo) << "[FRWC_Steam_ItemEval]     Filtered out by: Hidden Extension (" << extlow << ")"; }
 							keep = false;
+                        }
 					}
 				}
+
+                if (currentItemIsSteamGame) { // Logga lo stato finale di 'keep' per i giochi Steam
+                    LOG(LogInfo) << "[FRWC_Steam_ItemEval]   Final 'keep' status for " << it->getPath() << ": " << keep;
+                }
 
                 // Aggiungi alla lista 'out' solo se 'keep' è vero e non è una virtual folder da escludere
 				if (keep && (includeVirtualStorage || !isVirtualFolder(it))) {
 					out.push_back(it);
+                    if (currentItemIsSteamGame) { LOG(LogInfo) << "[FRWC_Steam_ItemEval]   >>> ADDED to output list: " << it->getPath(); }
 				} else if (!keep) {
-                    LOG(LogDebug) << "Filtered out (hidden/kid/ext): " << it->getName();
+                    // Già loggato sopra se è un gioco Steam, altrimenti log generico
+                    if (!currentItemIsSteamGame) { LOG(LogDebug) << "Filtered out (hidden/kid/ext): " << it->getName(); }
                 }
 
-            } else {
-                 // Log se viene scartato dal filtro principale (FileFilterIndex) e NON è un gioco Epic non installato
-                 LOG(LogDebug) << "Filtered out by FileFilterIndex (and not uninstalled Epic): " << it->getName();
+            } else { // Non ha passato la condizione primaria (passesFilterIndex E non è un caso speciale)
+                 if (currentItemIsSteamGame) { // Logga specificamente perché un gioco Steam è stato scartato qui
+                    LOG(LogWarning) << "[FRWC_Steam_ItemEval]   !!! REJECTED by primary filter condition for " << it->getPath() 
+                                    << " (passesFilterIndex: " << passesFilterIndex 
+                                    << ", isUninstalledEpicGame: " << isUninstalledEpicGame /*irrilevante qui*/
+                                    << ", isUninstalledOrVirtualSteamGame: " << isUninstalledOrVirtualSteamGame << ")";
+                 } else if (pSystem->getName() == "steam") { // Se è un file non-game nel sistema steam, loggalo comunque
+                    LOG(LogDebug) << "Item " << it->getName() << " in Steam system of type " << it->getType() << " did not meet primary filter or typeMask.";
+                 } else {
+                    LOG(LogDebug) << "Filtered out by FileFilterIndex (and not special cased Epic/Steam): " << it->getName();
+                 }
             }
 		} // Fine if (it->getType() & typeMask)
 
-		// Gestione ricorsiva cartelle (assicurati che le graffe siano corrette anche qui)
-		if (it->getType() == FOLDER) // Spostato fuori dall'if precedente
+		// Gestione ricorsiva cartelle
+		if (it->getType() == FOLDER)
         {
-            FolderData* folder = static_cast<FolderData*>(it); // Cast sicuro
+            FolderData* folder = static_cast<FolderData*>(it);
             if (!folder->getChildren().empty())
             {
                 if (includeVirtualStorage || !isVirtualFolder(folder))
                 {
-                    // Logica specifica per windows_installers (sembra invariata)
                     if (folder->isVirtualStorage() && folder->getSourceFileData() && folder->getSourceFileData()->getSystem() && folder->getSourceFileData()->getSystem()->isGroupChildSystem() && folder->getSourceFileData()->getSystem()->getName() == "windows_installers") {
-                        out.push_back(it); // Aggiungi la cartella virtuale stessa se soddisfa la condizione strana
+                        out.push_back(it);
                     } else {
-                        // Chiamata ricorsiva
+                        // Passa il flag isSteamSystemAndGames o ricalcolalo se necessario per la ricorsione
                         folder->getFilesRecursiveWithContext(out, typeMask, filter, displayedOnly, system, includeVirtualStorage);
                     }
                 }
             }
-		} // Fine if (it->getType() == FOLDER)
-
+		}
 	} // --- FINE CICLO FOR ---
-
-} // <<<---
-
+}
 
 std::vector<FileData*> FolderData::getFlatGameList(bool displayedOnly, SystemData* system) const
 {

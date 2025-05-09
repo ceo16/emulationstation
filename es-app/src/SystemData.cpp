@@ -1285,60 +1285,136 @@ void SystemData::loadAdditionnalConfig(pugi::xml_node& srcSystems)
   LOG(LogError) << "[EpicDynamic] epicSystem pointer became null unexpectedly after creation block.";
  }
  
-  // --- STEAM SYSTEM CREATION/POPULATION ---
-  LOG(LogInfo) << "Checking/Creating/Populating Steam system in loadConfig...";
- 
-  SystemData* steamSystem = getSystem("steam");
-  bool steamSystemCreated = false;
- 
-  if (!steamSystem) {
-  LOG(LogInfo) << "Steam system not found in es_systems.cfg, creating dynamically...";
- 
-  // Create SystemMetadata
-  SystemMetadata md_steam;
-  md_steam.name = "steam";
-  md_steam.fullName = _("Steam");  // Localize this!
-  md_steam.themeFolder = "steam";
-  md_steam.manufacturer = "Valve";
-  md_steam.hardwareType = "pc";
- 
-  // Create SystemEnvironmentData (THIS IS CRITICAL - FIND CORRECT PATHS!)
-  SystemEnvironmentData* envData_steam = new SystemEnvironmentData();
- std::string exePath = Paths::getExePath(); // Usa lo stesso metodo
- std::string exeDir = Utils::FileSystem::getParent(exePath);
- std::string steamRomPath = Utils::FileSystem::getGenericPath(exeDir + "/roms/steam"); // Specifica per Steam
- LOG(LogInfo) << "Dynamic Steam System: Setting StartPath to: " << steamRomPath;
+// --- STEAM SYSTEM CREATION/POPULATION (Logica da rendere il più simile possibile a Epic) ---
+LOG(LogInfo) << "[SteamDynamic] Checking/Creating/Populating Steam system...";
 
- envData_steam->mStartPath = steamRomPath; // <<< IMPOSTA QUESTO PERCORSO!
- // --- FINE CORREZIONE ---
+SystemData* steamSystem = SystemData::getSystem("steam");
+bool steamSystemJustCreated = false; // Rinominato
 
- envData_steam->mSearchExtensions = {}; // Probabilmente vuoto
- envData_steam->mPlatformIds = {PlatformIds::PC};
- envData_steam->mLaunchCommand = "";
- 
-  // Create Emulators vector (empty for now)
-  std::vector<EmulatorData> steamEmulators;
- 
-  // Create the SystemData object
-  steamSystem = new SystemData(md_steam, envData_steam, &steamEmulators, false, false, true, false);
-  if (!steamSystem) {
-  LOG(LogError) << "Failed to create Steam system!";
-  delete envData_steam;
-  return false;  // Or handle the error appropriately
-  }
- 
-  steamSystemCreated = true;
-  sSystemVector.push_back(steamSystem);
-  } else {
-  LOG(LogInfo) << "Steam system found in es_systems.cfg.";
-  }
- 
-  // Populate Steam games (if newly created OR if you want to refresh)
-if (steamSystem && (steamSystemCreated || steamSystem->getRootFolder()->getChildren().empty())) {
-     steamSystem->populateSteamVirtual(steamSystem); // Corrected call
- }
- 
-  // --- END STEAM SYSTEM CREATION/POPULATION ---
+if (steamSystem == nullptr) {
+    LOG(LogInfo) << "[SteamDynamic] Steam system not found, creating dynamically...";
+    SystemMetadata md_steam;
+    md_steam.name = "steam";
+    md_steam.fullName = _("Steam");
+    md_steam.themeFolder = "steam";
+    md_steam.manufacturer = "Valve";
+    md_steam.hardwareType = "pc";
+
+    SystemEnvironmentData* envData_steam = new SystemEnvironmentData();
+    std::string exePath_s = Paths::getExePath();
+    std::string exeDir_s = Utils::FileSystem::getParent(exePath_s);
+    // Assicurati che questo path esista o che ES possa crearlo.
+    // È dove si aspetta di trovare gamelist.xml per Steam.
+    std::string steamRomPath_s = Utils::FileSystem::getGenericPath(exeDir_s + "/roms/steam");
+    LOG(LogInfo) << "[SteamDynamic] Setting StartPath for Steam to: " << steamRomPath_s;
+    envData_steam->mStartPath = steamRomPath_s;
+    envData_steam->mSearchExtensions = {".steamgame"}; // O le tue estensioni fittizie
+    envData_steam->mPlatformIds = {PlatformIds::PC};
+    envData_steam->mLaunchCommand = "";
+
+    std::vector<EmulatorData> steamEmulators_s_empty; // Rinominato
+    steamSystem = new SystemData(md_steam, envData_steam, &steamEmulators_s_empty, false, false, true, false);
+
+    if (!steamSystem) {
+        delete envData_steam;
+        LOG(LogError) << "[SteamDynamic] Failed to dynamically create 'steam' system object!";
+        // return false; // O gestisci l'errore e non continuare con Steam
+    } else {
+        LOG(LogInfo) << "[SteamDynamic] Dynamically created 'steam' system object.";
+        // Aggiungi il sistema appena creato a sSystemVector QUI.
+        bool nameCollisionSteam = false;
+        for (const auto& sys : SystemData::sSystemVector) {
+            if (sys && sys->getName() == steamSystem->getName()) { nameCollisionSteam = true; break; }
+        }
+        if (!nameCollisionSteam) {
+            SystemData::sSystemVector.push_back(steamSystem);
+            LOG(LogInfo) << "[SteamDynamic] Added newly created Steam system to sSystemVector.";
+        } else {
+            LOG(LogWarning) << "[SteamDynamic] Steam system name collision (getSystem should have caught this). Using existing.";
+            delete steamSystem;
+            steamSystem = SystemData::getSystem("steam");
+            if (!steamSystem) { LOG(LogError) << "[SteamDynamic] CRITICAL: Steam system null after collision handling."; /* gestisci */ }
+        }
+        steamSystemJustCreated = true;
+    }
+} else { // steamSystem già esisteva
+    LOG(LogInfo) << "[SteamDynamic] Steam system already loaded. Clearing for repopulation.";
+    if (steamSystem->getRootFolder()) steamSystem->getRootFolder()->clear();
+
+    FileFilterIndex* existingIndexSteam = steamSystem->getIndex(false);
+    if (existingIndexSteam != nullptr) {
+        delete existingIndexSteam;
+        steamSystem->mFilterIndex = nullptr;
+    }
+    steamSystem->updateDisplayedGameCount();
+}
+
+// Popola il sistema Steam se esiste (o è stato appena creato con successo)
+if (steamSystem != nullptr) {
+    LOG(LogInfo) << "[SteamDynamic] Initiating data population for 'steam' system...";
+    try {
+        // --- Inizio Logica di popolamento Steam ---
+        // 1. LEGGI IL GAMELIST.XML DI STEAM (SE ESISTE) <<< QUESTO È IL PASSO CHIAVE
+        std::string gamelistPathSteam = steamSystem->getGamelistPath(false); // Rinominato
+        LOG(LogInfo) << "[SteamDynamic] Attempting to parse Steam gamelist: " << gamelistPathSteam;
+        if (Utils::FileSystem::exists(gamelistPathSteam)) {
+            std::unordered_map<std::string, FileData*> fileMapSteam; // Rinominato
+            if (steamSystem->getRootFolder()) {
+                fileMapSteam[steamSystem->getRootFolder()->getPath()] = steamSystem->getRootFolder();
+            } else {
+                 LOG(LogError) << "[SteamDynamic] Root folder for Steam is null before parsing gamelist! StartPath: " << steamSystem->getStartPath();
+                 // Se mStartPath è valido, il costruttore di SystemData dovrebbe aver creato mRootFolder.
+                 // Controlla se mStartPath è una directory valida e accessibile.
+                 // Potrebbe essere necessario creare mRootFolder esplicitamente se non lo fa:
+                 // if (!steamSystem->getStartPath().empty())
+                 //    steamSystem->mRootFolder = new FolderData(steamSystem->getStartPath(), steamSystem);
+                 // if (steamSystem->getRootFolder()) fileMapSteam[steamSystem->getRootFolder()->getPath()] = steamSystem->getRootFolder();
+            }
+
+            // Assicurati che Gamelist::parseGamelist sia accessibile
+            if (steamSystem->getRootFolder()) { // Solo se rootFolder è valido
+                 parseGamelist(steamSystem, fileMapSteam); // CHIAMA IL PARSING DEL GAMELIST PER STEAM
+                 LOG(LogInfo) << "[SteamDynamic] Parsed Steam gamelist. Root folder child count now: " << steamSystem->getRootFolder()->getChildren().size();
+            }
+        } else {
+            LOG(LogWarning) << "[SteamDynamic] Gamelist file not found for Steam at: " << gamelistPathSteam;
+            // Se il gamelist non esiste, assicurati che rootFolder esista per l'API
+            if (steamSystem && !steamSystem->getRootFolder() && !steamSystem->getStartPath().empty()) {
+                 // Come sopra, il costruttore dovrebbe averlo gestito.
+                 LOG(LogError) << "[SteamDynamic] Steam RootFolder is still NULL after gamelist check (gamelist missing).";
+            }
+        }
+        // --- Fine Logica di popolamento Steam ---
+
+        if (steamSystemJustCreated) {
+            size_t steamGameCountAfterPopulation = 0;
+            if (steamSystem->getRootFolder()) {
+                 std::vector<FileData*> tempListSteam;
+                 GetFileContext permissiveCtxSteam; permissiveCtxSteam.showHiddenFiles = true;
+                 steamSystem->getRootFolder()->getFilesRecursiveWithContext(tempListSteam, GAME, &permissiveCtxSteam, false, steamSystem, true);
+                 steamGameCountAfterPopulation = tempListSteam.size();
+            }
+
+            if (steamGameCountAfterPopulation > 0) {
+                LOG(LogInfo) << "[SteamDynamic] Loading theme and adding (if new) populated steam system. Game count: " << steamGameCountAfterPopulation;
+                steamSystem->loadTheme();
+                // ... (setSystemViewMode per Steam) ...
+            } else if (steamSystemJustCreated) {
+                LOG(LogWarning) << "[SteamDynamic] Newly created steam system is empty after all population. May be hidden.";
+            }
+        }
+        steamSystem->updateDisplayedGameCount();
+        LOG(LogInfo) << "[SteamDynamic] Finished populating steam. Final game counts: Visible="
+                     << (steamSystem->getGameCountInfo() ? steamSystem->getGameCountInfo()->visibleGames : -1)
+                     << ", Total=" << (steamSystem->getGameCountInfo() ? steamSystem->getGameCountInfo()->totalGames : -1);
+
+    } catch (const std::exception& e) {
+        LOG(LogError) << "[SteamDynamic] Exception during dynamic population of steam: " << e.what();
+    } catch (...) {
+        LOG(LogError) << "[SteamDynamic] Unknown exception during dynamic population of steam.";
+    }
+}
+// --- FINE BLOCCO STEAM ---
  
   if (SystemData::sSystemVector.size() > 0) {
   createGroupedSystems();

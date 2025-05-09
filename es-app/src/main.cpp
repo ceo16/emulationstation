@@ -452,289 +452,6 @@ void launchStartupGame()
 }
 
 #include "utils/MathExpr.h"
- void initEpicGamesStore(Window& window) {
-     LOG(LogDebug) << "--- EPIC GAMES STORE INIT START (V4 Final - Conditional API) ---";
-
-     // --- 1. Setup Iniziale (GameStoreManager, EpicGamesStore) ---
-     GameStoreManager* gsm = GameStoreManager::get();
-     if (!gsm) { LOG(LogError) << "Epic Store Init: Failed GameStoreManager."; return; }
-     EpicGamesStore* epicGamesStore = nullptr;
-     GameStore* baseStore = gsm->getStore("EpicGamesStore");
-     if (baseStore) {
-         epicGamesStore = dynamic_cast<EpicGamesStore*>(baseStore);
-         if (!epicGamesStore) { LOG(LogError) << "Epic Store Init: Failed cast."; return; }
-     } else {
-         LOG(LogError) << "Epic Store Init: Store 'EpicGamesStore' not registered."; return;
-     }
-
-     // --- 2. Determina e Controlla Gamelist Path (Relativo) ---
-     std::map<std::string, std::string> existingNames; // path -> name from XML
-     std::string gamelistPath = "";
-     bool gamelistParsedSuccessfully = false;
-     bool gamelistExists = false;
-     std::string gamelistDir = "";
-
-     try {
-         std::string exeDir = Utils::FileSystem::getParent(Paths::getExePath());
-         gamelistDir = Utils::FileSystem::combine(exeDir, "roms/epicgamestore");
-         gamelistPath = Utils::FileSystem::combine(gamelistDir, "gamelist.xml");
-         LOG(LogInfo) << "Using relative gamelist path: " << gamelistPath;
-
-         if (!Utils::FileSystem::exists(gamelistDir)) {
-             LOG(LogWarning) << "Gamelist directory does not exist, creating: " << gamelistDir;
-             Utils::FileSystem::createDirectory(gamelistDir);
-             gamelistExists = false;
-         } else {
-             gamelistExists = Utils::FileSystem::exists(gamelistPath);
-         }
-     } catch (const std::exception& e) {
-         LOG(LogError) << "Error determining relative gamelist path: " << e.what();
-         return;
-     }
-
-     // --- 3. Tenta di Parsare Gamelist (se esiste) ---
-     if (gamelistExists) {
-         LOG(LogInfo) << "Attempting to parse existing relative gamelist: " << gamelistPath;
-         pugi::xml_document doc;
-         pugi::xml_parse_result result = doc.load_file(gamelistPath.c_str());
-         if (!result) {
-             LOG(LogError) << "Error parsing " << gamelistPath << ": " << result.description() << ". Will treat as non-existent.";
-             gamelistParsedSuccessfully = false;
-             gamelistExists = false; // Tratta il file corrotto come non esistente per forzare API
-         } else {
-             pugi::xml_node root = doc.child("gameList");
-             if (root) {
-                 for (pugi::xml_node gameNode = root.child("game"); gameNode; gameNode = gameNode.next_sibling("game")) {
-                     std::string path = gameNode.child_value("path");
-                     std::string name = gameNode.child_value("name");
-                     if (!path.empty()) {
-                         existingNames[path] = name; // Salva path e nome (anche se vuoto)
-                     }
-                 }
-                 LOG(LogInfo) << "Found " << existingNames.size() << " entries in relative gamelist map.";
-                 gamelistParsedSuccessfully = true;
-             } else {
-                 LOG(LogWarning) << "Could not find <gameList> root node in " << gamelistPath << ". Will treat as non-existent.";
-                 gamelistParsedSuccessfully = false;
-                 gamelistExists = false; // Tratta il file malformato come non esistente
-             }
-         }
-     } else {
-         LOG(LogWarning) << "Relative gamelist file NOT FOUND at: " << gamelistPath;
-         gamelistParsedSuccessfully = false;
-     }
-
-     // --- 4. Ottieni o Crea SystemData ---
-     SystemData* epicSystem = SystemData::getSystem("epicgamestore");
-     bool systemJustCreated = false;
-     if (!epicSystem) {
-         LOG(LogWarning) << "Epic Store Init: SystemData 'epicgamestore' not found. Creating dynamically.";
-         // --- Blocco creazione dinamica ---
-         SystemMetadata epicSystemMetadata;
-         epicSystemMetadata.name = "epicgamestore";
-         epicSystemMetadata.fullName = "Epic Games Store";
-         epicSystemMetadata.themeFolder = "epicgamestore";
-         SystemEnvironmentData* epicSystemEnvData = new SystemEnvironmentData();
-         epicSystemEnvData->mStartPath = Utils::FileSystem::getGenericPath(gamelistDir);
-         epicSystemEnvData->mSearchExtensions = {};
-         epicSystemEnvData->mPlatformIds = { PlatformIds::PC };
-         epicSystemEnvData->mLaunchCommand = "";
-         std::vector<EmulatorData> epicEmulators;
-         epicSystem = new SystemData(epicSystemMetadata, epicSystemEnvData, &epicEmulators, false, false, true, false);
-         if (!epicSystem) { delete epicSystemEnvData; LOG(LogError) << "Failed dynamic create!"; return; }
-         systemJustCreated = true;
-         // --- Fine Blocco ---
-     } else {
-         LOG(LogDebug) << "Epic Store Init: Found existing SystemData object (from es_systems.cfg?).";
-         // Pulisci le voci esistenti per evitare conflitti con quelle caricate da noi
-         LOG(LogDebug) << "Clearing existing root folder entries before repopulating.";
-         epicSystem->getRootFolder()->clear();
-     }
-     if (!epicSystem->getRootFolder()) { LOG(LogError) << "Epic Store Init: Root folder is null!"; return; }
-    pugi::xml_document doc;
-    pugi::xml_parse_result loadResult = doc.load_file(gamelistPath.c_str());
-    bool fileExists = loadResult && loadResult.status == pugi::xml_parse_status::status_ok;
-    bool shouldRunApiCheck = !fileExists;
-
-     // --- 5. Decidi se eseguire l'API Check ---
-   //  bool shouldRunApiCheck = false;
-     // Esegui API se gamelist non esiste, il parsing è fallito, o era vuoto.
-     if (!gamelistExists || !gamelistParsedSuccessfully || existingNames.empty()) {
-          LOG(LogInfo) << "CONDITION MET: Gamelist missing, failed parse, or empty. API Check will run.";
-          shouldRunApiCheck = true;
-     } else {
-          LOG(LogInfo) << "CONDITION NOT MET: Gamelist existed, parsed ok, and contains " << existingNames.size() << " entries. API check will be SKIPPED.";
-          shouldRunApiCheck = false;
-     }
-
-     // --- 6. Popola Giochi Virtuali (da XML o API) ---
-     if (shouldRunApiCheck) {
-          // --- Esegui Chiamata API ---
-          LOG(LogInfo) << "Proceeding with API call to populate virtual Epic games...";
-          EpicGamesStoreAPI* epicApi = epicGamesStore->getApi();
-          if (epicApi && epicGamesStore->getAuth() && !epicGamesStore->getAuth()->getAccessToken().empty()) {
-              try {
-                  // existingNames è vuota o non valida qui, populateEpicGamesVirtual la ignorerà (si spera)
-                  epicSystem->populateEpicGamesVirtual(epicApi, existingNames);
-                  LOG(LogInfo) << "populateEpicGamesVirtual completed (via API).";
-              } catch (const std::exception& e) { LOG(LogError) << "Error during populateEpicGamesVirtual (API): " << e.what(); }
-              catch (...) { LOG(LogError) << "Unknown error during populateEpicGamesVirtual (API)."; }
-          } else {
-              LOG(LogError) << "Cannot run populateEpicGamesVirtual: API instance invalid or user not authenticated.";
-          }
-     } else {
-          // ---> INIZIO BLOCCO CORRETTO (SOSTITUISCE IL TUO BLOCCO "Carica da Mappa XML") <---
- // --- Carica da XML Completo ---
-        LOG(LogInfo) << "Parsing full gamelist XML to load virtual games and metadata...";
-
-        // Recupera il nodo root (<gameList>) dal documento 'doc'
-        pugi::xml_node root = doc.child("gameList"); // 'doc' è nello scope qui
-        if (!root) {
-             LOG(LogError) << "initEpicGamesStore: Impossibile trovare il nodo gameList nel documento XML caricato nel blocco ELSE!";
-        }
-        else // Procedi solo se root XML è valido
-        {
-            int virtualAddedOrUpdated = 0;
-            FolderData* rootFolder = epicSystem->getRootFolder(); // Ottieni FolderData root
-            if (!rootFolder) {
-                LOG(LogError) << "initEpicGamesStore: Impossibile ottenere rootFolder per epicSystem nel blocco ELSE!";
-            } else
-            {
-                // Itera sui NODI <game> nel documento XML 'root'
-                for (pugi::xml_node gameNode = root.child("game"); gameNode; gameNode = gameNode.next_sibling("game"))
-                {
-                    std::string path = gameNode.child_value("path"); // Leggi il path dal nodo XML
-
-                    // Processa solo i percorsi virtuali qui
-                    if (path.empty() || !Utils::String::startsWith(path, "epic:/virtual/")) { // Usa UN solo slash
-                         continue;
-                    }
-
-                    // ---> INIZIO LOGICA REPLICATA (da findOrCreateFile) <---
-                    FileData* gameFileData = nullptr; // Puntatore al FileData finale
-
-                    // 1. Controlla se esiste già tra i figli diretti
-                    FileData* existingChild = nullptr;
-                    for(FileData* child : rootFolder->getChildren()) {
-                         if(child != nullptr && child->getPath() == path) {
-                              existingChild = child;
-                              break;
-                         }
-                    }
-
-                    if (existingChild != nullptr) {
-                        // Trovato! Usa l'oggetto esistente.
-                        LOG(LogDebug) << "initEpicGamesStore: Trovato FileData ESISTENTE per path XML: " << path;
-                        gameFileData = existingChild;
-                    } else {
-                        // Non trovato, CREA un nuovo oggetto FileData
-                        LOG(LogDebug) << "initEpicGamesStore: FileData non esistente, CREO NUOVO per path XML: " << path;
-                        gameFileData = new FileData(FileType::GAME, path, epicSystem);
-                        // Aggiungi il NUOVO oggetto ai figli della root folder
-                        rootFolder->addChild(gameFileData);
-                    }
-                    // ---> FINE LOGICA REPLICATA <---
-
-
-                    if (gameFileData != nullptr) // Ora gameFileData punta a quello giusto (vecchio o nuovo)
-                    {
-                        LOG(LogDebug) << "Processing game from XML node for path: " << path;
-                        // ---> INIZIO LETTURA COMPLETA METADATI (dal nodo XML 'gameNode') <---
-                        gameFileData->getMetadata().set(MetaDataId::Name,        gameNode.child_value("name"));
-                        gameFileData->getMetadata().set(MetaDataId::Desc,        gameNode.child_value("desc"));
-                        gameFileData->getMetadata().set(MetaDataId::Rating,      gameNode.child_value("rating"));
-                        gameFileData->getMetadata().set(MetaDataId::ReleaseDate, gameNode.child_value("releasedate"));
-                        gameFileData->getMetadata().set(MetaDataId::Developer,   gameNode.child_value("developer"));
-                        gameFileData->getMetadata().set(MetaDataId::Publisher,   gameNode.child_value("publisher"));
-                        gameFileData->getMetadata().set(MetaDataId::Genre,       gameNode.child_value("genre"));
-                        gameFileData->getMetadata().set(MetaDataId::Players,     gameNode.child_value("players"));
-                        gameFileData->getMetadata().set(MetaDataId::Image,       gameNode.child_value("image"));
-                        gameFileData->getMetadata().set(MetaDataId::Video,       gameNode.child_value("video"));
-                        gameFileData->getMetadata().set(MetaDataId::Thumbnail,   gameNode.child_value("thumbnail"));
-                        // ... altri standard ...
-
-                        // Leggi e imposta i metadati specifici di Epic (Usa stringhe come ID)
-                        gameFileData->getMetadata().set("epicns",    gameNode.child_value("epicns"));
-                        gameFileData->getMetadata().set("epiccstid", gameNode.child_value("epiccstid"));
-                        gameFileData->getMetadata().set("launch",    gameNode.child_value("launch"));
-                        gameFileData->getMetadata().set("virtual",   gameNode.child_value("virtual"));
-                        gameFileData->getMetadata().set(MetaDataId::Installed, "false");
-                        // ---> FINE LETTURA COMPLETA METADATI <---
-
-                        virtualAddedOrUpdated++;
-                    } else {
-                         LOG(LogError) << "Errore critico: gameFileData è nullo dopo check/creazione per path XML: " << path;
-                    }
-                } // Fine ciclo for sui gameNode
-                LOG(LogInfo) << "Aggiunti/Aggiornati " << virtualAddedOrUpdated << " giochi virtuali leggendo il gamelist XML completo.";
-            } // Fine if (rootFolder)
-        } // Fine if (root)
-    } // ---> FINE BLOCCO CORRETTO <---
-
-     // --- 7. Gestisci Giochi INSTALLATI (Aggiorna o Aggiungi) ---
-     //    (Questa parte viene eseguita sempre, dopo aver popolato i virtuali da XML o API)
-     LOG(LogDebug) << "Processing *installed* Epic Games...";
-     int installedProcessed = 0;
-     try {
-         std::vector<EpicGamesStore::EpicGameInfo> installedEpicGames = epicGamesStore->getInstalledEpicGamesWithDetails();
-         LOG(LogInfo) << "Found " << installedEpicGames.size() << " installed Epic Games manifests.";
-         for (const auto& installedGame : installedEpicGames) {
-             std::string installedPath = installedGame.installDir;
-             if (installedPath.empty()) continue;
-             FileData* installedFileData = epicSystem->getRootFolder()->FindByPath(installedPath);
-
-             if (installedFileData) {
-                  // Gioco installato trovato, aggiorna i metadati principali
-                  installedFileData->getMetadata().set(MetaDataId::Installed, "true");
-                  installedFileData->getMetadata().set(MetaDataId::Virtual, "false");
-                  installedFileData->getMetadata().set(MetaDataId::LaunchCommand, installedGame.launchCommand);
-                   // NON sovrascrivere il nome se già impostato (potrebbe venire da XML o API precedente)
-                  // if (installedFileData->getName().empty()) installedFileData->getMetadata().set(MetaDataId::Name, installedGame.name);
-                  // ... aggiorna altri ID se necessario ...
-             } else {
-                  // Gioco installato non trovato, aggiungilo
-                  FileData* gameFileData = new FileData(FileType::GAME, installedPath, epicSystem);
-                  gameFileData->getMetadata().set(MetaDataId::Name, installedGame.name); // Usa nome da manifest
-                  gameFileData->getMetadata().set(MetaDataId::Installed, "true");
-                  gameFileData->getMetadata().set(MetaDataId::Virtual, "false");
-                  gameFileData->getMetadata().set(MetaDataId::LaunchCommand, installedGame.launchCommand);
-                  // ... imposta ID ...
-                  epicSystem->getRootFolder()->addChild(gameFileData);
-             }
-              installedProcessed++;
-         }
-     } catch (const std::exception& e) { LOG(LogError) << "Error processing installed: " << e.what(); }
-     LOG(LogInfo) << "Finished processing " << installedProcessed << " installed Epic games.";
-     LOG(LogInfo) << "System now has " << epicSystem->getRootFolder()->getChildren().size() << " total entries before UI update.";
-
-
-     // --- 8. Aggiungi Sistema a Vettore Globale e Aggiorna UI ---
-     if (systemJustCreated) {
-         bool nameCollision = false;
-         for(const auto& sys : SystemData::sSystemVector) { if(sys->getName() == epicSystem->getName()) { nameCollision = true; break; } }
-         if (!nameCollision && epicSystem->getRootFolder()->getChildren().size() > 0) {
-              SystemData::sSystemVector.push_back(epicSystem);
-              LOG(LogInfo) << "Added newly created system '" << epicSystem->getName() << "' to sSystemVector.";
-              CollectionSystemManager::get()->updateSystemsList();
-              LOG(LogInfo) << "Called CollectionSystemManager::get()->updateSystemsList() for dynamic system.";
-         } else {
-              if (nameCollision) LOG(LogError) << "Name collision: epicgamestore";
-              else LOG(LogWarning) << "Newly created system is empty. Not adding.";
-              delete epicSystem; epicSystem = nullptr;
-         }
-     } else if (epicSystem) { // Se esisteva già, aggiorna UI
-          CollectionSystemManager::get()->updateSystemsList();
-          LOG(LogInfo) << "Called CollectionSystemManager::get()->updateSystemsList() for existing system.";
-     }
-
-     // --- 9. Aggiorna Conteggio (Ordinamento Rimosso) ---
-     if (epicSystem) {
-         epicSystem->updateDisplayedGameCount();
-         LOG(LogInfo) << "Final game count updated.";
-     }
-
-     LOG(LogDebug) << "--- EPIC GAMES STORE INIT END (V4 Final - Conditional API) ---";
- }
 
 Uint32 SDL_EPIC_REFRESH_COMPLETE; // <- Definisci senza valore qui
 Uint32 SDL_STEAM_REFRESH_COMPLETE;
@@ -831,7 +548,7 @@ int main(int argc, char* argv[])
 
 	Window window;
 	SystemScreenSaver screensaver(&window);
-	GameStoreManager::get()->initAllStores(&window);
+	  GameStoreManager::get()->initAllStores(&window);
     ViewController::init(&window);
 	LOG(LogDebug) << "main - ViewController::init() called (ViewController address: " << ViewController::get() << ")";
 	CollectionSystemManager::init(&window);
@@ -852,11 +569,11 @@ if (SDL_EPIC_REFRESH_COMPLETE == (Uint32)-1) {
 } else {
     LOG(LogInfo) << "Registered SDL_EPIC_REFRESH_COMPLETE with ID: " << SDL_EPIC_REFRESH_COMPLETE;
 }
- SDL_EPIC_REFRESH_COMPLETE = SDL_RegisterEvents(1);
-    if (SDL_EPIC_REFRESH_COMPLETE == (Uint32)-1) {
-        LOG(LogError) << "SDL_RegisterEvents failed for SDL_EPIC_REFRESH_COMPLETE!";
+ SDL_STEAM_REFRESH_COMPLETE = SDL_RegisterEvents(1);
+    if (SDL_STEAM_REFRESH_COMPLETE == (Uint32)-1) {
+        LOG(LogError) << "SDL_RegisterEvents failed for SDL_STEAM_REFRESH_COMPLETE!";
     } else {
-        LOG(LogInfo) << "Registered SDL_EPIC_REFRESH_COMPLETE with ID: " << SDL_EPIC_REFRESH_COMPLETE;
+        LOG(LogInfo) << "Registered SDL_Steam_REFRESH_COMPLETE with ID: " << SDL_STEAM_REFRESH_COMPLETE;
     }
 	PowerSaver::init();
 
@@ -879,20 +596,6 @@ if (SDL_EPIC_REFRESH_COMPLETE == (Uint32)-1) {
 	MameNames::init();
 	HttpServerThread httpServer(&window, dummySetStateCallback); // 
 	
-	LOG(LogDebug) << "main - SystemData::sSystemVector after loading:";
- for (auto sys : SystemData::sSystemVector) {
- LOG(LogDebug) << "  - " << sys->getName() << " (address: " << sys << ")"
-               << ", isCollection: " << sys->isCollection()
-               << ", isGameSystem: " << sys->isGameSystem();
-			   // --- SYSTEM VECTOR LOGGING (AFTER EPIC STORE INIT) ---
-  LOG(LogDebug) << "main - SystemData::sSystemVector after initEpicGamesStore:";
-  for (auto sys : SystemData::sSystemVector) {
-  LOG(LogDebug) << "   - System: " << sys->getName() << " (address: " << sys << ")";
-  }
-  // --- END SYSTEM VECTOR LOGGING ---
- }
-
-
 	const char* errorMsg = NULL;
 	if(!loadSystemConfigFile(splashScreen && splashScreenProgress ? &window : nullptr, &errorMsg))
 	{
@@ -909,8 +612,8 @@ if (SDL_EPIC_REFRESH_COMPLETE == (Uint32)-1) {
 	}
 
 	SystemConf* systemConf = SystemConf::getInstance();
-  //   initEpicGamesStore(window);
 
+  
 #ifdef _ENABLE_KODI_
 	if (systemConf->getBool("kodi.enabled", true) && systemConf->getBool("kodi.atstartup"))
 	{
@@ -952,33 +655,7 @@ if (SDL_EPIC_REFRESH_COMPLETE == (Uint32)-1) {
 	LOG(LogInfo) << "goToStart() completed."; // Log aggiunto per chiarezza timing
 
 
-LOG(LogInfo) << "Attempting to start background metadata update thread for Epic Games...";
-GameStoreManager* gsm = GameStoreManager::get();
-EpicGamesStore* epicStore = nullptr;
-EpicGamesStoreAPI* epicApi = nullptr;EpicGamesAuth* epicAuth = nullptr; // <<< Variabile per l'Auth obje
 
-if (gsm) {
-    const auto& stores = gsm->getStores();
-    auto it = stores.find("EpicGamesStore");
-    if (it != stores.end()) {
-         epicStore = static_cast<EpicGamesStore*>(it->second);
-         if (epicStore) {
-              // Assumiamo che tu aggiunga un getter pubblico a EpicGamesStore:
-              // In EpicGamesStore.h: EpicGamesAuth* getAuth() { return mAuth; }
-              // In EpicGamesStore.cpp: Aggiungi la definizione se necessario.
-              epicApi = epicStore->getApi(); // <<< OTTIENI epicApi qui!
-                  if (!epicApi) {
-                  LOG(LogError) << "EpicGamesStore found, but failed to get Auth object.";
-              }
-         }
-    }
-
-   // --- Loop Principale UI ---
-    int lastTime = SDL_GetTicks();
-    int exitCode = 0;
-    bool running = true;
-    // ... (resto del loop main) ...
-}
 
 	window.closeSplashScreen();
 
