@@ -33,7 +33,7 @@
 #include "GameStore/EpicGames/EpicGamesStoreAPI.h"
 #include "GameStore/EpicGames/EpicGamesModels.h"
 #include "MetaData.h"
-#include "GameStore/EpicGames/GameStoreManager.h" // <--- AGGIUNGI QUESTO
+#include "GameStore/GameStoreManager.h" // <--- AGGIUNGI QUESTO
 #include "GameStore/EpicGames/EpicGamesStore.h" // <--- AGGIUNGI QUESTO
 #include "GameStore/EpicGames/EpicGamesModels.h"
  #include "GameStore/Steam/SteamStore.h"

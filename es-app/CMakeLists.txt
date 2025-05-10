@@ -29,7 +29,7 @@ set(ES_HEADERS
     ${CMAKE_CURRENT_SOURCE_DIR}/src/SaveStateConfigFile.h    
 	${CMAKE_CURRENT_SOURCE_DIR}/src/CustomFeatures.h
        #gamestore
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/GameStore/EpicGames/GameStoreManager.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/GameStore/GameStoreManager.h
     ${CMAKE_CURRENT_SOURCE_DIR}/src/GameStore/EpicGames/EpicGamesUI.h
     ${CMAKE_CURRENT_SOURCE_DIR}/src/GameStore/EpicGames/EpicGamesStore.h     
 	${CMAKE_CURRENT_SOURCE_DIR}/src/GameStore/EpicGames/EpicGamesAuth.h
@@ -153,7 +153,7 @@ set(ES_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/src/SaveStateConfigFile.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/src/CustomFeatures.cpp
  #  GamesStore	
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/GameStore/EpicGames/GameStoreManager.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/GameStore/GameStoreManager.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/GameStore/EpicGames/EpicGamesStore.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/GameStore/EpicGames/EpicGamesAuth.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/GameStore/EpicGames/EpicGamesUI.cpp

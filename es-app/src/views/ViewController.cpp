@@ -31,9 +31,6 @@
 #include "TextToSpeech.h"
 #include "VolumeControl.h"
 #include "guis/GuiNetPlay.h"
-#include "GameStore/EpicGames/EpicGamesStore.h"
-#include "GameStore/EpicGames/GameStoreManager.h" // Includi questo
-
 
 ViewController* ViewController::sInstance = nullptr;
 
@@ -270,119 +267,9 @@ bool ViewController::goToGameList(const std::string& systemName, bool forceImmed
 
 void ViewController::goToGameList(SystemData* system, bool forceImmediate)
 {
-	if (system == nullptr)
-		return;
-
-	LOG(LogDebug) << "ViewController::goToGameList requested for system: " << system->getName();
-
-	// --- Logica Specifica per Epic Games Store ---
-	if (system->getName() == "epicgamestore")
-	{
-		LOG(LogDebug) << "Handling Epic Games Store specific logic.";
-		// Controlla se abbiamo già eseguito l'update per questo sistema in questa sessione
-		if (mSystemsCheckedForUpdate.find(system) == mSystemsCheckedForUpdate.end())
-		{
-			 LOG(LogDebug) << "First time entering Epic system view this session. Checking for needed metadata updates.";
-			 mSystemsCheckedForUpdate.insert(system); // Segna come controllato
-
-			 // Ottieni l'istanza tramite Singleton
-			 GameStoreManager* storeManager = GameStoreManager::get();
-			 EpicGamesStore* epicStorePtr = nullptr;
-
-			 if (!storeManager) {
-				 LOG(LogError) << "Epic Store: GameStoreManager singleton instance is null!";
-			 }
-			 else
-			 {
-			     GameStore* baseStorePtr = storeManager->getStore("EpicGamesStore"); // <-- USA QUESTA CHIAVE
-     if (!baseStorePtr) {
-         // Questo warning ora non dovrebbe più apparire se la chiave è giusta
-         LOG(LogWarning) << "Epic Store: Store 'EpicGamesStore' not found in GameStoreManager.";
-     } else {
-         // --- CORREZIONE: Usa dynamic_cast con puntatori grezzi ---
-         epicStorePtr = dynamic_cast<EpicGamesStore*>(baseStorePtr);
-         if (!epicStorePtr) {
-             LOG(LogError) << "Epic Store: Failed to cast GameStore* to EpicGamesStore*.";
-         }
-     }
- }
-
-			    if (epicStorePtr)
-         {
-             // --- NUOVA LOGICA: Aggiorna TUTTI i giochi la prima volta ---
-             std::vector<std::string> gamePathsToUpdate;
-             if (system->getRootFolder()) {
-                 LOG(LogDebug) << "First entry: preparing to update metadata for ALL games in Epic system.";
-                 for (auto* fileData : system->getRootFolder()->getFilesRecursive(GAME)) {
-                     if (fileData) {
-                         gamePathsToUpdate.push_back(fileData->getPath());
-                     }
-                 }
-                 LOG(LogDebug) << "Prepared " << gamePathsToUpdate.size() << " total games for metadata check/update.";
-             }
-
-				 if (!gamePathsToUpdate.empty()) {
-					 LOG(LogInfo) << "Epic Store: Triggering automatic update for " << gamePathsToUpdate.size() << " games missing names.";
-					 if (mEpicUpdateFuture.valid() && mEpicUpdateFuture.wait_for(std::chrono::seconds(0)) != std::future_status::ready) {
-						 LOG(LogWarning) << "Epic Store: Previous update task still running. Skipping new trigger.";
-					 } else {
-						 // ***** INSERISCI IL CODICE DI LOGGING QUI *****
-                         // Prendiamo il primo gioco come esempio (assicurati che esista)
-                         if (system->getRootFolder() && !system->getRootFolder()->getChildren().empty()) {
-                             FileData* firstGame = nullptr;
-                             for (auto child : system->getRootFolder()->getChildren()) { // Trova il primo FileData che sia GAME
-                                 if (child->getType() == GAME) {
-                                     firstGame = child;
-                                     break;
-                                 }
-                             }
-
-                             if (firstGame) {
-                                 LOG(LogDebug) << "VC_DEBUG: Stato Metadati PRIMA del task background per gioco: " << firstGame->getName();
-                                 // Metodo Alternativo (logga chiavi specifiche):
-                                 LOG(LogDebug) << "  -> name = [" << firstGame->getMetadata().get(MetaDataId::Name) << "]";
-                                 LOG(LogDebug) << "  -> desc = [" << firstGame->getMetadata().get(MetaDataId::Desc).substr(0, 30) << "...]";
-                                 LOG(LogDebug) << "  -> virtual = [" << firstGame->getMetadata().get(MetaDataId::Virtual) << "]";
-                                 LOG(LogDebug) << "  -> epicns = [" << firstGame->getMetadata().get(MetaDataId::EpicNamespace) << "]";
-                                 LOG(LogDebug) << "  -> epiccstid = [" << firstGame->getMetadata().get(MetaDataId::EpicCatalogId) << "]";
-                                 LOG(LogDebug) << "  -> launch = [" << firstGame->getMetadata().get(MetaDataId::LaunchCommand) << "]";
-                             } else {
-                                 LOG(LogDebug) << "VC_DEBUG: Non è stato trovato nessun gioco nel root folder per il log PRIMA.";
-                             }
-                         } else {
-                            LOG(LogDebug) << "VC_DEBUG: Root folder vuoto o non valido per il log PRIMA.";
-                         }
-						 LOG(LogDebug) << "Epic Store: Calling epicStorePtr->updateGamesMetadataAsync.";
-						 mEpicUpdateFuture = epicStorePtr->updateGamesMetadataAsync(system, gamePathsToUpdate); // Chiamata dirett
-
-						 if (!mEpicUpdateFuture.valid()) {
-							 LOG(LogError) << "Epic Store: Failed to launch update task (future is invalid after call).";
-						 } else {
-							 LOG(LogInfo) << "Epic Store: Metadata update task launched successfully.";
-						 }
-					 }
-				 } else {
-					 LOG(LogInfo) << "Epic Store: No games found needing metadata update.";
-				 }
-			 } else {
-				 LOG(LogError) << "Epic Store: Could not get EpicGamesStore instance pointer. Cannot trigger update.";
-			 }
-		} else {
-			 LOG(LogDebug) << "Epic system already checked for updates this session.";
-		}
-		// Dopo la logica Epic, il codice prosegue per visualizzare la lista
-	} // Fine blocco if (system->getName() == "epicgamestore")
-	else {
-		LOG(LogDebug) << "Handling non-Epic system: " << system->getName();
-	}
-
-
-	// --- Logica Comune per Trovare/Creare e Visualizzare la Vista ---
 
 	SystemData* destinationSystem = system;
-	FolderData* collectionFolder = nullptr; // Necessario per le collezioni
-
-	// Gestione speciale per le collezioni (sembra essere corretto dal tuo codice precedente)
+	FolderData* collectionFolder = nullptr; 
 	if (system->isCollection())
 	{
 		LOG(LogDebug) << "System is a collection: " << system->getName();

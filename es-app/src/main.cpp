@@ -44,7 +44,7 @@
 #include "HttpReq.h"
 #include <thread>
 #include "GameStore/EpicGames/EpicGamesStore.h"
-#include "GameStore/EpicGames/GameStoreManager.h"
+#include "GameStore/GameStoreManager.h"
 #include "MetaData.h"
 #include "FileSorts.h" 
 #include "guis/GuiBusyInfoPopup.h"
