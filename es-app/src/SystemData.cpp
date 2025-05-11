@@ -1388,74 +1388,117 @@ if (steamSystem != nullptr) {
 		     // --- INIZIO SEZIONE CRUCIALE DA AGGIUNGERE/MODIFICARE ---
         // 2. SCANSIONA I GIOCHI STEAM INSTALLATI (INDIPENDENTEMENTE DAL GAMELIST.XML)
        LOG(LogInfo) << "[SteamDynamic] Attempting to discover and add/update with installed Steam games from actual Steam installation...";
-        
-        GameStoreManager* storeManager = GameStoreManager::get(); 
-        std::string steamStoreName = "SteamStore"; // O "Steam", verifica cosa usa SteamStore::getStoreName()
 
-        if (storeManager != nullptr) { // Rimosso isStoreEnabled per ora se causa problemi, puoi reinserirlo se definito
-            GameStore* steamStoreProviderBase = storeManager->getStore(steamStoreName); 
+GameStoreManager* storeManager = GameStoreManager::get();
+std::string steamStoreName = "SteamStore"; // O "steam" - VERIFICA il nome registrato!
+
+if (storeManager != nullptr) {
+    GameStore* steamStoreProviderBase = storeManager->getStore(steamStoreName);
+
+    if (steamStoreProviderBase != nullptr) {
+        SteamStore* steamStoreConcrete = dynamic_cast<SteamStore*>(steamStoreProviderBase);
+
+        if (steamStoreConcrete != nullptr) {
+            LOG(LogDebug) << "[SteamDynamic] Calling SteamStore's findInstalledSteamGames method...";
+            std::vector<SteamInstalledGameInfo> installedSteamGames = steamStoreConcrete->findInstalledSteamGames();
+            LOG(LogInfo) << "[SteamDynamic] SteamStore::findInstalledSteamGames() identified " << installedSteamGames.size() << " installed game manifest entries.";
+
+            FolderData* steamRootFolder = steamSystem->getRootFolder();
+            if (steamRootFolder == nullptr) {
+                LOG(LogError) << "[SteamDynamic] Steam root folder is NULL, cannot add games from installation scan.";
+                // Considera di creare rootFolder qui se StartPath è valido e root è nullo,
+                // ma idealmente il costruttore di SystemData o la logica di creazione dinamica
+                // dovrebbero già averlo fatto se steamSystem->getStartPath() è corretto.
+                // Esempio: if (!steamSystem->getStartPath().empty()) steamSystem->createRootFolder(); (se esiste)
+            }
             
-            if (steamStoreProviderBase != nullptr) {
-                SteamStore* steamStoreConcrete = dynamic_cast<SteamStore*>(steamStoreProviderBase);
-
-                if (steamStoreConcrete != nullptr) {
-                    LOG(LogDebug) << "[SteamDynamic] Calling SteamStore's findInstalledSteamGames method...";
-                    std::vector<SteamInstalledGameInfo> installedSteamGames = steamStoreConcrete->findInstalledSteamGames();
-                    LOG(LogInfo) << "[SteamDynamic] SteamStore::findInstalledSteamGames() identified " << installedSteamGames.size() << " installed game manifest entries.";
-
-                    FolderData* steamRootFolder = steamSystem->getRootFolder();
-                    if (steamRootFolder == nullptr) {
-                        LOG(LogError) << "[SteamDynamic] Steam root folder is NULL, cannot add games from installation scan.";
-                    } else {
-                        int addedFromScan = 0;
-                        int alreadyExisted = 0;
-                        for (const auto& gameInfo : installedSteamGames) {
-                            if (gameInfo.appId == 0 || gameInfo.name.empty() || !gameInfo.fullyInstalled) {
-                                LOG(LogWarning) << "[SteamDynamic] Skipping incomplete or not fully installed game from scan: AppID " << gameInfo.appId << ", Name: '" << gameInfo.name << "'";
-                                continue;
-                            }
-
-                            std::string virtualPath = "steam:/launch/" + std::to_string(gameInfo.appId);
-                            
-                            // Correzione per C2039: 'findByPath': non è un membro di 'FolderData'
-                            FileData* existingGame = nullptr;
-                            const std::vector<FileData*>& children = steamRootFolder->getChildren(); // Ottieni i figli
-                            for (FileData* child : children) {
-                                if (child->getPath() == virtualPath) {
-                                    existingGame = child;
-                                    break;
-                                }
-                            }
-
-                            if (!existingGame) {
-                                LOG(LogDebug) << "[SteamDynamic] Creating new FileData for installed game: '" << gameInfo.name << "' (AppID: " << gameInfo.appId << ", Path: " << virtualPath << ")";
-                                
-                                // Correzione per C2039: 'GAME': non è un membro di 'FileData'
-                                // e C2661: 'FileData::FileData': nessuna funzione in overload accetta 4 argomenti
-                                // Usiamo l'enum globale FileType::GAME o solo GAME se è nel namespace corrente.
-                                // Assumiamo un costruttore FileData(FileType type, const std::string& path, SystemData* system)
-                                FileData* newGame = new FileData(GAME, virtualPath, steamSystem); // << USA 'GAME' DIRETTAMENTE
-                                newGame->getMetadata().set(MetaDataId::Name, gameInfo.name); // Imposta il nome
-                                                                
-                                steamSystem->getRootFolder()->addChild(newGame, false);
-                                addedFromScan++;
-                            } else {
-                                LOG(LogDebug) << "[SteamDynamic] Game '" << gameInfo.name << "' (AppID: " << gameInfo.appId << ") already exists. Skipping add.";
-                                alreadyExisted++;
-                            }
-                        }
-                        LOG(LogInfo) << "[SteamDynamic] Added " << addedFromScan << " new games from Steam installation scan. " << alreadyExisted << " games already existed.";
+            if (steamRootFolder != nullptr) { // Procedi solo se rootFolder è valido
+                int addedFromScan = 0;
+                int alreadyExisted = 0;
+                for (const auto& gameInfo : installedSteamGames) {
+                    if (gameInfo.appId == 0 || gameInfo.name.empty() || !gameInfo.fullyInstalled) {
+                        LOG(LogWarning) << "[SteamDynamic] Skipping incomplete or not fully installed game from scan: AppID " << gameInfo.appId << ", Name: '" << gameInfo.name << "'";
+                        continue;
                     }
-                } else {
-                    LOG(LogError) << "[SteamDynamic] Could not dynamic_cast GameStore* to SteamStore*! Base pointer was from getStore('" << steamStoreName << "').";
+
+                // Il PATH rimane il riferimento interno di ES, non direttamente il comando di lancio.
+                    std::string virtualPath = "steam:/launch/" + std::to_string(gameInfo.appId);
+                    // IL COMANDO DI LANCIO è quello che ES userà per avviare il gioco.
+                    std::string launchCommand = "steam://launch/" + std::to_string(gameInfo.appId); // Comando URL per Steam
+
+                    FileData* existingGame = nullptr;
+                    const std::vector<FileData*>& children = steamRootFolder->getChildren();
+                    for (FileData* child : children) {
+                        if (child->getPath() == virtualPath) {
+                            existingGame = child;
+                            break;
+                        }
+                    }
+
+                    bool metadataActuallyChanged = false;
+
+                     if (!existingGame) {
+                        LOG(LogDebug) << "[SteamDynamic] Creating new FileData for installed game: '" << gameInfo.name << "' (AppID: " << gameInfo.appId << ", Path: " << virtualPath << ")";
+                        
+                        existingGame = new FileData(GAME, virtualPath, steamSystem); // Usa 'GAME' direttamente
+                        existingGame->getMetadata().set(MetaDataId::Name, gameInfo.name);
+                        existingGame->getMetadata().set(MetaDataId::SteamAppId, std::to_string(gameInfo.appId));
+                        existingGame->getMetadata().set(MetaDataId::LaunchCommand, launchCommand); // <<< IMPOSTA IL LAUNCHCOMMAND
+                        existingGame->getMetadata().set(MetaDataId::Installed, "true");
+                        existingGame->getMetadata().set(MetaDataId::Virtual, "false");
+                        
+                        steamRootFolder->addChild(existingGame, false);
+                        if (steamSystem->mFilterIndex) {
+                            steamSystem->mFilterIndex->addToIndex(existingGame);
+                        }
+                        addedFromScan++;
+                    } else {
+                        LOG(LogDebug) << "[SteamDynamic] Game '" << gameInfo.name << "' (AppID: " << gameInfo.appId << ") already exists. Checking/Updating metadata.";
+                                                
+                        if (existingGame->getMetadata().get(MetaDataId::Name) != gameInfo.name) {
+                            existingGame->getMetadata().set(MetaDataId::Name, gameInfo.name);
+                            metadataActuallyChanged = true;
+                        }
+                        if (existingGame->getMetadata().get(MetaDataId::SteamAppId) != std::to_string(gameInfo.appId)) {
+                            existingGame->getMetadata().set(MetaDataId::SteamAppId, std::to_string(gameInfo.appId));
+                            metadataActuallyChanged = true;
+                        }
+                        if (existingGame->getMetadata().get(MetaDataId::LaunchCommand) != launchCommand) { // <<< AGGIORNA IL LAUNCHCOMMAND
+                            existingGame->getMetadata().set(MetaDataId::LaunchCommand, launchCommand);
+                            metadataActuallyChanged = true;
+                        }
+                        if (existingGame->getMetadata().get(MetaDataId::Installed) != "true") {
+                            existingGame->getMetadata().set(MetaDataId::Installed, "true");
+                            metadataActuallyChanged = true;
+                        }
+                        if (existingGame->getMetadata().get(MetaDataId::Virtual) != "false") {
+                            existingGame->getMetadata().set(MetaDataId::Virtual, "false");
+                            metadataActuallyChanged = true;
+                        }
+
+                        if (metadataActuallyChanged && steamSystem->mFilterIndex) {
+                            LOG(LogDebug) << "[SteamDynamic] Metadata changed for existing game '" << gameInfo.name << "'. Re-indexing.";
+                            steamSystem->mFilterIndex->removeFromIndex(existingGame);
+                            steamSystem->mFilterIndex->addToIndex(existingGame);
+                        }
+                        alreadyExisted++;
+                    }
                 }
-            } else {
-                LOG(LogError) << "[SteamDynamic] Could not get " << steamStoreName << " provider from manager!";
+                LOG(LogInfo) << "[SteamDynamic] Added/Updated " << addedFromScan << " new games from Steam installation scan. " << alreadyExisted << " games already existed/updated.";
             }
         } else {
-            LOG(LogError) << "[SteamDynamic] GameStoreManager instance is null (from get())!";
+            LOG(LogError) << "[SteamDynamic] Could not dynamic_cast GameStore* to SteamStore*! Base pointer was from getStore('" << steamStoreName << "').";
         }
-        // --- FINE SEZIONE CHIAVE PER SCANSIONE ATTIVA STEAM ---
+    } else {
+        LOG(LogError) << "[SteamDynamic] Could not get " << steamStoreName << " provider from manager!";
+    }
+} else {
+    if (storeManager == nullptr) {
+         LOG(LogError) << "[SteamDynamic] GameStoreManager instance is null (from get())!";
+    } else {
+         // LOG(LogWarning) << "[SteamDynamic] Steam store '" << steamStoreName << "' is not enabled by manager; skipping scan.";
+    }
+}
         // --- Fine Logica di popolamento Steam ---
 
         if (steamSystemJustCreated) {
@@ -1485,6 +1528,7 @@ if (steamSystem != nullptr) {
     } catch (...) {
         LOG(LogError) << "[SteamDynamic] Unknown exception during dynamic population of steam.";
     }
+	
 }
 // --- FINE BLOCCO STEAM ---
  

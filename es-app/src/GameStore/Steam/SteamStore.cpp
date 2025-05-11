@@ -391,7 +391,7 @@ std::vector<FileData*> SteamStore::getGamesList() {
                         data.metadataMap[MetaDataId::Name] = installedGame.name;
                         data.metadataMap[MetaDataId::SteamAppId] = std::to_string(installedGame.appId);
                         data.metadataMap[MetaDataId::Installed] = "true";
-                        data.metadataMap[MetaDataId::Virtual] = "true";
+                        data.metadataMap[MetaDataId::Virtual] = "false";
                         data.metadataMap[MetaDataId::InstallDir] = installedGame.libraryFolderPath + "/common/" + installedGame.installDir;
                         data.metadataMap[MetaDataId::LaunchCommand] = data.pseudoPath;
                         payload->push_back(data);
