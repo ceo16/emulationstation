@@ -39,6 +39,7 @@
  #include "GameStore/Steam/SteamStore.h"
  #include "GameStore/Steam/SteamStoreAPI.h"
  #include "GameStore/Steam/SteamAuth.h"
+ #include "GameStore/GameStore.h" 
  #include "FileData.h"
 
 
@@ -1384,6 +1385,77 @@ if (steamSystem != nullptr) {
                  LOG(LogError) << "[SteamDynamic] Steam RootFolder is still NULL after gamelist check (gamelist missing).";
             }
         }
+		     // --- INIZIO SEZIONE CRUCIALE DA AGGIUNGERE/MODIFICARE ---
+        // 2. SCANSIONA I GIOCHI STEAM INSTALLATI (INDIPENDENTEMENTE DAL GAMELIST.XML)
+       LOG(LogInfo) << "[SteamDynamic] Attempting to discover and add/update with installed Steam games from actual Steam installation...";
+        
+        GameStoreManager* storeManager = GameStoreManager::get(); 
+        std::string steamStoreName = "SteamStore"; // O "Steam", verifica cosa usa SteamStore::getStoreName()
+
+        if (storeManager != nullptr) { // Rimosso isStoreEnabled per ora se causa problemi, puoi reinserirlo se definito
+            GameStore* steamStoreProviderBase = storeManager->getStore(steamStoreName); 
+            
+            if (steamStoreProviderBase != nullptr) {
+                SteamStore* steamStoreConcrete = dynamic_cast<SteamStore*>(steamStoreProviderBase);
+
+                if (steamStoreConcrete != nullptr) {
+                    LOG(LogDebug) << "[SteamDynamic] Calling SteamStore's findInstalledSteamGames method...";
+                    std::vector<SteamInstalledGameInfo> installedSteamGames = steamStoreConcrete->findInstalledSteamGames();
+                    LOG(LogInfo) << "[SteamDynamic] SteamStore::findInstalledSteamGames() identified " << installedSteamGames.size() << " installed game manifest entries.";
+
+                    FolderData* steamRootFolder = steamSystem->getRootFolder();
+                    if (steamRootFolder == nullptr) {
+                        LOG(LogError) << "[SteamDynamic] Steam root folder is NULL, cannot add games from installation scan.";
+                    } else {
+                        int addedFromScan = 0;
+                        int alreadyExisted = 0;
+                        for (const auto& gameInfo : installedSteamGames) {
+                            if (gameInfo.appId == 0 || gameInfo.name.empty() || !gameInfo.fullyInstalled) {
+                                LOG(LogWarning) << "[SteamDynamic] Skipping incomplete or not fully installed game from scan: AppID " << gameInfo.appId << ", Name: '" << gameInfo.name << "'";
+                                continue;
+                            }
+
+                            std::string virtualPath = "steam:/launch/" + std::to_string(gameInfo.appId);
+                            
+                            // Correzione per C2039: 'findByPath': non è un membro di 'FolderData'
+                            FileData* existingGame = nullptr;
+                            const std::vector<FileData*>& children = steamRootFolder->getChildren(); // Ottieni i figli
+                            for (FileData* child : children) {
+                                if (child->getPath() == virtualPath) {
+                                    existingGame = child;
+                                    break;
+                                }
+                            }
+
+                            if (!existingGame) {
+                                LOG(LogDebug) << "[SteamDynamic] Creating new FileData for installed game: '" << gameInfo.name << "' (AppID: " << gameInfo.appId << ", Path: " << virtualPath << ")";
+                                
+                                // Correzione per C2039: 'GAME': non è un membro di 'FileData'
+                                // e C2661: 'FileData::FileData': nessuna funzione in overload accetta 4 argomenti
+                                // Usiamo l'enum globale FileType::GAME o solo GAME se è nel namespace corrente.
+                                // Assumiamo un costruttore FileData(FileType type, const std::string& path, SystemData* system)
+                                FileData* newGame = new FileData(GAME, virtualPath, steamSystem); // << USA 'GAME' DIRETTAMENTE
+                                newGame->getMetadata().set(MetaDataId::Name, gameInfo.name); // Imposta il nome
+                                                                
+                                steamSystem->getRootFolder()->addChild(newGame, false);
+                                addedFromScan++;
+                            } else {
+                                LOG(LogDebug) << "[SteamDynamic] Game '" << gameInfo.name << "' (AppID: " << gameInfo.appId << ") already exists. Skipping add.";
+                                alreadyExisted++;
+                            }
+                        }
+                        LOG(LogInfo) << "[SteamDynamic] Added " << addedFromScan << " new games from Steam installation scan. " << alreadyExisted << " games already existed.";
+                    }
+                } else {
+                    LOG(LogError) << "[SteamDynamic] Could not dynamic_cast GameStore* to SteamStore*! Base pointer was from getStore('" << steamStoreName << "').";
+                }
+            } else {
+                LOG(LogError) << "[SteamDynamic] Could not get " << steamStoreName << " provider from manager!";
+            }
+        } else {
+            LOG(LogError) << "[SteamDynamic] GameStoreManager instance is null (from get())!";
+        }
+        // --- FINE SEZIONE CHIAVE PER SCANSIONE ATTIVA STEAM ---
         // --- Fine Logica di popolamento Steam ---
 
         if (steamSystemJustCreated) {
