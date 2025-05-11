@@ -14,7 +14,6 @@
 #include <iomanip>   // Per std::get_time, std::put_time
 #include <sstream>   // Per std::stringstream nella conversione date
 
-
 // Classe interna per la richiesta dello scraper Steam
 class SteamScraperRequest : public ScraperRequest
 {
@@ -35,47 +34,30 @@ public:
         LOG(LogDebug) << "SteamScraperRequest created for AppID: " << appId;
     }
 
-    // Converte la data di Steam (es. "14 Nov, 2014" o "Nov 14, 2014") in formato YYYYMMDDTHHMMSS
     std::string convertSteamDateToESFormat(const std::string& steamDateStr) {
         if (steamDateStr.empty() || Utils::String::toLower(steamDateStr) == "coming soon" || Utils::String::toLower(steamDateStr) == "tba") {
             return "";
         }
-
         std::tm t{};
         std::istringstream ss(steamDateStr);
-        std::string format;
-
-        // Prova diversi formati comuni. Steam a volte usa "1 Apr, 2020", altre "Apr 1, 2020"
         const char* formats[] = { "%d %b, %Y", "%b %d, %Y", "%B %d, %Y", "%d %B, %Y" };
         bool parsed = false;
         for (const char* fmt : formats) {
-            ss.clear();
-            ss.str(steamDateStr);
+            ss.clear(); ss.str(steamDateStr);
             ss >> std::get_time(&t, fmt);
-            if (!ss.fail()) {
-                parsed = true;
-                break;
-            }
+            if (!ss.fail()) { parsed = true; break; }
         }
-
-        // Tentativo per date come "Q1 2024", "Spring 2023" (molto approssimativo)
         if (!parsed) {
-            // TODO: Potresti voler gestire formati di data più vaghi qui,
-            // per ora li ignoriamo se non corrispondono ai formati più precisi.
-            // Esempio: Se contiene solo l'anno "2023", imposta Gen 1
             if (steamDateStr.length() == 4 && std::all_of(steamDateStr.begin(), steamDateStr.end(), ::isdigit)) {
-                ss.clear();
-                ss.str(steamDateStr + "-01-01"); // Aggiungi mese e giorno fittizi
-                ss >> std::get_time(&t, "%Y-%m-%d"); // Questo dovrebbe funzionare per solo anno
+                ss.clear(); ss.str(steamDateStr + "-01-01");
+                ss >> std::get_time(&t, "%Y-%m-%d");
                 if(!ss.fail()) parsed = true;
             }
         }
-        
         if (!parsed) {
-            LOG(LogWarning) << "SteamScraperRequest: Impossibile parsare la data Steam: '" << steamDateStr << "' con i formati noti.";
+            LOG(LogWarning) << "SteamScraperRequest: Impossibile parsare la data Steam: '" << steamDateStr << "'";
             return "";
         }
-
         std::time_t time = mktime(&t);
         if (time == -1) {
             LOG(LogWarning) << "SteamScraperRequest: mktime fallito per la data Steam: '" << steamDateStr << "'";
@@ -83,7 +65,6 @@ public:
         }
         return Utils::Time::timeToMetaDataString(time);
     }
-
 
     void update() override {
         if (mStatus == ASYNC_DONE || mStatus == ASYNC_ERROR) {
@@ -95,34 +76,23 @@ public:
             LOG(LogDebug) << "SteamScraperRequest::update() executing API call for AppID=" << mAppId;
 
             try {
-                // L'API di Steam per i dettagli dell'app (storefront API) non richiede autenticazione utente.
-                SteamStoreAPI api(nullptr); // Passa nullptr per auth
-
+                SteamStoreAPI api(nullptr); 
                 std::string country = Settings::getInstance()->getString("ScraperSteamCountry");
-if (country.empty()) {
-    country = "US"; // Valore predefinito se l'impostazione non esiste o è vuota
-}
-
-// std::string language = Settings::getInstance()->getString("Language", "english"); // Riga 102 originale
-std::string language_code = Settings::getInstance()->getString("Language"); // "Language" solitamente contiene codici come "en_US", "it_IT"
-std::string language; // Lingua per l'API Steam (es. "english", "italian")
-
-if (language_code == "it_IT") language = "italian";
-else if (language_code == "en_US") language = "english"; // Assumendo che tu abbia en_US
-else if (language_code == "en_GB") language = "english"; // Altra variante inglese
-else if (language_code == "es_ES") language = "spanish";
-else if (language_code == "fr_FR") language = "french";
-else if (language_code == "de_DE") language = "german";
-// Aggiungi altre mappature necessarie qui
-else {
-    language = "english"; // Fallback predefinito se il codice lingua non è mappato
-    LOG(LogWarning) << "SteamScraper: Codice lingua '" << language_code << "' non mappato a una lingua API Steam, usando 'english' come fallback.";
-}
-if (language_code.empty()){ // Se l'impostazione "Language" è completamente vuota
-     language = "english"; // Fallback finale
-     LOG(LogWarning) << "SteamScraper: Impostazione 'Language' vuota, usando 'english' come fallback per API Steam.";
-}
-
+                if (country.empty()) country = "US";
+                
+                std::string language_code = Settings::getInstance()->getString("Language");
+                std::string language = "english"; // Default
+                if (language_code == "it_IT") language = "italian";
+                else if (language_code == "en_US" || language_code == "en_GB") language = "english";
+                else if (language_code == "es_ES") language = "spanish";
+                else if (language_code == "fr_FR") language = "french";
+                else if (language_code == "de_DE") language = "german";
+                else if (!language_code.empty()) {
+                    LOG(LogWarning) << "SteamScraper: Codice lingua '" << language_code << "' non mappato, usando 'english'.";
+                }
+                if (language_code.empty()){
+                     LOG(LogWarning) << "SteamScraper: Impostazione 'Language' vuota, usando 'english'.";
+                }
 
                 std::map<unsigned int, Steam::AppDetails> resultsMap = api.GetAppDetails({mAppId}, country, language);
 
@@ -131,9 +101,8 @@ if (language_code.empty()){ // Se l'impostazione "Language" è completamente vuo
                     LOG(LogInfo) << "SteamScraper: Trovati dati API per '" << details.name << "' (AppID: " << mAppId << ")";
 
                     ScraperSearchResult searchResult;
-                    searchResult.scraper = "steam"; // Identificativo dello scraper
+                    searchResult.scraper = "steam";
 
-                    // 1. Preserva i metadati essenziali passati
                     searchResult.mdl.set(MetaDataId::SteamAppId, std::to_string(mAppId));
                     searchResult.mdl.set(MetaDataId::Virtual, mVirtual);
                     searchResult.mdl.set(MetaDataId::LaunchCommand, mLaunchCmd);
@@ -143,23 +112,14 @@ if (language_code.empty()){ // Se l'impostazione "Language" è completamente vuo
                     } else if (!mOriginalName.empty()){
                         searchResult.mdl.set(MetaDataId::Name, mOriginalName);
                     } else {
-                         searchResult.mdl.set(MetaDataId::Name, "Steam Game " + std::to_string(mAppId));
+                        searchResult.mdl.set(MetaDataId::Name, "Steam Game " + std::to_string(mAppId));
                     }
 
-                    // 2. Aggiungi/Sovrascrivi con i dati dall'API
                     std::string desc_text;
-                    if (!details.shortDescription.empty()) {
-                        desc_text = details.shortDescription;
-                    } else if (!details.aboutTheGame.empty()) {
-                        desc_text = details.aboutTheGame;
-                    } else if (!details.detailedDescription.empty()) {
-                         desc_text = details.detailedDescription;
-                    }
-                    // TODO: Implementare una funzione robusta per rimuovere i tag HTML da desc_text.
-                    // Esempio: desc_text = Utils::String::stripHtmlTags(desc_text);
-                    // Per ora, la descrizione potrebbe contenere HTML.
-                    searchResult.mdl.set(MetaDataId::Desc, desc_text);
-
+                    if (!details.shortDescription.empty()) desc_text = details.shortDescription;
+                    else if (!details.aboutTheGame.empty()) desc_text = details.aboutTheGame;
+                    else if (!details.detailedDescription.empty()) desc_text = details.detailedDescription;
+                    searchResult.mdl.set(MetaDataId::Desc, desc_text); // TODO: strip HTML
 
                     if (!details.developers.empty()) searchResult.mdl.set(MetaDataId::Developer, Utils::String::vectorToCommaString(details.developers));
                     if (!details.publishers.empty()) searchResult.mdl.set(MetaDataId::Publisher, Utils::String::vectorToCommaString(details.publishers));
@@ -171,45 +131,161 @@ if (language_code.empty()){ // Se l'impostazione "Language" è completamente vuo
 
                     std::string genresStr;
                     for (const auto& genre : details.genres) {
-                        if (!genresStr.empty()) genresStr += "; "; // Usa punto e virgola come separatore standard
+                        if (!genresStr.empty()) genresStr += "; "; 
                         genresStr += genre.description;
                     }
                     if (!genresStr.empty()) searchResult.mdl.set(MetaDataId::Genre, genresStr);
 
-                    // Mappatura Immagini:
-                    // Header Image (di solito 460x215, wide banner) per Thumbnail
-                    if (!details.headerImage.empty()) {
-                        ScraperSearchItem itemThumb;
-                        itemThumb.url = details.headerImage;
-                        itemThumb.format = Utils::String::toLower(Utils::FileSystem::getExtension(details.headerImage));
-                        if (itemThumb.format.empty() || itemThumb.format == ".") itemThumb.format = ".jpg"; // Default se estensione non trovata
-                        searchResult.urls[MetaDataId::Thumbnail] = itemThumb; // CORRETTO: Usa MetaDataId::Thumbnail
-                        LOG(LogDebug) << "SteamScraper: Impostata Thumbnail URL: " << itemThumb.url;
+                    // --- INIZIO MAPPATURA MEDIA AVANZATA ---
+                    std::string appIdStr = std::to_string(mAppId);
+
+                    // VIDEO (MetaDataId::Video)
+                    if (!details.movies.empty()) {
+                        std::string videoUrlToUse;
+                        const auto& firstMovie = details.movies[0]; 
+                        if (!firstMovie.mp4_max_url.empty()) videoUrlToUse = firstMovie.mp4_max_url;
+                        else if (!firstMovie.mp4_480_url.empty()) videoUrlToUse = firstMovie.mp4_480_url;
+                        else if (!firstMovie.webm_max_url.empty()) videoUrlToUse = firstMovie.webm_max_url;
+                        else if (!firstMovie.webm_480_url.empty()) videoUrlToUse = firstMovie.webm_480_url;
+
+                        if (!videoUrlToUse.empty()) {
+                            ScraperSearchItem itemVideo;
+                            itemVideo.url = videoUrlToUse;
+                            if (videoUrlToUse.find(".mp4") != std::string::npos) itemVideo.format = ".mp4";
+                            else if (videoUrlToUse.find(".webm") != std::string::npos) itemVideo.format = ".webm";
+                            else itemVideo.format = ".mp4"; 
+                            searchResult.urls[MetaDataId::Video] = itemVideo;
+                            LOG(LogDebug) << "SteamScraper: Impostata Video URL: " << itemVideo.url;
+                        }
                     }
 
-                    // Box Art Verticale (library_600x900.jpg) per Immagine Principale
-                    // Questi URL sono costruiti, Steam non li garantisce per ogni gioco.
-                    // Sarebbe ideale un controllo HEAD HTTP per verificarne l'esistenza.
-                    std::string boxArtUrl = "https://cdn.akamai.steamstatic.com/steam/apps/" + std::to_string(mAppId) + "/library_600x900.jpg";
-                    ScraperSearchItem itemImage;
-                    itemImage.url = boxArtUrl;
-                    itemImage.format = ".jpg"; // Estensione nota
-                    searchResult.urls[MetaDataId::Image] = itemImage; // CORRETTO: Usa MetaDataId::Image
-                    LOG(LogDebug) << "SteamScraper: Impostata Image URL (BoxArt): " << itemImage.url;
+                    // FANART (MetaDataId::FanArt)
+                    std::string fanartUrlString;
+                    std::string fanartFormat = ".jpg"; 
+                    if (!details.library_assets.hero.empty()) {
+                        fanartUrlString = details.library_assets.hero;
+                        std::string ext = Utils::String::toLower(Utils::FileSystem::getExtension(fanartUrlString)); // Pulisci URL per getExtension
+                        if (!ext.empty() && ext != ".") fanartFormat = ext;
+                        LOG(LogDebug) << "SteamScraper: Trovato FanArt URL (library_hero): " << fanartUrlString;
+                    } else if (!details.background_raw_url.empty()) {
+                        fanartUrlString = details.background_raw_url;
+                        std::string ext = Utils::String::toLower(Utils::FileSystem::getExtension(fanartUrlString));
+                        if (!ext.empty() && ext != ".") fanartFormat = ext; else fanartFormat = ".jpg";
+                        LOG(LogDebug) << "SteamScraper: Trovato FanArt URL (background_raw_url fallback): " << fanartUrlString;
+                    } else if (!details.headerImage.empty()) { 
+                        fanartUrlString = details.headerImage;
+                        std::string ext = Utils::String::toLower(Utils::FileSystem::getExtension(fanartUrlString));
+                        if (!ext.empty() && ext != ".") fanartFormat = ext; else fanartFormat = ".jpg";
+                        LOG(LogDebug) << "SteamScraper: Trovato FanArt URL (header_image fallback): " << fanartUrlString;
+                    }
+                    if (!fanartUrlString.empty()) {
+                        ScraperSearchItem itemFanArt;
+                        itemFanArt.url = fanartUrlString;
+                        itemFanArt.format = fanartFormat;
+                        searchResult.urls[MetaDataId::FanArt] = itemFanArt;
+                        LOG(LogDebug) << "SteamScraper: Impostata FanArt URL: " << itemFanArt.url;
+                    }
 
-                    // Logo (logo.png) per Marquee
-                    std::string logoUrl = "https://cdn.akamai.steamstatic.com/steam/apps/" + std::to_string(mAppId) + "/logo.png";
-                    ScraperSearchItem itemMarquee;
-                    itemMarquee.url = logoUrl;
-                    itemMarquee.format = ".png"; // Estensione nota
-                    searchResult.urls[MetaDataId::Marquee] = itemMarquee; // CORRETTO: Usa MetaDataId::Marquee
-                    LOG(LogDebug) << "SteamScraper: Impostata Marquee URL (Logo): " << itemMarquee.url;
+                    // IMMAGINE/BOXART (MetaDataId::Image)
+                    std::string imageUrlString;
+                    std::string imageFormat = ".jpg";
+                    bool imageSet = false;
 
-                    // Gestione Screenshot (opzionale, se si vuole usare il primo come fallback per l'immagine principale)
+                    // Priorità 1: library_600x900.jpg (costruito, ma non verificato se esiste)
+                    // Potresti voler fare una richiesta HEAD qui per verificarlo o dare priorità a library_capsule.
+                    // Per ora, lo aggiungiamo come tentativo, e se fallisce, gli altri fallback possono subentrare.
+                    std::string potentialBoxArtUrl = "https://cdn.akamai.steamstatic.com/steam/apps/" + appIdStr + "/library_600x900.jpg";
+                    imageUrlString = potentialBoxArtUrl; // Tentativo iniziale
+                    LOG(LogDebug) << "SteamScraper: Tentativo Image URL (library_600x900): " << imageUrlString;
+
+                    // Priorità 2: library_capsule
+                    if (!details.library_assets.capsule.empty()) {
+                        imageUrlString = details.library_assets.capsule;
+                        std::string ext = Utils::String::toLower(Utils::FileSystem::getExtension(imageUrlString));
+                        if (!ext.empty() && ext != ".") imageFormat = ext; else imageFormat = ".jpg";
+                        LOG(LogDebug) << "SteamScraper: Sovrascritto/Impostato Image URL (library_capsule): " << imageUrlString;
+                        imageSet = true;
+                    }
+                    
+                    // Se library_capsule non ha impostato l'immagine, e stiamo ancora usando potentialBoxArtUrl,
+                    // allora il formato è .jpg per library_600x900.
+                    if (!imageSet && imageUrlString == potentialBoxArtUrl) {
+                         imageFormat = ".jpg"; // Per library_600x900
+                         imageSet = true; // Consideriamo questo come un'impostazione (anche se da verificare)
+                    }
+
+
+                    // Fallback a header_image (se gli altri mancano o se library_600x900 non dovesse esistere)
+                    // Questo fallback ha senso se le opzioni sopra non hanno prodotto un'immagine o se falliscono il download.
+                    // Lo scraper generale potrebbe già fare un fallback da solo se il download fallisce.
+                    // Per ora, ci affidiamo alla priorità data. Se library_600x900 non esiste, il download fallirà e 
+                    // il sistema potrebbe non avere un'immagine. Il fallback a screenshot è già presente dopo.
+                                        
+                    if (imageSet && !imageUrlString.empty()) { // imageUrlString deve essere stato impostato da library_600x900 o library_capsule
+                        ScraperSearchItem itemImage;
+                        itemImage.url = imageUrlString;
+                        itemImage.format = imageFormat;
+                        searchResult.urls[MetaDataId::Image] = itemImage;
+                        LOG(LogDebug) << "SteamScraper: Impostata Image URL (Primaria): " << itemImage.url;
+                    }
+
+
+                    // MARQUEE/LOGO (MetaDataId::Marquee)
+                    std::string marqueeUrlString;
+                    std::string marqueeFormat = ".png"; 
+                    if (!details.library_assets.logo.empty()) {
+                        marqueeUrlString = details.library_assets.logo;
+                        std::string ext = Utils::String::toLower(Utils::FileSystem::getExtension(marqueeUrlString));
+                        if (!ext.empty() && ext != ".") marqueeFormat = ext;
+                        LOG(LogDebug) << "SteamScraper: Trovato Marquee URL (library_logo): " << marqueeUrlString;
+                    } else { 
+                        marqueeUrlString = "https://cdn.akamai.steamstatic.com/steam/apps/" + appIdStr + "/logo.png";
+                        LOG(LogDebug) << "SteamScraper: Tentativo Marquee URL (logo.png costruito): " << marqueeUrlString;
+                    }
+                    if (!marqueeUrlString.empty()) {
+                        ScraperSearchItem itemMarquee;
+                        itemMarquee.url = marqueeUrlString;
+                        itemMarquee.format = marqueeFormat;
+                        searchResult.urls[MetaDataId::Marquee] = itemMarquee;
+                        LOG(LogDebug) << "SteamScraper: Impostata Marquee URL: " << itemMarquee.url;
+                    }
+
+                    // THUMBNAIL (MetaDataId::Thumbnail)
+                    std::string thumbUrlString;
+                    std::string thumbFormat = ".jpg";
+                    if (!details.library_assets.header.empty()) {
+                        thumbUrlString = details.library_assets.header;
+                        std::string ext = Utils::String::toLower(Utils::FileSystem::getExtension(thumbUrlString));
+                        if (!ext.empty() && ext != ".") thumbFormat = ext;
+                        LOG(LogDebug) << "SteamScraper: Trovato Thumbnail URL (library_header): " << thumbUrlString;
+                    } else if (!details.headerImage.empty()) { 
+                        thumbUrlString = details.headerImage;
+                        std::string ext = Utils::String::toLower(Utils::FileSystem::getExtension(thumbUrlString));
+                        if (!ext.empty() && ext != ".") thumbFormat = ext; else thumbFormat = ".jpg";
+                        LOG(LogDebug) << "SteamScraper: Trovato Thumbnail URL (header_image fallback): " << thumbUrlString;
+                    }
+                    if (!thumbUrlString.empty()) {
+                        ScraperSearchItem itemThumb;
+                        itemThumb.url = thumbUrlString;
+                        itemThumb.format = thumbFormat;
+                        searchResult.urls[MetaDataId::Thumbnail] = itemThumb;
+                        LOG(LogDebug) << "SteamScraper: Impostata Thumbnail URL: " << itemThumb.url;
+                    }
+                    
+                    // GESTIONE SCREENSHOT
+                    // Usiamo il primo screenshot per TitleShot
+                    if (!details.screenshots.empty() && !details.screenshots[0].pathFull.empty()) {
+                        ScraperSearchItem itemTitleShot;
+                        itemTitleShot.url = details.screenshots[0].pathFull;
+                        itemTitleShot.format = Utils::String::toLower(Utils::FileSystem::getExtension(itemTitleShot.url));
+                        if (itemTitleShot.format.empty() || itemTitleShot.format == ".") itemTitleShot.format = ".jpg";
+                        searchResult.urls[MetaDataId::TitleShot] = itemTitleShot; // Assicurati che MetaDataId::TitleShot esista
+                        LOG(LogDebug) << "SteamScraper: Impostata TitleShot URL (primo screenshot): " << itemTitleShot.url;
+                    }
+                    // Fallback a screenshot per Image se Image è ancora vuoto (dopo library_600x900 e library_capsule)
                     if (details.screenshots.empty() == false && searchResult.urls.find(MetaDataId::Image) == searchResult.urls.end()) {
-                        // Se non abbiamo trovato una BoxArt, usiamo il primo screenshot come immagine principale
-                         for(const auto& ss : details.screenshots) { // details.screenshots è std::vector<Steam::Screenshot>
-                            if (!ss.pathFull.empty()) { // pathFull è l'URL completo dello screenshot
+                        for(const auto& ss : details.screenshots) { 
+                            if (!ss.pathFull.empty()) { 
                                 ScraperSearchItem itemSSAsImage;
                                 itemSSAsImage.url = ss.pathFull;
                                 itemSSAsImage.format = Utils::String::toLower(Utils::FileSystem::getExtension(ss.pathFull));
@@ -218,8 +294,9 @@ if (language_code.empty()){ // Se l'impostazione "Language" è completamente vuo
                                 LOG(LogDebug) << "SteamScraper: Impostata Image URL (Screenshot Fallback): " << itemSSAsImage.url;
                                 break; 
                             }
-                         }
+                        }
                     }
+                    // --- FINE MAPPATURA MEDIA AVANZATA ---
 
                     mResults.push_back(searchResult);
                     setStatus(ASYNC_DONE);
@@ -263,20 +340,18 @@ void SteamScraper::generateRequests(
     std::string gamePathStr = params.game->getPath(); 
     LOG(LogDebug) << "SteamScraper::generateRequests for game: " << params.game->getName() << " (" << gamePathStr << ")";
 
-    std::string steamAppIdStr = params.game->getMetadata(MetaDataId::SteamAppId); // Assicurati che SteamAppId sia nell'enum MetaDataId
+    std::string steamAppIdStr = params.game->getMetadata(MetaDataId::SteamAppId);
     std::string virtualStatus = params.game->getMetadata(MetaDataId::Virtual); 
     std::string launchCmd = params.game->getMetadata(MetaDataId::LaunchCommand); 
     std::string originalName = params.game->getMetadata(MetaDataId::Name);
-
 
     if (steamAppIdStr.empty()) {
         LOG(LogWarning) << "SteamScraper: SteamAppId mancante per il gioco '" << params.game->getName() << "'. Impossibile fare scraping.";
         return;
     }
-     if (virtualStatus.empty() || launchCmd.empty()) {
+    if (virtualStatus.empty() || launchCmd.empty()) {
         LOG(LogWarning) << "SteamScraper: Metadati Virtual o LaunchCommand mancanti per '" << params.game->getName() << "'.";
     }
-
 
     unsigned int appId = 0;
     try {
@@ -292,48 +367,22 @@ void SteamScraper::generateRequests(
     }
 
     LOG(LogInfo) << "SteamScraper: Trovato SteamAppId=" << appId << " per il gioco '" << originalName << "'. Accodamento richiesta scraper.";
-
-    // Crea la richiesta specifica per lo scraper Steam
+    
     auto req = std::make_unique<SteamScraperRequest>(appId, originalName, virtualStatus, launchCmd, results);
-    requests.push(std::move(req)); // Aggiungi alla coda delle richieste
+    requests.push(std::move(req)); 
 }
 
 bool SteamScraper::isSupportedPlatform(SystemData* system) {
-    // Abilita lo scraper solo per il sistema "steam" (o come lo hai chiamato in es_systems.cfg)
-    return system != nullptr && system->getName() == "steam"; // Assicurati che "steam" sia il nome corretto
+    return system != nullptr && system->getName() == "steam"; 
 }
 
-// Indica quali tipi di media questo scraper è in grado di fornire.
-// Questi sono usati dalla UI dello scraper per mostrare le opzioni.
-// Le URL effettive verranno mappate a MetaDataId::Image, MetaDataId::Thumbnail, ecc.
 const std::set<Scraper::ScraperMediaSource>& SteamScraper::getSupportedMedias() {
     static const std::set<Scraper::ScraperMediaSource> supportedMedia = {
-        Scraper::ScraperMediaSource::Screenshot,   // Corrisponde a MetaDataId::Screenshot (e potenzialmente MetaDataId::Image se il tema lo usa)
-        Scraper::ScraperMediaSource::Box2d,        // Corrisponde a MetaDataId::Box2d
-        Scraper::ScraperMediaSource::Marquee,      // Corrisponde a MetaDataId::Marquee
-        Scraper::ScraperMediaSource::FanArt,                                         // Thumbnail in ES è spesso derivato da Image se non specificato.
-                                                 // L'importante è che i tipi qui corrispondano a ciò che
-                                                 // il downloader si aspetta quando gli chiedi di scaricare
-                                                 // ScraperMediaSource::Screenshot, ecc.
-                                                 // Il mapping esatto tra ScraperMediaSource e MetaDataId
-                                                 // avviene quando il ScraperRequest popola ScraperSearchResult.urls
-                                                 // e poi quando GuiGameScraper (o simili) applica questi URL
-                                                 // ai FileData.
-
-        // Aggiungiamo anche un tipo generico per l'immagine principale/thumbnail se non è uno screenshot
-       // ScraperMediaSource::FanArt potrebbe essere usato per l'header_image se non è prettamente uno screenshot.
-        // Oppure, se "Image" è inteso come una copertina generica, potremmo usare ScraperMediaSource::Cover.
-        // Per ora, manteniamo quelli che abbiamo mappato chiaramente:
-        // Screenshot -> MetaDataId::Screenshot
-        // Box2d -> MetaDataId::Box2d
-        // Marquee -> MetaDataId::Marquee
-        //
-        // Se l'header_image viene usato come Thumbnail:
-        // Non c'è un ScraperMediaSource::Thumbnail diretto. Il sistema ES di solito
-        // considera l'immagine principale (spesso "Image" o "Screenshot") e ne crea una thumbnail
-        // o usa un MetaDataId::Thumbnail separato se fornito.
-        // Per ora, se forniamo Screenshot, Box2d, Marquee, questo dovrebbe essere sufficiente
-        // per popolare i campi corrispondenti. Il tema poi decide cosa mostrare.
+        Scraper::ScraperMediaSource::Screenshot, // Può essere usato per MetaDataId::TitleShot
+        Scraper::ScraperMediaSource::Box2d,        // Questo è usato per MetaDataId::Image (boxart principale)
+        Scraper::ScraperMediaSource::Marquee,      // Per MetaDataId::Marquee (logo)
+        Scraper::ScraperMediaSource::FanArt,       // Per MetaDataId::FanArt (sfondo)
+        Scraper::ScraperMediaSource::Video         // AGGIUNTO: Per MetaDataId::Video
     };
     return supportedMedia;
 }

@@ -175,6 +175,13 @@ namespace EpicGames
         // Campi derivati popolati dopo il parsing iniziale
         std::string publisher;
         std::string releaseDate;
+		std::string fanartUrl;          // URL per la migliore immagine di sfondo/hero
+             std::string boxartUrl;          // URL per la boxart principale (verticale/tall)
+             std::string bannerUrl;          // URL per un banner/immagine orizzontale (potrebbe essere la thumbnail)
+             std::string logoUrl;            // URL per il logo del gioco (se trovato)
+             std::string thumbnailUrl;       // URL per la thumbnail (spesso una keyImage di tipo "Thumbnail")
+             std::string videoUrl;           // URL per il video principale (es. mp4)
+             std::vector<std::string> screenshotUrls; // Lista degli URL degli screenshot full-size
 
         // *** Definizione INLINE della funzione fromJson ***
         static inline CatalogItem fromJson(const nlohmann::json& j) {
@@ -192,6 +199,7 @@ namespace EpicGames
              item.developer          = safe_get<std::string>(j, "developerDisplayName", ""); // Prova prima questo
              item.developerId        = safe_get<std::string>(j, "developerId", "");
              item.endOfSupport       = safe_get<bool>(j, "endOfSupport", false);
+
 
              if (j.contains("keyImages") && j.at("keyImages").is_array()) {
                  for (const auto& imgJson : j.at("keyImages")) {
