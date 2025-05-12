@@ -748,38 +748,122 @@ bool resizeImage(const std::string& path, int maxWidth, int maxHeight)
 	return saved;
 }
 
-std::string Scraper::getSaveAsPath(FileData* game, const MetaDataId metadataId, const std::string& extension)
+
+
+std::string Scraper::getSaveAsPath(FileData* game, const MetaDataId metadataId, const std::string& givenExtension)
 {
-	std::string suffix = "image";
-	std::string folder = "images";
+    if (!game || !game->getSourceFileData() || !game->getSourceFileData()->getSystem()) {
+        LOG(LogError) << "Scraper::getSaveAsPath - Gioco, SourceFileData o SystemData nullo per il gioco passato.";
+        return ""; 
+    }
 
-	switch (metadataId)
-	{
-	case MetaDataId::Thumbnail: suffix = "thumb"; break;
-	case MetaDataId::Marquee: suffix = "marquee"; break;
-	case MetaDataId::Video: suffix = "video"; folder = "videos"; break;
-	case MetaDataId::FanArt: suffix = "fanart"; break;
-	case MetaDataId::BoxBack: suffix = "boxback"; break;
-	case MetaDataId::BoxArt: suffix = "box"; break;
-	case MetaDataId::Wheel: suffix = "wheel"; break;
-	case MetaDataId::TitleShot: suffix = "titleshot"; break;
-	case MetaDataId::Manual: suffix = "manual"; folder = "manuals";  break;
-	case MetaDataId::Magazine: suffix = "magazine"; folder = "magazines"; break;
-	case MetaDataId::Map: suffix = "map"; break;
-	case MetaDataId::Cartridge: suffix = "cartridge"; break;
-	case MetaDataId::Bezel: suffix = "bezel"; break;
-	}
+    // --- INIZIO LOGICA INTEGRATA (sostituisce getMediaTargetFolderAndSuffix) ---
+    std::string suffix = "image";        // Default per MetaDataId::Image
+    std::string mediaTypeFolder = "images";  // Sottocartella di default dove salvare i media
 
-	auto system = game->getSourceFileData()->getSystem();
+    switch (metadataId)
+    {
+        case MetaDataId::Image:     suffix = "image";   mediaTypeFolder = "images"; break;
+        case MetaDataId::Thumbnail: suffix = "thumb";   mediaTypeFolder = "images"; break; 
+        case MetaDataId::Marquee:   suffix = "marquee"; mediaTypeFolder = "images"; break; 
+        case MetaDataId::Video:     suffix = "video";   mediaTypeFolder = "videos"; break;
+        case MetaDataId::FanArt:    suffix = "fanart";  mediaTypeFolder = "images"; break; 
+        case MetaDataId::BoxBack:   suffix = "boxback"; mediaTypeFolder = "images"; break;
+        case MetaDataId::BoxArt:    suffix = "box";     mediaTypeFolder = "images"; break; 
+        case MetaDataId::Wheel:     suffix = "wheel";   mediaTypeFolder = "images"; break; 
+        case MetaDataId::TitleShot: suffix = "titleshot";mediaTypeFolder = "images"; break;
+        case MetaDataId::Manual:    suffix = "manual";  mediaTypeFolder = "manuals"; break;
+        case MetaDataId::Magazine:  suffix = "magazine";mediaTypeFolder = "magazines"; break;
+        case MetaDataId::Map:       suffix = "map";     mediaTypeFolder = "maps";    break;
+        case MetaDataId::Cartridge: suffix = "cartridge";mediaTypeFolder = "images"; break; 
+        case MetaDataId::Bezel:     suffix = "bezel";   mediaTypeFolder = "bezels";  break;
+        default:
+            LOG(LogWarning) << "Scraper::getSaveAsPath - MetaDataId (" << static_cast<int>(metadataId) 
+                            << ") non gestito specificamente nello switch, usando defaults 'images'/'image'.";
+            break;
+    }
+    // --- FINE LOGICA INTEGRATA ---
 
-	const std::string subdirectory = system->getName();
-	const std::string name = Utils::FileSystem::getStem(game->getPath()) + "-" + suffix;
+    SystemData* system = game->getSourceFileData()->getSystem();
 
-	std::string path = system->getRootFolder()->getPath() + "/" + folder + "/";
+    // --- COSTRUZIONE DEL NOME BASE DEL FILE ---
+    std::string baseName = game->getMetadata(MetaDataId::SteamAppId); 
+    
+    if (baseName.empty() || !std::all_of(baseName.begin(), baseName.end(), ::isdigit)) {
+        LOG(LogDebug) << "Scraper::getSaveAsPath - SteamAppId vuoto o non numerico per '" << game->getName() 
+                        << "' (AppID: '" << baseName << "'). Fallback sul nome del gioco.";
+        baseName = Utils::FileSystem::getStem(game->getPath());
+        
+        baseName = Utils::String::replace(baseName, " ", "_");
+        baseName = Utils::String::removeParenthesis(baseName);
+        const std::string invalidChars = ":*?\"<>|/\\"; 
+        for (char c : invalidChars) {
+            baseName = Utils::String::replace(baseName, std::string(1, c), ""); 
+        }
+        if (baseName.length() > 100) { 
+            baseName = baseName.substr(0, 100);
+        }
+        if (baseName.empty()) { 
+    // Opzione 1: Usare la funzione statica Utils::Time::now() che restituisce time_t
+    // time_t currentTimestamp = Utils::Time::now(); 
+    // baseName = "mediafile_" + std::to_string(currentTimestamp);
 
-	if(!Utils::FileSystem::exists(path))
-		Utils::FileSystem::createDirectory(path);
+    // Opzione 2: Usare l'oggetto DateTime e il suo metodo getTime()
+    // Questa è più probabile se vuoi lavorare con l'oggetto DateTime altrove.
+    Utils::Time::DateTime dateTimeNow = Utils::Time::DateTime::now(); // Chiama il metodo statico della classe
+    time_t currentTimestamp = dateTimeNow.getTime(); // Chiama il metodo membro sull'oggetto
+    baseName = "mediafile_" + std::to_string(currentTimestamp); 
 
-	path += name + extension;
-	return path;
+    LOG(LogError) << "Scraper::getSaveAsPath - Impossibile determinare un nome base valido, usando timestamp: " << baseName;
+}
+    }
+
+    // --- GESTIONE DELL'ESTENSIONE ---
+    std::string finalExtension = givenExtension;
+    if (!finalExtension.empty() && finalExtension[0] != '.') {
+        finalExtension = "." + finalExtension;
+    }
+    size_t queryPosInExt = finalExtension.find('?');
+    if (queryPosInExt != std::string::npos) {
+        finalExtension = finalExtension.substr(0, queryPosInExt);
+    }
+    if (finalExtension.empty() || finalExtension == ".") {
+        LOG(LogWarning) << "Scraper::getSaveAsPath - Estensione problematica o vuota ('" << givenExtension 
+                        << "') per " << baseName << ", usando '.img' come default.";
+        finalExtension = ".img"; 
+    }
+
+    // --- COSTRUZIONE DEL PERCORSO COMPLETO ---
+    // Ottieni la directory dove si trova il gamelist.xml per questo sistema
+    std::string gamelistXmlPath = system->getGamelistPath(false); 
+    std::string baseMediaDir = Utils::FileSystem::getParent(gamelistXmlPath);
+    
+    if (baseMediaDir.empty()) {
+        LOG(LogError) << "Scraper::getSaveAsPath - Impossibile ottenere la directory del gamelist per il sistema: " << system->getName() 
+                      << ". Tentativo di fallback con system->getStartPath().";
+        baseMediaDir = system->getStartPath(); // VERIFICA QUESTO METODO!
+                                              // Se getStartPath() non esiste o non è quello che vuoi,
+                                              // prova con system->getRootFolder()->getPath()
+                                              // o un altro metodo appropriato dalla tua SystemData.h
+        if (baseMediaDir.empty()) {
+             LOG(LogError) << "Scraper::getSaveAsPath - Impossibile ottenere il percorso radice del sistema. Impossibile salvare il media.";
+             return "";
+        }
+    }
+
+     std::string targetDirectory = baseMediaDir + "/" + mediaTypeFolder + "/"; 
+
+    if (!Utils::FileSystem::exists(targetDirectory)) {
+        Utils::FileSystem::createDirectory(targetDirectory); 
+        if (!Utils::FileSystem::exists(targetDirectory)) {
+            LOG(LogError) << "Scraper::getSaveAsPath - Impossibile creare la directory: " << targetDirectory;
+            return ""; 
+        }
+    }
+    
+    std::string finalPath = targetDirectory + baseName + "-" + suffix + finalExtension;
+
+    LOG(LogInfo) << "Scraper::getSaveAsPath - Percorso generato per MetaDataId " << static_cast<int>(metadataId) 
+                 << " (" << suffix << "): " << finalPath;
+    return finalPath;
 }

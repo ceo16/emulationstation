@@ -33,12 +33,13 @@
 #include "GameStore/EpicGames/EpicGamesStoreAPI.h"
 #include "GameStore/EpicGames/EpicGamesModels.h"
 #include "MetaData.h"
-#include "GameStore/EpicGames/GameStoreManager.h" // <--- AGGIUNGI QUESTO
+#include "GameStore/GameStoreManager.h" // <--- AGGIUNGI QUESTO
 #include "GameStore/EpicGames/EpicGamesStore.h" // <--- AGGIUNGI QUESTO
 #include "GameStore/EpicGames/EpicGamesModels.h"
  #include "GameStore/Steam/SteamStore.h"
  #include "GameStore/Steam/SteamStoreAPI.h"
  #include "GameStore/Steam/SteamAuth.h"
+ #include "GameStore/GameStore.h" 
  #include "FileData.h"
 
 
@@ -284,89 +285,32 @@ void SystemData::removeMultiDiskContent(std::unordered_map<std::string, FileData
   }
  
 
- // --- GIOCHI INSTALLATI ---
-for (const auto& installedGame : installedGames) {
-    if (installedGame.appId == 0) continue;
+  for (const auto& installedGame : installedGames) {
+  if (installedGame.appId == 0) continue;
+  std::string pseudoPath = "steam://game/" + std::to_string(installedGame.appId);
+  FileData* game = new FileData(FileType::GAME, pseudoPath, system);
+  game->setMetadata(MetaDataId::Name, installedGame.name);
+  game->setMetadata(MetaDataId::SteamAppId, std::to_string(installedGame.appId));
+  game->setMetadata(MetaDataId::Installed, "true");
+  game->setMetadata(MetaDataId::Virtual, "false");
+  game->setMetadata(MetaDataId::Path, installedGame.libraryFolderPath + "/common/" + installedGame.installDir);
+  game->setMetadata(MetaDataId::LaunchCommand, steamStore->getGameLaunchUrl(installedGame.appId));
+  rootFolder->addChild(game);
+  }
+ 
 
-    // 1. IDENTIFICATORE UNIVOCO DA USARE COME CHIAVE DEL FILEDATA (E NEL GAMELIST <path>)
-    std::string fileDataKeyPath = "steam://game/" + std::to_string(installedGame.appId);
-
-    // 2. COMANDO DI LANCIO EFFETTIVO (potrebbe essere diverso, es. steam://launch/)
-    std::string launchCommand = steamStore->getGameLaunchUrl(installedGame.appId); // Es. "steam://launch/APPID"
-
-    FileData* game = rootFolder->FindByPath(fileDataKeyPath);
-
-    if (game == nullptr) {
-        LOG(LogDebug) << "Steam Populator: Installed game " << installedGame.name << " (" << fileDataKeyPath << ") not found. Creating new FileData.";
-        game = new FileData(FileType::GAME, fileDataKeyPath, system); // Usa fileDataKeyPath
-        rootFolder->addChild(game);
-    } else {
-        LOG(LogDebug) << "Steam Populator: Installed game " << installedGame.name << " (" << fileDataKeyPath << ") already exists. Updating metadata.";
-    }
-
-    // Imposta/Aggiorna metadati
-    game->setMetadata(MetaDataId::Name, installedGame.name);
-    game->setMetadata(MetaDataId::SteamAppId, std::to_string(installedGame.appId));
-    game->setMetadata(MetaDataId::Installed, "true");
-    game->setMetadata(MetaDataId::Virtual, "false");
-    // Il percorso REALE sul disco. Questo NON è il fileDataKeyPath.
-    game->setMetadata(MetaDataId::Path, installedGame.libraryFolderPath + "/common/" + installedGame.installDir);
-    game->setMetadata(MetaDataId::LaunchCommand, launchCommand);
-}
-
-// --- GIOCHI ONLINE/VIRTUALI ---
-for (const auto& onlineGame : onlineGames) {
-    if (onlineGame.appId == 0) continue;
-
-    // 1. IDENTIFICATORE UNIVOCO DA USARE COME CHIAVE DEL FILEDATA (E NEL GAMELIST <path>)
-    std::string fileDataKeyPath = "steam://game/" + std::to_string(onlineGame.appId);
-
-    // 2. COMANDO DI LANCIO EFFETTIVO
-    std::string launchCommand = steamStore->getGameLaunchUrl(onlineGame.appId); // Es. "steam://launch/APPID"
-
-    FileData* game = rootFolder->FindByPath(fileDataKeyPath);
-
-    if (game == nullptr) {
-        LOG(LogDebug) << "Steam Populator: Online game " << onlineGame.name << " (" << fileDataKeyPath << ") not found. Creating new FileData.";
-        game = new FileData(FileType::GAME, fileDataKeyPath, system); // Usa fileDataKeyPath
-        rootFolder->addChild(game);
-        // Imposta metadati per un gioco nuovo (appena scoperto dall'API)
-        game->setMetadata(MetaDataId::Name, onlineGame.name);
-        game->setMetadata(MetaDataId::SteamAppId, std::to_string(onlineGame.appId));
-    } else {
-        LOG(LogDebug) << "Steam Populator: Online game " << onlineGame.name << " (" << fileDataKeyPath << ") already exists. Updating metadata.";
-        // Gioco già esistente (caricato da gamelist.xml), aggiorna il nome se necessario
-        if (game->getMetadata().get(MetaDataId::Name).empty() || game->getMetadata().get(MetaDataId::Name) == "N/A" || game->getMetadata().get(MetaDataId::Name) == ("Steam Game " + std::to_string(onlineGame.appId))) {
-             game->setMetadata(MetaDataId::Name, onlineGame.name);
-        }
-    }
-
-    // Aggiorna/Imposta sempre questi metadati per i giochi online
-    // (lo stato di installazione potrebbe cambiare tra le sessioni)
-    bool isActuallyInstalled = steamStore->checkInstallationStatus(onlineGame.appId, installedGames);
-    game->setMetadata(MetaDataId::Installed, isActuallyInstalled ? "true" : "false");
-    game->setMetadata(MetaDataId::Virtual, !isActuallyInstalled ? "true" : "false");
-    game->setMetadata(MetaDataId::LaunchCommand, launchCommand);
-
-    if (isActuallyInstalled) {
-        // Se è installato, assicurati che il metadato MetaDataId::Path (percorso disco) sia impostato
-        bool pathMetaFound = false;
-        for (const auto& instGame : installedGames) { // Cerca nella lista dei giochi installati precedentemente scansionata
-            if (instGame.appId == onlineGame.appId) {
-                game->setMetadata(MetaDataId::Path, instGame.libraryFolderPath + "/common/" + instGame.installDir);
-                pathMetaFound = true;
-                break;
-            }
-        }
-        if (!pathMetaFound) {
-             LOG(LogWarning) << "Steam Populator: Game " << onlineGame.name << " marked as installed but disk path not found in current scan.";
-        }
-    } else {
-        // Se è puramente virtuale (non installato), non ci sarà un MetaDataId::Path (percorso disco)
-        // Potresti volerlo pulire se esisteva da uno stato precedente:
-        // game->setMetadata(MetaDataId::Path, ""); // Opzionale
-    }
-}
+  for (const auto& onlineGame : onlineGames) {
+  if (onlineGame.appId == 0) continue;
+  if (rootFolder->FindByPath("steam://game/" + std::to_string(onlineGame.appId)) == nullptr) {
+  FileData* game = new FileData(FileType::GAME, "steam://game/" + std::to_string(onlineGame.appId), system);
+  game->setMetadata(MetaDataId::Name, onlineGame.name);
+  game->setMetadata(MetaDataId::SteamAppId, std::to_string(onlineGame.appId));
+  game->setMetadata(MetaDataId::Installed, steamStore->checkInstallationStatus(onlineGame.appId, installedGames) ? "true" : "false");
+  game->setMetadata(MetaDataId::Virtual, "true");
+  game->setMetadata(MetaDataId::LaunchCommand, steamStore->getGameLaunchUrl(onlineGame.appId));
+  rootFolder->addChild(game);
+  }
+  }
  
 
   LOG(LogInfo) << "SystemData::populateSteamVirtual - ENDED";
@@ -1109,7 +1053,7 @@ void SystemData::loadAdditionnalConfig(pugi::xml_node& srcSystems)
   std::string fullname = system.child("fullname").text().get();
  
   if (window != NULL)
-  window->renderSplashScreen(fullname, systemCount == 0 ? 0 : (float)currentSystem / (float)(systemCount + 1));
+ window->renderSplashScreen(fullname, systemCount == 0 ? 0 : (float)currentSystem / (float)(systemCount + 2));
  
   std::string nm = system.child("name").text().get();
  
@@ -1130,7 +1074,7 @@ void SystemData::loadAdditionnalConfig(pugi::xml_node& srcSystems)
   pThreadPool->wait([window, &processedSystem, systemCount, &systemsNames] {
   int px = processedSystem - 1;
   if (px >= 0 && px < systemsNames.size())
-  window->renderSplashScreen(systemsNames.at(px), (float)px / (float)(systemCount + 1));
+  window->renderSplashScreen(systemsNames.at(px), (float)px / (float)(systemCount + 2));
   }, 50);
   } else
   pThreadPool->wait();
@@ -1145,10 +1089,10 @@ void SystemData::loadAdditionnalConfig(pugi::xml_node& srcSystems)
   delete pThreadPool;
  
   if (window != NULL)
-  window->renderSplashScreen(_("Collections"), systemCount == 0 ? 0 : currentSystem / systemCount);
+  window->renderSplashScreen(_("Collections"), systemCount == 0 ? 0 : currentSystem / (float)(systemCount + 1));
   } else {
   if (window != NULL)
-  window->renderSplashScreen(_("Collections"), systemCount == 0 ? 0 : currentSystem / systemCount);
+  window->renderSplashScreen(_("Collections"), systemCount == 0 ? 0 : currentSystem / (float)(systemCount + 1));
  
   CollectionSystemManager::get()->loadCollectionSystems();
   }
@@ -1342,60 +1286,251 @@ void SystemData::loadAdditionnalConfig(pugi::xml_node& srcSystems)
   LOG(LogError) << "[EpicDynamic] epicSystem pointer became null unexpectedly after creation block.";
  }
  
-  // --- STEAM SYSTEM CREATION/POPULATION ---
-  LOG(LogInfo) << "Checking/Creating/Populating Steam system in loadConfig...";
- 
-  SystemData* steamSystem = getSystem("steam");
-  bool steamSystemCreated = false;
- 
-  if (!steamSystem) {
-  LOG(LogInfo) << "Steam system not found in es_systems.cfg, creating dynamically...";
- 
-  // Create SystemMetadata
-  SystemMetadata md_steam;
-  md_steam.name = "steam";
-  md_steam.fullName = _("Steam");  // Localize this!
-  md_steam.themeFolder = "steam";
-  md_steam.manufacturer = "Valve";
-  md_steam.hardwareType = "pc";
- 
-  // Create SystemEnvironmentData (THIS IS CRITICAL - FIND CORRECT PATHS!)
-  SystemEnvironmentData* envData_steam = new SystemEnvironmentData();
- std::string exePath = Paths::getExePath(); // Usa lo stesso metodo
- std::string exeDir = Utils::FileSystem::getParent(exePath);
- std::string steamRomPath = Utils::FileSystem::getGenericPath(exeDir + "/roms/steam"); // Specifica per Steam
- LOG(LogInfo) << "Dynamic Steam System: Setting StartPath to: " << steamRomPath;
+// --- STEAM SYSTEM CREATION/POPULATION (Logica da rendere il più simile possibile a Epic) ---
+LOG(LogInfo) << "[SteamDynamic] Checking/Creating/Populating Steam system...";
 
- envData_steam->mStartPath = steamRomPath; // <<< IMPOSTA QUESTO PERCORSO!
- // --- FINE CORREZIONE ---
+SystemData* steamSystem = SystemData::getSystem("steam");
+bool steamSystemJustCreated = false; // Rinominato
 
- envData_steam->mSearchExtensions = {}; // Probabilmente vuoto
- envData_steam->mPlatformIds = {PlatformIds::PC};
- envData_steam->mLaunchCommand = "";
- 
-  // Create Emulators vector (empty for now)
-  std::vector<EmulatorData> steamEmulators;
- 
-  // Create the SystemData object
-  steamSystem = new SystemData(md_steam, envData_steam, &steamEmulators, false, false, true, false);
-  if (!steamSystem) {
-  LOG(LogError) << "Failed to create Steam system!";
-  delete envData_steam;
-  return false;  // Or handle the error appropriately
-  }
- 
-  steamSystemCreated = true;
-  sSystemVector.push_back(steamSystem);
-  } else {
-  LOG(LogInfo) << "Steam system found in es_systems.cfg.";
-  }
- 
-  // Populate Steam games (if newly created OR if you want to refresh)
-if (steamSystem && (steamSystemCreated || steamSystem->getRootFolder()->getChildren().empty())) {
-     steamSystem->populateSteamVirtual(steamSystem); // Corrected call
- }
- 
-  // --- END STEAM SYSTEM CREATION/POPULATION ---
+if (steamSystem == nullptr) {
+    LOG(LogInfo) << "[SteamDynamic] Steam system not found, creating dynamically...";
+    SystemMetadata md_steam;
+    md_steam.name = "steam";
+    md_steam.fullName = _("Steam");
+    md_steam.themeFolder = "steam";
+    md_steam.manufacturer = "Valve";
+    md_steam.hardwareType = "pc";
+
+    SystemEnvironmentData* envData_steam = new SystemEnvironmentData();
+    std::string exePath_s = Paths::getExePath();
+    std::string exeDir_s = Utils::FileSystem::getParent(exePath_s);
+    // Assicurati che questo path esista o che ES possa crearlo.
+    // È dove si aspetta di trovare gamelist.xml per Steam.
+    std::string steamRomPath_s = Utils::FileSystem::getGenericPath(exeDir_s + "/roms/steam");
+    LOG(LogInfo) << "[SteamDynamic] Setting StartPath for Steam to: " << steamRomPath_s;
+    envData_steam->mStartPath = steamRomPath_s;
+    envData_steam->mSearchExtensions = {".steamgame"}; // O le tue estensioni fittizie
+    envData_steam->mPlatformIds = {PlatformIds::PC};
+    envData_steam->mLaunchCommand = "";
+
+    std::vector<EmulatorData> steamEmulators_s_empty; // Rinominato
+    steamSystem = new SystemData(md_steam, envData_steam, &steamEmulators_s_empty, false, false, true, false);
+
+    if (!steamSystem) {
+        delete envData_steam;
+        LOG(LogError) << "[SteamDynamic] Failed to dynamically create 'steam' system object!";
+        // return false; // O gestisci l'errore e non continuare con Steam
+    } else {
+        LOG(LogInfo) << "[SteamDynamic] Dynamically created 'steam' system object.";
+        // Aggiungi il sistema appena creato a sSystemVector QUI.
+        bool nameCollisionSteam = false;
+        for (const auto& sys : SystemData::sSystemVector) {
+            if (sys && sys->getName() == steamSystem->getName()) { nameCollisionSteam = true; break; }
+        }
+        if (!nameCollisionSteam) {
+            SystemData::sSystemVector.push_back(steamSystem);
+            LOG(LogInfo) << "[SteamDynamic] Added newly created Steam system to sSystemVector.";
+        } else {
+            LOG(LogWarning) << "[SteamDynamic] Steam system name collision (getSystem should have caught this). Using existing.";
+            delete steamSystem;
+            steamSystem = SystemData::getSystem("steam");
+            if (!steamSystem) { LOG(LogError) << "[SteamDynamic] CRITICAL: Steam system null after collision handling."; /* gestisci */ }
+        }
+        steamSystemJustCreated = true;
+    }
+} else { // steamSystem già esisteva
+    LOG(LogInfo) << "[SteamDynamic] Steam system already loaded. Clearing for repopulation.";
+    if (steamSystem->getRootFolder()) steamSystem->getRootFolder()->clear();
+
+    FileFilterIndex* existingIndexSteam = steamSystem->getIndex(false);
+    if (existingIndexSteam != nullptr) {
+        delete existingIndexSteam;
+        steamSystem->mFilterIndex = nullptr;
+    }
+    steamSystem->updateDisplayedGameCount();
+}
+
+// Popola il sistema Steam se esiste (o è stato appena creato con successo)
+if (steamSystem != nullptr) {
+    LOG(LogInfo) << "[SteamDynamic] Initiating data population for 'steam' system...";
+    try {
+        // --- Inizio Logica di popolamento Steam ---
+        // 1. LEGGI IL GAMELIST.XML DI STEAM (SE ESISTE) <<< QUESTO È IL PASSO CHIAVE
+        std::string gamelistPathSteam = steamSystem->getGamelistPath(false); // Rinominato
+        LOG(LogInfo) << "[SteamDynamic] Attempting to parse Steam gamelist: " << gamelistPathSteam;
+        if (Utils::FileSystem::exists(gamelistPathSteam)) {
+            std::unordered_map<std::string, FileData*> fileMapSteam; // Rinominato
+            if (steamSystem->getRootFolder()) {
+                fileMapSteam[steamSystem->getRootFolder()->getPath()] = steamSystem->getRootFolder();
+            } else {
+                 LOG(LogError) << "[SteamDynamic] Root folder for Steam is null before parsing gamelist! StartPath: " << steamSystem->getStartPath();
+                 // Se mStartPath è valido, il costruttore di SystemData dovrebbe aver creato mRootFolder.
+                 // Controlla se mStartPath è una directory valida e accessibile.
+                 // Potrebbe essere necessario creare mRootFolder esplicitamente se non lo fa:
+                 // if (!steamSystem->getStartPath().empty())
+                 //    steamSystem->mRootFolder = new FolderData(steamSystem->getStartPath(), steamSystem);
+                 // if (steamSystem->getRootFolder()) fileMapSteam[steamSystem->getRootFolder()->getPath()] = steamSystem->getRootFolder();
+            }
+
+            // Assicurati che Gamelist::parseGamelist sia accessibile
+            if (steamSystem->getRootFolder()) { // Solo se rootFolder è valido
+                 parseGamelist(steamSystem, fileMapSteam); // CHIAMA IL PARSING DEL GAMELIST PER STEAM
+                 LOG(LogInfo) << "[SteamDynamic] Parsed Steam gamelist. Root folder child count now: " << steamSystem->getRootFolder()->getChildren().size();
+            }
+        } else {
+            LOG(LogWarning) << "[SteamDynamic] Gamelist file not found for Steam at: " << gamelistPathSteam;
+            // Se il gamelist non esiste, assicurati che rootFolder esista per l'API
+            if (steamSystem && !steamSystem->getRootFolder() && !steamSystem->getStartPath().empty()) {
+                 // Come sopra, il costruttore dovrebbe averlo gestito.
+                 LOG(LogError) << "[SteamDynamic] Steam RootFolder is still NULL after gamelist check (gamelist missing).";
+            }
+        }
+		     // --- INIZIO SEZIONE CRUCIALE DA AGGIUNGERE/MODIFICARE ---
+        // 2. SCANSIONA I GIOCHI STEAM INSTALLATI (INDIPENDENTEMENTE DAL GAMELIST.XML)
+       LOG(LogInfo) << "[SteamDynamic] Attempting to discover and add/update with installed Steam games from actual Steam installation...";
+
+GameStoreManager* storeManager = GameStoreManager::get();
+std::string steamStoreName = "SteamStore"; // O "steam" - VERIFICA il nome registrato!
+
+if (storeManager != nullptr) {
+    GameStore* steamStoreProviderBase = storeManager->getStore(steamStoreName);
+
+    if (steamStoreProviderBase != nullptr) {
+        SteamStore* steamStoreConcrete = dynamic_cast<SteamStore*>(steamStoreProviderBase);
+
+        if (steamStoreConcrete != nullptr) {
+            LOG(LogDebug) << "[SteamDynamic] Calling SteamStore's findInstalledSteamGames method...";
+            std::vector<SteamInstalledGameInfo> installedSteamGames = steamStoreConcrete->findInstalledSteamGames();
+            LOG(LogInfo) << "[SteamDynamic] SteamStore::findInstalledSteamGames() identified " << installedSteamGames.size() << " installed game manifest entries.";
+
+            FolderData* steamRootFolder = steamSystem->getRootFolder();
+            if (steamRootFolder == nullptr) {
+                LOG(LogError) << "[SteamDynamic] Steam root folder is NULL, cannot add games from installation scan.";
+                // Considera di creare rootFolder qui se StartPath è valido e root è nullo,
+                // ma idealmente il costruttore di SystemData o la logica di creazione dinamica
+                // dovrebbero già averlo fatto se steamSystem->getStartPath() è corretto.
+                // Esempio: if (!steamSystem->getStartPath().empty()) steamSystem->createRootFolder(); (se esiste)
+            }
+            
+            if (steamRootFolder != nullptr) { // Procedi solo se rootFolder è valido
+                int addedFromScan = 0;
+                int alreadyExisted = 0;
+                for (const auto& gameInfo : installedSteamGames) {
+                    if (gameInfo.appId == 0 || gameInfo.name.empty() || !gameInfo.fullyInstalled) {
+                        LOG(LogWarning) << "[SteamDynamic] Skipping incomplete or not fully installed game from scan: AppID " << gameInfo.appId << ", Name: '" << gameInfo.name << "'";
+                        continue;
+                    }
+
+                // Il PATH rimane il riferimento interno di ES, non direttamente il comando di lancio.
+                    std::string virtualPath = "steam:/launch/" + std::to_string(gameInfo.appId);
+                    // IL COMANDO DI LANCIO è quello che ES userà per avviare il gioco.
+                    std::string launchCommand = "steam://launch/" + std::to_string(gameInfo.appId); // Comando URL per Steam
+
+                    FileData* existingGame = nullptr;
+                    const std::vector<FileData*>& children = steamRootFolder->getChildren();
+                    for (FileData* child : children) {
+                        if (child->getPath() == virtualPath) {
+                            existingGame = child;
+                            break;
+                        }
+                    }
+
+                    bool metadataActuallyChanged = false;
+
+                     if (!existingGame) {
+                        LOG(LogDebug) << "[SteamDynamic] Creating new FileData for installed game: '" << gameInfo.name << "' (AppID: " << gameInfo.appId << ", Path: " << virtualPath << ")";
+                        
+                        existingGame = new FileData(GAME, virtualPath, steamSystem); // Usa 'GAME' direttamente
+                        existingGame->getMetadata().set(MetaDataId::Name, gameInfo.name);
+                        existingGame->getMetadata().set(MetaDataId::SteamAppId, std::to_string(gameInfo.appId));
+                        existingGame->getMetadata().set(MetaDataId::LaunchCommand, launchCommand); // <<< IMPOSTA IL LAUNCHCOMMAND
+                        existingGame->getMetadata().set(MetaDataId::Installed, "true");
+                        existingGame->getMetadata().set(MetaDataId::Virtual, "false");
+                        
+                        steamRootFolder->addChild(existingGame, false);
+                        if (steamSystem->mFilterIndex) {
+                            steamSystem->mFilterIndex->addToIndex(existingGame);
+                        }
+                        addedFromScan++;
+                    } else {
+                        LOG(LogDebug) << "[SteamDynamic] Game '" << gameInfo.name << "' (AppID: " << gameInfo.appId << ") already exists. Checking/Updating metadata.";
+                                                
+                        if (existingGame->getMetadata().get(MetaDataId::Name) != gameInfo.name) {
+                            existingGame->getMetadata().set(MetaDataId::Name, gameInfo.name);
+                            metadataActuallyChanged = true;
+                        }
+                        if (existingGame->getMetadata().get(MetaDataId::SteamAppId) != std::to_string(gameInfo.appId)) {
+                            existingGame->getMetadata().set(MetaDataId::SteamAppId, std::to_string(gameInfo.appId));
+                            metadataActuallyChanged = true;
+                        }
+                        if (existingGame->getMetadata().get(MetaDataId::LaunchCommand) != launchCommand) { // <<< AGGIORNA IL LAUNCHCOMMAND
+                            existingGame->getMetadata().set(MetaDataId::LaunchCommand, launchCommand);
+                            metadataActuallyChanged = true;
+                        }
+                        if (existingGame->getMetadata().get(MetaDataId::Installed) != "true") {
+                            existingGame->getMetadata().set(MetaDataId::Installed, "true");
+                            metadataActuallyChanged = true;
+                        }
+                        if (existingGame->getMetadata().get(MetaDataId::Virtual) != "false") {
+                            existingGame->getMetadata().set(MetaDataId::Virtual, "false");
+                            metadataActuallyChanged = true;
+                        }
+
+                        if (metadataActuallyChanged && steamSystem->mFilterIndex) {
+                            LOG(LogDebug) << "[SteamDynamic] Metadata changed for existing game '" << gameInfo.name << "'. Re-indexing.";
+                            steamSystem->mFilterIndex->removeFromIndex(existingGame);
+                            steamSystem->mFilterIndex->addToIndex(existingGame);
+                        }
+                        alreadyExisted++;
+                    }
+                }
+                LOG(LogInfo) << "[SteamDynamic] Added/Updated " << addedFromScan << " new games from Steam installation scan. " << alreadyExisted << " games already existed/updated.";
+            }
+        } else {
+            LOG(LogError) << "[SteamDynamic] Could not dynamic_cast GameStore* to SteamStore*! Base pointer was from getStore('" << steamStoreName << "').";
+        }
+    } else {
+        LOG(LogError) << "[SteamDynamic] Could not get " << steamStoreName << " provider from manager!";
+    }
+} else {
+    if (storeManager == nullptr) {
+         LOG(LogError) << "[SteamDynamic] GameStoreManager instance is null (from get())!";
+    } else {
+         // LOG(LogWarning) << "[SteamDynamic] Steam store '" << steamStoreName << "' is not enabled by manager; skipping scan.";
+    }
+}
+        // --- Fine Logica di popolamento Steam ---
+
+        if (steamSystemJustCreated) {
+            size_t steamGameCountAfterPopulation = 0;
+            if (steamSystem->getRootFolder()) {
+                 std::vector<FileData*> tempListSteam;
+                 GetFileContext permissiveCtxSteam; permissiveCtxSteam.showHiddenFiles = true;
+                 steamSystem->getRootFolder()->getFilesRecursiveWithContext(tempListSteam, GAME, &permissiveCtxSteam, false, steamSystem, true);
+                 steamGameCountAfterPopulation = tempListSteam.size();
+            }
+
+            if (steamGameCountAfterPopulation > 0) {
+                LOG(LogInfo) << "[SteamDynamic] Loading theme and adding (if new) populated steam system. Game count: " << steamGameCountAfterPopulation;
+                steamSystem->loadTheme();
+                // ... (setSystemViewMode per Steam) ...
+            } else if (steamSystemJustCreated) {
+                LOG(LogWarning) << "[SteamDynamic] Newly created steam system is empty after all population. May be hidden.";
+            }
+        }
+        steamSystem->updateDisplayedGameCount();
+        LOG(LogInfo) << "[SteamDynamic] Finished populating steam. Final game counts: Visible="
+                     << (steamSystem->getGameCountInfo() ? steamSystem->getGameCountInfo()->visibleGames : -1)
+                     << ", Total=" << (steamSystem->getGameCountInfo() ? steamSystem->getGameCountInfo()->totalGames : -1);
+
+    } catch (const std::exception& e) {
+        LOG(LogError) << "[SteamDynamic] Exception during dynamic population of steam: " << e.what();
+    } catch (...) {
+        LOG(LogError) << "[SteamDynamic] Unknown exception during dynamic population of steam.";
+    }
+	
+}
+// --- FINE BLOCCO STEAM ---
  
   if (SystemData::sSystemVector.size() > 0) {
   createGroupedSystems();
@@ -1524,7 +1659,7 @@ SystemData* SystemData::loadSystem(pugi::xml_node system, bool fullMode)
 	// platform id list
 	std::string platformList = system.child("platform").text().get();
 	std::vector<std::string> platformStrs = readList(platformList);
-	std::vector<PlatformIds::PlatformId> platformIds;
+	std::set<PlatformIds::PlatformId> platformIds;
 	for (auto it = platformStrs.cbegin(); it != platformStrs.cend(); it++)
 	{
 		const char* str = it->c_str();
@@ -1536,16 +1671,16 @@ SystemData* SystemData::loadSystem(pugi::xml_node system, bool fullMode)
 			platformIds.clear();
 
 			if (md.name == "imageviewer")
-				platformIds.push_back(PlatformIds::IMAGEVIEWER);
+				platformIds.insert(PlatformIds::IMAGEVIEWER);
 			else
-				platformIds.push_back(platformId);
+				platformIds.insert(platformId);
 
 			break;
 		}
 
 		// if there appears to be an actual platform ID supplied but it didn't match the list, warn
 		if (platformId != PlatformIds::PLATFORM_UNKNOWN)
-			platformIds.push_back(platformId);
+			platformIds.insert(platformId);
 		else if (str != NULL && str[0] != '\0' && platformId == PlatformIds::PLATFORM_UNKNOWN)
 			LOG(LogWarning) << "  Unknown platform for system \"" << md.name << "\" (platform \"" << str << "\" from list \"" << platformList << "\")";
 	}
@@ -1919,6 +2054,8 @@ GameCountInfo* SystemData::getGameCountInfo()
 	mGameCountInfo->playTime = 0;
 	
 	int mostPlayCount = 0;
+	long gameTime = 0;
+	std::string mostCountPlayed;
 
 	for (auto game : games)
 	{
@@ -1936,19 +2073,28 @@ GameCountInfo* SystemData::getGameCountInfo()
 
 			if (playCount > mostPlayCount)
 			{
-				mGameCountInfo->mostPlayed = game->getName();
+				mostCountPlayed = game->getName();
 				mostPlayCount = playCount;
 			}
 		}
 
 		long seconds = atol(game->getMetadata(MetaDataId::GameTime).c_str());
 		if (seconds > 0)
+			{
 			mGameCountInfo->playTime += seconds;
-
+if (seconds > gameTime)
+			{
+				mGameCountInfo->mostPlayed = game->getName();
+				gameTime = seconds;
+			}
+		}
 		auto lastPlayed = game->getMetadata(MetaDataId::LastPlayed);
 		if (!lastPlayed.empty() && lastPlayed > mGameCountInfo->lastPlayedDate)
 			mGameCountInfo->lastPlayedDate = lastPlayed;
 	}
+
+	if (mGameCountInfo->mostPlayed.empty() && !mostCountPlayed.empty())
+		mGameCountInfo->mostPlayed = mostCountPlayed;
 
 	return mGameCountInfo;
 	/*

@@ -190,9 +190,13 @@ namespace Utils::Time
         return std::string(buf);
     }
 
-    std::string getSystemDateFormat() {
+    std::string getSystemDateFormat(bool includeHours) {
         static std::string value;
-        if (!value.empty()) return value;
+        if (!includeHours && !value.empty())
+			return value;
+		static std::string valueWithHours;
+			if (includeHours && !valueWithHours.empty())
+				return valueWithHours;
         // Implementazione esistente (assicurati sia quella corretta dal tuo codice)
         #ifdef _WIN32
             char szBuffer[256];

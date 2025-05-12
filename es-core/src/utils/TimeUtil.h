@@ -76,7 +76,7 @@ namespace Utils
 		int         daysInMonth (int _year, int _month);
 		int         daysInYear  (int _year);
 		std::string secondsToString(long seconds, bool asTime = false);
-		std::string getSystemDateFormat();
+		std::string getSystemDateFormat(bool includeHours = false);
 		std::string getElapsedSinceString(time_t _time);
 		time_t      iso8601ToTime(const std::string& iso_string);
 		std::string timeToMetaDataString(time_t timestamp);

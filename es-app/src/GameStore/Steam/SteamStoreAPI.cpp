@@ -148,8 +148,8 @@ Steam::AppDetails SteamStoreAPI::parseAppDetails(unsigned int appId, const nlohm
     details.detailedDescription = data.value("detailed_description", "");
     details.aboutTheGame = data.value("about_the_game", "");
     details.shortDescription = data.value("short_description", "");
-    details.headerImage = data.value("header_image", "");
-    details.legalNotice = data.value("legal_notice", ""); // Aggiunto se vuoi usarlo
+    details.headerImage = data.value("header_image", ""); // Già presente
+    details.legalNotice = data.value("legal_notice", "");   // Già presente
 
     if (data.contains("developers") && data["developers"].is_array()) {
         for (const auto& dev : data["developers"]) {
@@ -161,7 +161,6 @@ Steam::AppDetails SteamStoreAPI::parseAppDetails(unsigned int appId, const nlohm
             if (pub.is_string()) details.publishers.push_back(pub.get<std::string>());
         }
     }
-
     if (data.contains("genres") && data["genres"].is_array()) {
         for (const auto& genreJson : data["genres"]) {
             if (genreJson.is_object() && genreJson.contains("description") && genreJson["description"].is_string()) {
@@ -169,30 +168,25 @@ Steam::AppDetails SteamStoreAPI::parseAppDetails(unsigned int appId, const nlohm
             }
         }
     }
-    if (data.contains("categories") && data["categories"].is_array()) {
-    for (const auto& catJson : data["categories"]) {
-        if (catJson.is_object() && catJson.contains("description") && catJson["description"].is_string()) {
-            std::string categoryIdStr;
-            if (catJson.contains("id")) { // Controlla se il campo "id" esiste
-                if (catJson["id"].is_number()) {
-                    categoryIdStr = std::to_string(catJson["id"].get<long long>()); // Leggi come numero, converti a stringa
-                } else if (catJson["id"].is_string()) {
-                    categoryIdStr = catJson["id"].get<std::string>(); // Se fosse una stringa, prendila
-                } else {
-                    LOG(LogWarning) << "SteamStoreAPI: Category ID di tipo inatteso per AppID " << appId;
-                    categoryIdStr = ""; // o un valore di default
+    if (data.contains("categories") && data["categories"].is_array()) { // Già presente nel tuo codice
+        for (const auto& catJson : data["categories"]) {
+            if (catJson.is_object() && catJson.contains("description") && catJson["description"].is_string()) {
+                std::string categoryIdStr;
+                if (catJson.contains("id")) { 
+                    if (catJson["id"].is_number()) {
+                        categoryIdStr = std::to_string(catJson["id"].get<long long>());
+                    } else if (catJson["id"].is_string()) {
+                        categoryIdStr = catJson["id"].get<std::string>();
+                    }
                 }
+                details.categories.push_back({categoryIdStr, catJson.value("description", "")});
             }
-            // Assumendo che Steam::Category sia { std::string id; std::string description; }
-            details.categories.push_back({categoryIdStr, catJson.value("description", "")});
         }
     }
-}
-    if (data.contains("screenshots") && data["screenshots"].is_array()) {
+    if (data.contains("screenshots") && data["screenshots"].is_array()) { // Già presente
         for (const auto& ssJson : data["screenshots"]) {
             if (ssJson.is_object()) {
                 details.screenshots.push_back({
-                    // id in screenshot è un int, ma lo memorizziamo come stringa per coerenza con altri ID
                     ssJson.contains("id") ? std::to_string(ssJson.value("id", 0)) : "",
                     ssJson.value("path_thumbnail", ""),
                     ssJson.value("path_full", "")
@@ -200,10 +194,95 @@ Steam::AppDetails SteamStoreAPI::parseAppDetails(unsigned int appId, const nlohm
             }
         }
     }
-    if (data.contains("release_date") && data["release_date"].is_object()) {
+    if (data.contains("release_date") && data["release_date"].is_object()) { // Già presente
         details.releaseDate.comingSoon = data["release_date"].value("coming_soon", false);
         details.releaseDate.date = data["release_date"].value("date", "");
     }
+
+    // --- INIZIO NUOVA LOGICA DI ESTRAZIONE PER MEDIA AGGIUNTIVI ---
+
+    // Estrai Background URL (spesso chiamato "background_raw" nel JSON per l'immagine non elaborata)
+    if (data.contains("background_raw") && data["background_raw"].is_string()) {
+        details.background_raw_url = data.value("background_raw", "");
+        LOG(LogDebug) << "SteamStoreAPI: AppID " << appId << " - Trovato background_raw_url: " << details.background_raw_url;
+    } else if (data.contains("background") && data["background"].is_string()) { // Fallback se background_raw non c'è
+        details.background_raw_url = data.value("background", "");
+        LOG(LogDebug) << "SteamStoreAPI: AppID " << appId << " - Trovato background url (fallback): " << details.background_raw_url;
+    }
+
+    // Estrai e costruisci URL per Library Assets
+    if (data.contains("library_assets") && data["library_assets"].is_object()) {
+        const auto& assetsJson = data["library_assets"];
+        std::string appId_str = std::to_string(appId); // Usa l'appId passato alla funzione
+        LOG(LogDebug) << "SteamStoreAPI: AppID " << appId << " - Processando library_assets.";
+
+        if (assetsJson.contains("library_capsule") && assetsJson["library_capsule"].is_string()) {
+            std::string filename = assetsJson.value("library_capsule", "");
+            if (!filename.empty())
+                details.library_assets.capsule = "https://cdn.akamai.steamstatic.com/steam/apps/" + appId_str + "/" + filename;
+        }
+        if (assetsJson.contains("library_hero") && assetsJson["library_hero"].is_string()) {
+             std::string filename = assetsJson.value("library_hero", "");
+            if (!filename.empty())
+                details.library_assets.hero = "https://cdn.akamai.steamstatic.com/steam/apps/" + appId_str + "/" + filename;
+        }
+        if (assetsJson.contains("library_logo") && assetsJson["library_logo"].is_string()) {
+             std::string filename = assetsJson.value("library_logo", "");
+            if (!filename.empty())
+                details.library_assets.logo = "https://cdn.akamai.steamstatic.com/steam/apps/" + appId_str + "/" + filename;
+        }
+        // "library_header" o "header" (a volte chiamato "vertical_capsule" nel JSON, ma header è più comune in library_assets)
+        if (assetsJson.contains("library_header") && assetsJson["library_header"].is_string()) {
+             std::string filename = assetsJson.value("library_header", "");
+            if (!filename.empty())
+                details.library_assets.header = "https://cdn.akamai.steamstatic.com/steam/apps/" + appId_str + "/" + filename;
+        } else if (assetsJson.contains("header") && assetsJson["header"].is_string()) { // Fallback
+             std::string filename = assetsJson.value("header", "");
+            if (!filename.empty())
+                details.library_assets.header = "https://cdn.akamai.steamstatic.com/steam/apps/" + appId_str + "/" + filename;
+        }
+        LOG(LogDebug) << "SteamStoreAPI: AppID " << appId << " - Hero: " << details.library_assets.hero 
+                      << ", Capsule: " << details.library_assets.capsule 
+                      << ", Logo: " << details.library_assets.logo;
+    } else {
+        LOG(LogDebug) << "SteamStoreAPI: AppID " << appId << " - Nessun library_assets trovato.";
+    }
+
+
+    // Estrai Video/Movies
+    if (data.contains("movies") && data["movies"].is_array()) {
+        LOG(LogDebug) << "SteamStoreAPI: AppID " << appId << " - Processando movies.";
+        for (const auto& movieJson : data["movies"]) {
+            if (!movieJson.is_object()) continue;
+
+            Steam::MovieInfo movieInfo;
+            movieInfo.id = movieJson.value("id", 0u);
+            movieInfo.name = movieJson.value("name", "");
+            movieInfo.thumbnail_url = movieJson.value("thumbnail", ""); // URL completo dell'anteprima del video
+            movieInfo.highlight = movieJson.value("highlight", false);
+
+            if (movieJson.contains("mp4") && movieJson["mp4"].is_object()) {
+                movieInfo.mp4_480_url = movieJson["mp4"].value("480", "");
+                movieInfo.mp4_max_url = movieJson["mp4"].value("max", "");
+            }
+            if (movieJson.contains("webm") && movieJson["webm"].is_object()) {
+                movieInfo.webm_480_url = movieJson["webm"].value("480", "");
+                movieInfo.webm_max_url = movieJson["webm"].value("max", "");
+            }
+            
+            if (!movieInfo.mp4_max_url.empty() || !movieInfo.mp4_480_url.empty()) { // Priorità a MP4
+                details.movies.push_back(movieInfo);
+                LOG(LogDebug) << "SteamStoreAPI: AppID " << appId << " - Aggiunto video MP4: " << movieInfo.name;
+            } else if (!movieInfo.webm_max_url.empty() || !movieInfo.webm_480_url.empty()) { // Fallback a WebM
+                details.movies.push_back(movieInfo);
+                LOG(LogDebug) << "SteamStoreAPI: AppID " << appId << " - Aggiunto video WebM (fallback): " << movieInfo.name;
+            }
+        }
+        LOG(LogDebug) << "SteamStoreAPI: AppID " << appId << " - Trovati " << details.movies.size() << " video(s).";
+    } else {
+        LOG(LogDebug) << "SteamStoreAPI: AppID " << appId << " - Nessun movies array trovato.";
+    }
+    // --- FINE NUOVA LOGICA DI ESTRAZIONE ---
 
     return details;
 }

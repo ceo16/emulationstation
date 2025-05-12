@@ -9,7 +9,7 @@
  #include <condition_variable>
  #include "GameStore/EpicGames/EpicGamesAuth.h" // Percorso corretto!
  #include "GameStore/EpicGames/EpicGamesStore.h"
- #include "GameStore/EpicGames/GameStoreManager.h"
+ #include "GameStore/GameStoreManager.h"
  #include <functional>
  
 

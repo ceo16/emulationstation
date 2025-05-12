@@ -20,7 +20,23 @@ namespace Steam {
         std::string imgLogoUrl;
         // Aggiungi altri campi se necessario (es. last_played_time)
     };
-
+	    struct LibraryAsset {
+        std::string capsule;      // URL completo per library_capsule.jpg
+        std::string hero;         // URL completo per library_hero.jpg
+        std::string logo;         // URL completo per library_logo.png
+        std::string header;       // URL completo per library_header.jpg (o vertical_capsule)
+        // Aggiungi altri se necessario, es. grid, etc.
+    };
+    struct MovieInfo {
+        unsigned int id;
+        std::string name;
+        std::string thumbnail_url;
+        std::string mp4_480_url; // URL per la versione mp4 a 480p
+        std::string mp4_max_url; // URL per la versione mp4 a qualità massima
+        std::string webm_480_url;
+        std::string webm_max_url;
+        bool highlight;
+    };
     struct AppDetails { // Dati principali per lo scraper
         unsigned int appId;
         std::string type; // "game", "dlc", "mod", etc.
@@ -43,9 +59,12 @@ namespace Steam {
         std::vector<Screenshot> screenshots;
         struct ReleaseDate { bool comingSoon; std::string date; }; // date es. "14 Nov, 2019"
         ReleaseDate releaseDate;
-        // SupportInfo supportInfo;
+
         std::string legalNotice;
-        // Aggiungi altri campi come background_raw, movies
+          std::string background_raw_url;          // Per il campo "background_raw" o "background" del JSON
+        LibraryAsset library_assets;             // Contiene gli URL costruiti per gli asset della libreria
+        std::vector<MovieInfo> movies;
+		AppDetails() : appId(0) {}
     };
 } // namespace Steam
 

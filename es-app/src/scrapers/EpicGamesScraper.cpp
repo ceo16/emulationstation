@@ -13,6 +13,7 @@
 #include "utils/FileSystemUtil.h" // Per l'estensione dei file immagine
 #include "scrapers/Scraper.h" // Necessario per ScraperSearchResult, ScraperRequest, etc.
 #include "AsyncHandle.h" // Necessario perché ScraperRequest ne eredita
+#include "utils/StringUtil.h" // Necessario per Utils::String::toLower (se non già transitive)
 
 #include <memory>     // Per std::unique_ptr
 #include <filesystem> // Potrebbe servire per gestire path
@@ -57,77 +58,77 @@ public:
           mRequestLaunched(false)
     {
         LOG(LogDebug) << "EpicGamesScraperRequest created for ns=" << ns << ", cId=" << catalogId << ", eId=" << epicId;
-        // Lo stato mStatus viene inizializzato a ASYNC_IN_PROGRESS dal costruttore base di AsyncHandle
     }
 
     // Metodo principale chiamato ripetutamente da EmulationStation finché lo stato non è DONE o ERROR
     void update() override
     {
-        // Se la richiesta è già terminata (successo o errore), non fare nulla
         if (mStatus == ASYNC_DONE || mStatus == ASYNC_ERROR) {
             return;
         }
 
-        // Esegui la logica di chiamata API solo la prima volta
         if (!mRequestLaunched)
         {
-            mRequestLaunched = true; // Segna che abbiamo iniziato
+            mRequestLaunched = true;
             LOG(LogDebug) << "EpicGamesScraperRequest::update() executing API call for catalogId=" << mCatalogId;
 
             try {
-                // 1. Autenticazione (necessaria prima di chiamare l'API)
-                // Istanziamo EpicGamesAuth qui dentro; gestirà il token internamente
                 EpicGamesAuth auth;
                 if (auth.getAccessToken().empty()) {
                     LOG(LogWarning) << "EpicGamesScraperRequest: Epic Authentication Token is empty. Cannot proceed with scraping.";
-                    setError("Epic Authentication Failed"); // Imposta lo stato di errore
-                    return; // Esce da questa chiamata a update()
+                    setError("Epic Authentication Failed");
+                    return;
                 }
                 LOG(LogDebug) << "EpicGamesScraperRequest: Authentication check passed.";
 
-                // 2. Preparazione e Chiamata API
-                EpicGamesStoreAPI api(&auth); // Crea l'oggetto API passando l'auth
+                EpicGamesStoreAPI api(&auth);
                 std::vector<std::pair<std::string, std::string>> itemsToFetch = {{mNamespace, mCatalogId}};
 
-                // Ottieni le preferenze utente per paese e lingua (con fallback)
                 std::string country = Settings::getInstance()->getString("EpicCountryCode");
                 std::string locale = Settings::getInstance()->getString("EpicLocaleCode");
-                if (country.empty()) country = "IT"; // Fallback a Italia
-                if (locale.empty()) locale = "it-IT"; // Fallback a Italiano
+                if (country.empty()) country = "IT"; 
+                if (locale.empty()) locale = "it-IT";
 
                 LOG(LogDebug) << "EpicGamesScraperRequest: Calling GetCatalogItems with ns=" << mNamespace << ", id=" << mCatalogId << ", country=" << country << ", locale=" << locale;
                 std::map<std::string, EpicGames::CatalogItem> resultsMap = api.GetCatalogItems(itemsToFetch, country, locale);
                 LOG(LogDebug) << "EpicGamesScraperRequest: GetCatalogItems returned " << resultsMap.size() << " results.";
 
-                // 3. Processa il Risultato API
-                if (resultsMap.count(mCatalogId)) // Controlla se l'ID richiesto è presente nella risposta
+                if (resultsMap.count(mCatalogId))
                 {
-                    const EpicGames::CatalogItem& item = resultsMap.at(mCatalogId); // Ottieni i dettagli del gioco
+                    const EpicGames::CatalogItem& item = resultsMap.at(mCatalogId);
                     LOG(LogInfo) << "EpicGamesScraper: Found API data for '" << item.title << "' (ID: " << mCatalogId << ")";
 
-                    ScraperSearchResult searchResult; // Crea l'oggetto che conterrà i risultati dello scraping
-                    searchResult.scraper = "epicgames"; // Identifica questo scraper
+                    // <<< INIZIO BLOCCO LOG CUSTOM ATTRIBUTES >>>
+                    LOG(LogDebug) << "--- Custom Attributes for: " << item.title << " ---";
+                    for (const auto& attr : item.customAttributes) {
+                        LOG(LogDebug) << "  Key: " << attr.key << " | Value: " << attr.value << " | Type: " << attr.type;
+                        std::string lowerKey = Utils::String::toLower(attr.key);
+                        if (lowerKey.find("video") != std::string::npos || lowerKey.find("trailer") != std::string::npos) {
+                            LOG(LogInfo) << "POTENTIAL VIDEO/TRAILER customAttribute for " << item.title << " - Key: " << attr.key << ", Value: " << attr.value;
+                        }
+                    }
+                    LOG(LogDebug) << "--- End Custom Attributes for: " << item.title << " ---";
+                    // <<< FINE BLOCCO LOG CUSTOM ATTRIBUTES >>>
 
-                    // ---->> FASE 1: PRESERVA I METADATI ESSENZIALI <<----
-                    // Copia i valori che avevamo salvato nel costruttore dentro al risultato
+                    ScraperSearchResult searchResult;
+                    searchResult.scraper = "epicgames";
+
                     searchResult.mdl.set(MetaDataId::Virtual, mVirtual);
                     searchResult.mdl.set(MetaDataId::EpicId, mEpicId);
                     searchResult.mdl.set(MetaDataId::EpicNamespace, mNamespace);
                     searchResult.mdl.set(MetaDataId::EpicCatalogId, mCatalogId);
-                    searchResult.mdl.set(MetaDataId::LaunchCommand, mLaunchCmd); // !!! Fondamentale !!!
+                    searchResult.mdl.set(MetaDataId::LaunchCommand, mLaunchCmd);
                     LOG(LogDebug) << "  Preserved: virtual=" << mVirtual << ", epicId=" << mEpicId << ", ns=" << mNamespace << ", cId=" << mCatalogId << ", launch=...";
 
-                    // ---->> FASE 2: AGGIUNGI/SOVRASCRIVI CON I DATI DALL'API <<----
                     if (!item.title.empty())       searchResult.mdl.set(MetaDataId::Name, item.title);
                     if (!item.description.empty()) searchResult.mdl.set(MetaDataId::Desc, item.description);
                     if (!item.developer.empty())   searchResult.mdl.set(MetaDataId::Developer, item.developer);
                     if (!item.publisher.empty())   searchResult.mdl.set(MetaDataId::Publisher, item.publisher);
 
-                    // Gestione Data di Rilascio (con conversione ISO -> ES)
                     if (!item.releaseDate.empty()) {
-                        time_t release_t = Utils::Time::iso8601ToTime(item.releaseDate); // Funzione per convertire da ISO 8601
-                        if (release_t != Utils::Time::NOT_A_DATE_TIME) { // Controlla se la conversione è valida
-                            std::string esDate = Utils::Time::timeToMetaDataString(release_t); // Converti in formato YYYYMMDDTHHMMSS
+                        time_t release_t = Utils::Time::iso8601ToTime(item.releaseDate);
+                        if (release_t != Utils::Time::NOT_A_DATE_TIME) {
+                            std::string esDate = Utils::Time::timeToMetaDataString(release_t);
                             if (!esDate.empty()) {
                                 searchResult.mdl.set(MetaDataId::ReleaseDate, esDate);
                                 LOG(LogDebug) << "  Set ReleaseDate from API: " << esDate;
@@ -139,144 +140,197 @@ public:
                         }
                     }
 
-                    // Gestione Genere (concatena i path delle categorie)
                     std::string genres;
                     for (const auto& cat : item.categories) {
                         if (!cat.path.empty()) {
-                            if (!genres.empty()) genres += "; "; // Separatore
+                            if (!genres.empty()) genres += "; ";
                             size_t lastSlash = cat.path.find_last_of('/');
-                            genres += (lastSlash == std::string::npos) ? cat.path : cat.path.substr(lastSlash + 1); // Prendi l'ultima parte del path
+                            genres += (lastSlash == std::string::npos) ? cat.path : cat.path.substr(lastSlash + 1);
                         }
                     }
                     if (!genres.empty()) {
-                         searchResult.mdl.set(MetaDataId::Genre, genres);
-                         LOG(LogDebug) << "  Set Genre from API: " << genres;
+                        searchResult.mdl.set(MetaDataId::Genre, genres);
+                        LOG(LogDebug) << "  Set Genre from API: " << genres;
                     }
 
-                    // Gestione Immagini (popola la mappa 'urls')
+                    // Gestione Immagini e Media
                     std::string imageUrl_str, thumbUrl_str, marqueeUrl_str;
-                    // Trova gli URL migliori tra le keyImages fornite dall'API
+                    std::string fanartUrl_str, videoUrl_str;
+                    int previously_selected_fanart_width = 0; 
+
                     for (const auto& img : item.keyImages) {
-                        // Priorità per immagini specifiche (adatta i tipi se necessario)
-                        if (img.type == "OfferImageTall" || img.type == "DieselGameBoxTall") imageUrl_str = img.url;
-                        else if (img.type == "OfferImageWide" || img.type == "DieselStoreFrontWide") thumbUrl_str = img.url;
-                        else if (img.type == "ProductLogo" || img.type == "DieselGameBoxLogo") marqueeUrl_str = img.url;
+                        LOG(LogDebug) << "Processing keyImage - Type: " << img.type << ", URL: " << img.url << ", Width: " << img.width << ", Height: " << img.height;
 
-                        // Fallback generici se i tipi preferiti non ci sono
-                        if (imageUrl_str.empty() && (img.type == "VaultClosed" || img.type == "Thumbnail")) imageUrl_str = img.url;
-                        if (thumbUrl_str.empty() && img.type == "Thumbnail") thumbUrl_str = img.url;
+                        // Boxart (Image) - Priorità a immagini verticali
+                        if (img.type == "OfferImageTall" || img.type == "DieselGameBoxTall") {
+                            if (imageUrl_str.empty() || img.height > 1000) { // Prendi la prima o una più alta se già ne hai una
+                                imageUrl_str = img.url;
+                            }
+                        }
+                        // Thumbnail/Wide Banner - Priorità a immagini orizzontali larghe
+                        // (Può anche essere un candidato per fanart)
+                        else if (img.type == "OfferImageWide" || img.type == "DieselStoreFrontWide") {
+                            if (thumbUrl_str.empty() || img.width > 1000) { // Prendi la prima o una più larga
+                                thumbUrl_str = img.url;
+                            }
+                        }
+                        // Marquee/Logo
+                          else if (img.type == "ProductLogo" || img.type == "DieselGameBoxLogo") {
+                            // Aggiungiamo controlli su dimensioni e aspect ratio per marquee più specifici
+                            if (img.width > 0 && img.height > 0) {
+                                float aspect_ratio = (float)img.width / img.height;
+                                // Definiamo criteri più restrittivi per un logo:
+                                // - Non troppo grande (es. nessuna dimensione oltre 1000px)
+                                // - Aspect ratio non estremamente largo o alto (es. tra 0.3 e 4.0)
+                                // Questi valori sono esempi, potresti doverli aggiustare.
+                                if (img.width <= 1000 && img.height <= 600 && aspect_ratio >= 0.2f && aspect_ratio <= 5.0f) {
+                                    marqueeUrl_str = img.url;
+                                    LOG(LogInfo) << ">>> MARQUEE SELEZIONATO (Type: " << img.type << ", AR: " << aspect_ratio << ", W: " << img.width << " H: " << img.height << "): " << img.url;
+                                } else {
+                                    LOG(LogDebug) << "Scartato potenziale marquee (Type: " << img.type << ") per dimensioni/AR non ideali per un logo: " << img.url << " (W:" << img.width << " H:" << img.height << ")";
+                                }
+                            } else {
+                                // Se le dimensioni non sono valide, ma il tipo è corretto, prendilo comunque (comportamento precedente)
+                                // o scartalo. Per ora, se le dimensioni sono 0, non lo prendiamo.
+                                LOG(LogDebug) << "Scartato potenziale marquee (Type: " << img.type << ") per dimensioni invalide (0): " << img.url;
+                            }
+                        }
+
+                        // Fanart Selection Logic
+                        // Cerchiamo tipi specifici o immagini landscape di alta qualità
+                        if (img.type == "DieselGameBox" || // Ottimo candidato se landscape (es. FGSS04_KeyArt_OfferImageLandscape)
+                            img.type == "DieselStoreFrontWide" ||
+                            img.type == "OfferImageWide" ||
+                            img.type == "TakeoverWide" ||        // Tipo comune per sfondi in alcune API
+                            (img.type == "Screenshot" && img.width >= 1920) // Screenshot di alta qualità e molto larghi
+                           ) {
+                            if (img.width >= 1280 && img.height > 0 && ((float)img.width / img.height > 1.45) ) { // Assicura che sia landscape (ratio > ~1.5)
+                                if (img.width > previously_selected_fanart_width) { 
+                                    fanartUrl_str = img.url;
+                                    previously_selected_fanart_width = img.width;
+                                    LOG(LogInfo) << ">>> FANART Candidate (Type: " << img.type << ", Width: " << img.width << "): " << img.url;
+                                }
+                            }
+                        }
+                        
+                        // Video Selection Logic (Placeholder - necessita dei tipi corretti)
+                        // SOSTITUISCI "PlaceholderVideoType" con il tipo reale identificato dai log!
+                        else if (img.type == "PlaceholderVideoType") { 
+                            if (videoUrl_str.empty()) { // Prendi il primo video trovato
+                                 videoUrl_str = img.url;
+                                 LOG(LogInfo) << ">>> VIDEO Candidate (Type: " << img.type << "): " << img.url;
+                            }
+                        }
                     }
-                     if (imageUrl_str.empty() && !item.keyImages.empty()) imageUrl_str = item.keyImages[0].url; // Fallback estremo alla prima immagine
-                     if (thumbUrl_str.empty() && !imageUrl_str.empty()) thumbUrl_str = imageUrl_str; // Usa immagine principale se manca thumb
 
-                    // Aggiungi gli URL trovati alla mappa 'urls' del risultato
-      if (!imageUrl_str.empty()) {
-    ScraperSearchItem itemUrl;
-    itemUrl.url = imageUrl_str;
-    itemUrl.format = ".jpg"; // <<< IMPOSTA ESTENSIONE FISSA (o determina in altro modo)
-    searchResult.urls[MetaDataId::Image] = itemUrl;
-    LOG(LogDebug) << "  Found Image URL: " << imageUrl_str;
-}
-if (!thumbUrl_str.empty()) {
-    ScraperSearchItem itemThumb;
-    itemThumb.url = thumbUrl_str;
-    itemThumb.format = ".jpg"; // <<< IMPOSTA ESTENSIONE FISSA (o determina in altro modo)
-    searchResult.urls[MetaDataId::Thumbnail] = itemThumb;
-    LOG(LogDebug) << "  Found Thumbnail URL: " << thumbUrl_str;
-}
-if (!marqueeUrl_str.empty()) {
-    ScraperSearchItem itemMarquee;
-    itemMarquee.url = marqueeUrl_str;
-    itemMarquee.format = ".png"; // <<< USA .png PER LOGHI/MARQUEE se appropriato
-    searchResult.urls[MetaDataId::Marquee] = itemMarquee;
-    LOG(LogDebug) << "  Found Marquee URL: " << marqueeUrl_str;
-}
-                    // Aggiungi qui la logica per altri tipi di media se necessario (Video, FanArt, etc.)
+                    // Fallback per immagini principali se non trovate specificamente
+                    if (imageUrl_str.empty() && !item.keyImages.empty()) {
+                        for (const auto& img : item.keyImages) { // Cerca la prima "Thumbnail" o "VaultClosed" come fallback per image
+                            if (img.type == "VaultClosed" || img.type == "Thumbnail") { imageUrl_str = img.url; break; }
+                        }
+                        if (imageUrl_str.empty()) imageUrl_str = item.keyImages[0].url; // Fallback estremo
+                    }
+                    if (thumbUrl_str.empty() && !imageUrl_str.empty() && !item.keyImages.empty()) { // Se thumb è vuota, prova a usare imageUrl o la prima wide
+                         if (!imageUrl_str.empty() && previously_selected_fanart_width > 0 && fanartUrl_str == imageUrl_str) { // Evita di usare la stessa immagine della fanart se possibile
+                             for (const auto& img : item.keyImages) { if (img.type == "Thumbnail") {thumbUrl_str = img.url; break;}}
+                         }
+                         if (thumbUrl_str.empty()) thumbUrl_str = imageUrl_str; // Fallback finale
+                    }
+                     // Non c'è un fallback esplicito per fanartUrl_str su thumbUrl_str qui per evitare di usare immagini verticali come fanart.
+                     // La logica di selezione sopra dovrebbe essere abbastanza buona. Se fanartUrl_str è vuota, non verrà scaricata.
 
-                    // 4. Aggiungi il risultato completo alla lista dei risultati
-                    // L'accesso a mResults è gestito dalla classe base ScraperRequest
+
+                    if (!imageUrl_str.empty()) {
+                        ScraperSearchItem itemUrl; itemUrl.url = imageUrl_str; itemUrl.format = ".jpg";
+                        searchResult.urls[MetaDataId::Image] = itemUrl;
+                        LOG(LogDebug) << "  Set Image URL: " << imageUrl_str;
+                    }
+                    if (!thumbUrl_str.empty()) {
+                        ScraperSearchItem itemThumb; itemThumb.url = thumbUrl_str; itemThumb.format = ".jpg";
+                        searchResult.urls[MetaDataId::Thumbnail] = itemThumb;
+                        LOG(LogDebug) << "  Set Thumbnail URL: " << thumbUrl_str;
+                    }
+                    if (!marqueeUrl_str.empty()) {
+                        ScraperSearchItem itemMarquee; itemMarquee.url = marqueeUrl_str; itemMarquee.format = ".png";
+                        searchResult.urls[MetaDataId::Marquee] = itemMarquee;
+                        LOG(LogDebug) << "  Set Marquee URL: " << marqueeUrl_str;
+                    }
+                    if (!fanartUrl_str.empty()) {
+                        ScraperSearchItem itemFanart; itemFanart.url = fanartUrl_str; itemFanart.format = ".jpg";
+                        searchResult.urls[MetaDataId::FanArt] = itemFanart;
+                        LOG(LogDebug) << "  Set FanArt URL: " << fanartUrl_str;
+                    }
+                    if (!videoUrl_str.empty()) {
+                        ScraperSearchItem itemVideo; itemVideo.url = videoUrl_str; itemVideo.format = ".mp4"; 
+                        searchResult.urls[MetaDataId::Video] = itemVideo;
+                        LOG(LogDebug) << "  Set Video URL: " << videoUrl_str;
+                    }
+
                     mResults.push_back(searchResult);
-                    setStatus(ASYNC_DONE); // Imposta lo stato a completato (successo)
+                    setStatus(ASYNC_DONE);
                     LOG(LogInfo) << "EpicGamesScraperRequest: Successfully processed result for " << mCatalogId;
 
                 } else {
-                    // L'ID richiesto non è stato trovato nella risposta API
                     LOG(LogWarning) << "EpicGamesScraperRequest: Item not found in API response for catalogId=" << mCatalogId;
-                    setStatus(ASYNC_DONE); // Segna come completato comunque, per non bloccare la coda
+                    setStatus(ASYNC_DONE); 
                 }
 
             } catch (const std::exception& e) {
-                // Errore durante chiamata API o processamento
                 LOG(LogError) << "EpicGamesScraperRequest: Exception during API call or processing for " << mCatalogId << ": " << e.what();
-                setError(std::string("API Error: ") + e.what()); // Imposta stato di errore con messaggio
+                setError(std::string("API Error: ") + e.what());
             } catch (...) {
-                // Errore sconosciuto
                 LOG(LogError) << "EpicGamesScraperRequest: Unknown exception during API call or processing for " << mCatalogId;
-                setError("Unknown API Error"); // Imposta stato di errore generico
+                setError("Unknown API Error");
             }
-        } // Fine if (!mRequestLaunched)
-
-        // Log per debug per vedere lo stato ad ogni chiamata di update
+        } 
         LOG(LogDebug) << "EpicGamesScraperRequest::update() finished iteration for id=" << mCatalogId << " with status " << mStatus;
-
-    } // Fine update()
-
-}; // Fine definizione classe EpicGamesScraperRequest
+    } 
+}; 
 
 
 //-----------------------------------------------------------------------------------
 // Implementazione dei metodi della classe EpicGamesScraper
 //-----------------------------------------------------------------------------------
 
-// Funzione chiamata per generare le richieste di scraping per un gioco
 void EpicGamesScraper::generateRequests(
     const ScraperSearchParams& params,
-    std::queue<std::unique_ptr<ScraperRequest>>& requests, // Coda dove inserire le richieste
-    std::vector<ScraperSearchResult>& results)           // Vettore (condiviso?) dove la richiesta scriverà i risultati
+    std::queue<std::unique_ptr<ScraperRequest>>& requests, 
+    std::vector<ScraperSearchResult>& results)        
 {
     std::string gamePathStr; try { gamePathStr = std::string(params.game->getPath()); } catch (...) { gamePathStr = "[[PATH CONVERSION FAILED]]"; }
     LOG(LogDebug) << "EpicGamesScraper::generateRequests for game path: " << gamePathStr;
 
-    // Leggi TUTTI i metadati essenziali dal FileData passato nei parametri
     std::string ns = params.game->getMetadata(MetaDataId::EpicNamespace);
     std::string catalogId = params.game->getMetadata(MetaDataId::EpicCatalogId);
     std::string epicId = params.game->getMetadata(MetaDataId::EpicId);
     std::string isVirtual = params.game->getMetadata(MetaDataId::Virtual);
     std::string launchCmd = params.game->getMetadata(MetaDataId::LaunchCommand);
 
-    // Controlla che tutti i metadati necessari siano presenti, altrimenti salta lo scraping
     if (ns.empty() || catalogId.empty() || epicId.empty() || isVirtual.empty() || launchCmd.empty()) {
         LOG(LogWarning) << "EpicGamesScraper: Skipping game '" << params.game->getName()
-                        << "' - Missing one or more essential metadata tags (epicns, epiccstid, epicid, virtual, launch)."
-                        << " Check gamelist or initial fetch/creation process.";
-        return; // Non possiamo fare scraping senza questi dati
+                         << "' - Missing one or more essential metadata tags (epicns, epiccstid, epicid, virtual, launch)."
+                         << " Check gamelist or initial fetch/creation process.";
+        return; 
     }
 
     LOG(LogInfo) << "EpicGamesScraper: Found required metadata for game '" << params.game->getName() << "': ns=" << ns << ", cId=" << catalogId << ", eId=" << epicId << ", virtual=" << isVirtual;
-
-    // Crea una nuova istanza della nostra classe di richiesta personalizzata, passando tutti i dati necessari
+    
     auto req = std::unique_ptr<ScraperRequest>(new EpicGamesScraperRequest(ns, catalogId, epicId, isVirtual, launchCmd, results));
-
-    // Aggiungi la richiesta alla coda
-    requests.push(std::move(req)); // Usa std::move per trasferire la proprietà del puntatore unico
+    requests.push(std::move(req)); 
     LOG(LogDebug) << "EpicGamesScraper: Queued request for catalogId=" << catalogId;
 }
 
-// Indica se questo scraper supporta la piattaforma del sistema dato
 bool EpicGamesScraper::isSupportedPlatform(SystemData* system) {
-    // Abilita lo scraper solo per il sistema "epicgamestore"
     return system != nullptr && system->getName() == "epicgamestore";
 }
 
-// Indica quali tipi di media questo scraper è in grado di fornire
 const std::set<Scraper::ScraperMediaSource>& EpicGamesScraper::getSupportedMedias() {
-    // Dichiara i tipi di media che puoi ottenere dall'API Epic e che mapperai
-    // ai tipi standard di EmulationStation (potresti dover adattare i mapping)
     static std::set<Scraper::ScraperMediaSource> supportedMedia = {
-        Scraper::ScraperMediaSource::Screenshot, // Es. OfferImageWide o DieselStoreFrontWide
-        Scraper::ScraperMediaSource::Box2d,      // Es. OfferImageTall o DieselGameBoxTall
-        Scraper::ScraperMediaSource::Marquee     // Es. ProductLogo o DieselGameBoxLogo
-        // Aggiungi altri tipi se li gestisci (es. ScraperMediaSource::Video, FanArt, etc.)
+        Scraper::ScraperMediaSource::Screenshot, 
+        Scraper::ScraperMediaSource::Box2d,      
+        Scraper::ScraperMediaSource::Marquee,    
+        Scraper::ScraperMediaSource::FanArt,     // AGGIUNTO
+        Scraper::ScraperMediaSource::Video       // AGGIUNTO
     };
     return supportedMedia;
 }

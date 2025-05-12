@@ -9,6 +9,10 @@ SteamAuth::SteamAuth()
 {
     LOG(LogInfo) << "SteamAuth: Inizializzazione modulo autenticazione Steam.";
     loadCredentials();
+    if (hasCredentials()) { // Se le credenziali sono state caricate
+        LOG(LogInfo) << "SteamAuth: Tentativo di validazione automatica delle credenziali caricate.";
+        validateAndSetAuthentication(); 
+    }
 }
 
 SteamAuth::~SteamAuth()
