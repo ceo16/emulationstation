@@ -1055,7 +1055,7 @@ std::set<std::string> FileData::getContentFiles()
 			files.insert(path + "/" + stem + ".bin");
 			files.insert(path + "/" + stem + ".sub");
 		}
-		else if (ext == ".m3u")
+		else if (ext == ".m3u" || ext == ".xbox360")
 		{
 			std::ifstream m3u(WINSTRINGW(mPath));
 			if (m3u && m3u.is_open())
@@ -1102,6 +1102,12 @@ void FileData::deleteGameFiles()
 			continue;
 
 		Utils::FileSystem::removeFile(mMetadata.get(mdd.id));
+	}
+
+	if (Utils::FileSystem::isDirectory(getPath()))
+	{
+		Utils::FileSystem::deleteDirectoryFiles(getPath(), true);
+		return;
 	}
 
 	Utils::FileSystem::removeFile(getPath());
@@ -2332,9 +2338,10 @@ std::string FileData::getGenre()
   return BindableProperty(finalValue, BindablePropertyType::String);  //  MODIFIED
   case MetaDataType::MD_BOOL:
   return BindableProperty(finalValue, BindablePropertyType::String);
-  case MetaDataType::MD_DATE:
+
   case MetaDataType::MD_TIME:
-  return finalValue.empty() ? BindableProperty::EmptyString : BindableProperty(Utils::Time::timeToString(Utils::Time::DateTime(finalValue).getTime(), Utils::Time::getSystemDateFormat()), BindablePropertyType::String);
+  case MetaDataType::MD_DATE:
+  return finalValue.empty() ? "" : Utils::Time::timeToString(Utils::Time::DateTime(finalValue).getTime(), Utils::Time::getSystemDateFormat(type == MetaDataType::MD_TIME));
   }
  
 
