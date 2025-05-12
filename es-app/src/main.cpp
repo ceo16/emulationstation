@@ -651,9 +651,14 @@ if (SDL_EPIC_REFRESH_COMPLETE == (Uint32)-1) {
 
 	
 	if (errorMsg == NULL)
+
+		{
+		if (splashScreen)
+			window.renderSplashScreen(_("Loading theme"));
+			
 		ViewController::get()->goToStart(true);
 	LOG(LogInfo) << "goToStart() completed."; // Log aggiunto per chiarezza timing
-
+}
 
 
 
