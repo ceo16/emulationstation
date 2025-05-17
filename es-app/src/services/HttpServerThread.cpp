@@ -94,7 +94,7 @@ void HttpServerThread::setExpectedState(const std::string& state) {
 
 HttpServerThread::~HttpServerThread()
 {
-    LOG(LogDebug) << "HttpServerThread : Exit. Instance: " << this; // Added instance address
+    LOG(LogDebug) << "HttpServerThread : Exit. Instance: " << this; // Added instance addres
     if (mHttpServer != nullptr)
     {
         mHttpServer->stop();

@@ -45,6 +45,14 @@ void GuiNegoziOnlineMenu::loadMenuEntries()
             mWindow->pushGui(new GuiMsgBox(mWindow, _("ERRORE"), _("STEAM STORE NON ANCORA IMPLEMENTATO CORRETTAMENTE.")));
         }
     }, "iconGames"); // TODO: Aggiungi un'icona per Steam (es. "iconSteam")
+	      mMenu.addEntry(_("XBOX STORE"), true, [this] {
+        if (GameStoreManager::get()->getStore("XboxStore")) { // Controlla se lo store è registrato
+            GameStoreManager::get()->getStore("XboxStore")->showStoreUI(mWindow);
+        } else {
+            LOG(LogError) << "XboxStore non registrato nel GameStoreManager!";
+            mWindow->pushGui(new GuiMsgBox(mWindow, _("ERRORE"), _("XBOX STORE NON ANCORA IMPLEMENTATO CORRETTAMENTE.")));
+        }
+    }, "iconGames");
 
     // Aggiungi un'opzione per chiudere questo sottomenu
     mMenu.addEntry(_("CHIUDI"), false, [this] { // "CLOSE"

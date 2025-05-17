@@ -17,6 +17,7 @@
 #include "utils/Uri.h"
 #include "scrapers/EpicGamesScraper.h" 
 #include "scrapers/SteamScraper.h"
+#include "scrapers/XboxScraper.h"
 
 #define OVERQUOTA_RETRY_DELAY 15000
 #define OVERQUOTA_RETRY_COUNT 5
@@ -37,7 +38,8 @@ std::vector<std::pair<std::string, Scraper*>> Scraper::scrapers
 
 	{ "ArcadeDB", new ArcadeDBScraper() },
 	{ "EPIC GAMES STORE", new EpicGamesScraper() },
-	{ "STEAM", new SteamScraper() }
+	{ "STEAM", new SteamScraper() },
+	{ "XBOX", new Scrapers::XboxScraper() } 
 };
 
 std::string Scraper::getScraperName(Scraper* scraper)
@@ -238,7 +240,7 @@ void ScraperSearchHandle::update()
 		// finished this one, see if we have any more
 		if (status == ASYNC_DONE)
 		{
-			// If we have results, exit, else process the next request
+			// If we have results, exit, else process the next reques
 			if (mResults.size() > 0)
 			{
 				while (!mRequestQueue.empty())
@@ -367,6 +369,9 @@ std::unique_ptr<MDResolveHandle> ScraperSearchResult::resolveMetaDataAssets(cons
 // metadata resolving stuff
 MDResolveHandle::MDResolveHandle(const ScraperSearchResult& result, const ScraperSearchParams& search) : mResult(result)
 {
+	  LOG(LogInfo) << "[MDResolveHandle CONSTRUCTOR] Inizio per gioco: '" << search.game->getName() 
+                 << "', Scraper: '" << result.scraper << "', PFN: '" << result.pfn 
+                 << "'. Num URLs da processare: " << result.urls.size();
 	mPercent = -1;
 
 	bool overWriteMedias = Settings::getInstance()->getBool("ScrapeOverWrite") && search.overWriteMedias;
@@ -493,7 +498,7 @@ void MDResolveHandle::update()
 
 std::unique_ptr<ImageDownloadHandle> MDResolveHandle::downloadImageAsync(const std::string& url, const std::string& saveAs, bool resize)
 {
-	LOG(LogDebug) << "downloadImageAsync : " << url << " -> " << saveAs;
+	LOG(LogInfo) << "[MDResolveHandle downloadImageAsync] Preparazione download effettivo: URL: [" << url << "] -> SaveAs: [" << saveAs << "]";
 
 	return std::unique_ptr<ImageDownloadHandle>(new ImageDownloadHandle(url, saveAs, 
 		resize ? Settings::getInstance()->getInt("ScraperResizeWidth") : 0,
@@ -787,36 +792,65 @@ std::string Scraper::getSaveAsPath(FileData* game, const MetaDataId metadataId, 
     SystemData* system = game->getSourceFileData()->getSystem();
 
     // --- COSTRUZIONE DEL NOME BASE DEL FILE ---
-    std::string baseName = game->getMetadata(MetaDataId::SteamAppId); 
-    
-    if (baseName.empty() || !std::all_of(baseName.begin(), baseName.end(), ::isdigit)) {
-        LOG(LogDebug) << "Scraper::getSaveAsPath - SteamAppId vuoto o non numerico per '" << game->getName() 
-                        << "' (AppID: '" << baseName << "'). Fallback sul nome del gioco.";
-        baseName = Utils::FileSystem::getStem(game->getPath());
-        
-        baseName = Utils::String::replace(baseName, " ", "_");
-        baseName = Utils::String::removeParenthesis(baseName);
-        const std::string invalidChars = ":*?\"<>|/\\"; 
-        for (char c : invalidChars) {
-            baseName = Utils::String::replace(baseName, std::string(1, c), ""); 
-        }
-        if (baseName.length() > 100) { 
-            baseName = baseName.substr(0, 100);
-        }
-        if (baseName.empty()) { 
-    // Opzione 1: Usare la funzione statica Utils::Time::now() che restituisce time_t
-    // time_t currentTimestamp = Utils::Time::now(); 
-    // baseName = "mediafile_" + std::to_string(currentTimestamp);
+std::string baseName = game->getMetadata(MetaDataId::SteamAppId); // Prova prima con SteamAppId
+LOG(LogDebug) << "getSaveAsPath Step 1: Tentativo SteamAppId. Valore: '" << baseName << "'";
 
-    // Opzione 2: Usare l'oggetto DateTime e il suo metodo getTime()
-    // Questa è più probabile se vuoi lavorare con l'oggetto DateTime altrove.
-    Utils::Time::DateTime dateTimeNow = Utils::Time::DateTime::now(); // Chiama il metodo statico della classe
-    time_t currentTimestamp = dateTimeNow.getTime(); // Chiama il metodo membro sull'oggetto
-    baseName = "mediafile_" + std::to_string(currentTimestamp); 
+if (!baseName.empty() && std::all_of(baseName.begin(), baseName.end(), ::isdigit)) {
+    LOG(LogDebug) << "getSaveAsPath Step 2: Usato SteamAppId come baseName: '" << baseName << "'";
+} else {
+    // Non è uno SteamAppId valido, prova con XboxProductId come suggerito
+    LOG(LogDebug) << "getSaveAsPath Step 3: SteamAppId non valido/vuoto. Tentativo XboxProductId.";
+    baseName = game->getMetadata(MetaDataId::XboxProductId); // <<< USA MetaDataId::XboxProductId
+    LOG(LogDebug) << "getSaveAsPath Step 4: Valore da XboxProductId: '" << baseName << "'";
 
-    LOG(LogError) << "Scraper::getSaveAsPath - Impossibile determinare un nome base valido, usando timestamp: " << baseName;
-}
+    if (!baseName.empty()) {
+        // Gli XboxProductId (es. 9NNX1VVR3KNQ) sono generalmente sicuri per i nomi file.
+        // Non dovrebbe servire una pulizia complessa.
+        LOG(LogDebug) << "getSaveAsPath Step 5: Usato XboxProductId '" << baseName << "' come baseName.";
+    } else {
+        // XboxProductId è vuoto, proviamo con XboxPfn come ulteriore fallback per giochi Xbox
+        LOG(LogDebug) << "getSaveAsPath Step 6: XboxProductId vuoto. Tentativo XboxPfn.";
+        baseName = game->getMetadata(MetaDataId::XboxPfn);
+        LOG(LogDebug) << "getSaveAsPath Step 7: Valore da XboxPfn: '" << baseName << "'";
+
+        if (!baseName.empty()) {
+            LOG(LogDebug) << "getSaveAsPath Step 8: Usato XboxPfn '" << baseName << "' come baseName.";
+            // I PFN (es. Microsoft.Cardinal_8wekyb3d8bbwe) sono generalmente sicuri,
+            // i punti e gli underscore sono validi nei nomi file sulla maggior parte dei sistemi.
+        } else {
+            // Anche XboxPfn è vuoto, fallback alla logica originale basata sul percorso del gioco
+            LOG(LogDebug) << "getSaveAsPath Step 9: XboxPfn vuoto. Fallback a getPath(). Path del gioco: '" << game->getPath() << "'";
+            baseName = Utils::FileSystem::getStem(game->getPath());
+            LOG(LogDebug) << "getSaveAsPath Step 10: Valore da getStem(game->getPath()): '" << baseName << "'";
+
+            // Logica di pulizia originale
+            baseName = Utils::String::replace(baseName, " ", "_");
+            LOG(LogDebug) << "getSaveAsPath Step 11: Dopo replace spazi: '" << baseName << "'";
+            baseName = Utils::String::removeParenthesis(baseName);
+            LOG(LogDebug) << "getSaveAsPath Step 12: Dopo removeParenthesis: '" << baseName << "'";
+
+            const std::string invalidChars = ":*?\"<>|/\\";
+            std::string tempBaseName = baseName; // Per loggare prima e dopo la rimozione
+            for (char c : invalidChars) {
+                baseName = Utils::String::replace(baseName, std::string(1, c), "");
+            }
+            LOG(LogDebug) << "getSaveAsPath Step 13: Prima della rimozione invalidChars: '" << tempBaseName << "'. Dopo: '" << baseName << "'";
+
+            if (baseName.length() > 100) {
+                baseName = baseName.substr(0, 100);
+                LOG(LogDebug) << "getSaveAsPath Step 14: Dopo troncamento a 100 char: '" << baseName << "'";
+            }
+
+            if (baseName.empty()) {
+                Utils::Time::DateTime dateTimeNow = Utils::Time::DateTime::now();
+                time_t currentTimestamp = dateTimeNow.getTime();
+                baseName = "mediafile_" + std::to_string(currentTimestamp);
+                LOG(LogError) << "getSaveAsPath Step 15: baseName era VUOTO. Usato timestamp: '" << baseName << "'";
+            }
+        }
     }
+}
+LOG(LogInfo) << "getSaveAsPath FINALE: baseName prima di suffisso/estensione: '" << baseName << "'";
 
     // --- GESTIONE DELL'ESTENSIONE ---
     std::string finalExtension = givenExtension;

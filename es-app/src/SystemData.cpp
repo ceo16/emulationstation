@@ -41,6 +41,8 @@
  #include "GameStore/Steam/SteamAuth.h"
  #include "GameStore/GameStore.h" 
  #include "FileData.h"
+ #include "GameStore/Xbox/XboxAuth.h"
+#include "GameStore/Xbox/XboxStore.h"
 
 
 #if WIN32
@@ -1531,7 +1533,154 @@ if (storeManager != nullptr) {
 	
 }
 // --- FINE BLOCCO STEAM ---
- 
+
+LOG(LogInfo) << "[XboxDynamic] Checking/Creating/Populating Xbox system in loadConfig...";
+// Assicurati che "xbox" sia il nome del sistema che vuoi usare consistentemente.
+// Potrebbe essere "xboxpc" se preferisci distinguerlo da future console Xbox.
+SystemData* xboxSystem = getSystem("xbox");
+bool xboxSystemJustCreated = false;
+
+if (xboxSystem == nullptr) {
+    LOG(LogInfo) << "[XboxDynamic] Xbox system not found, creating dynamically...";
+    SystemMetadata md_xbox;
+    md_xbox.name = "xbox";
+    md_xbox.fullName = _("Xbox PC Games"); // Localizzabile
+    md_xbox.themeFolder = "xbox";         // Assicurati che esista una cartella tema con questo nom
+    md_xbox.manufacturer = "Microsoft";
+    md_xbox.hardwareType = "pc";
+
+    SystemEnvironmentData* envData_xbox = new SystemEnvironmentData();
+    std::string exePath_xbox = Paths::getExePath(); // Percorso dell'eseguibile di ES
+    std::string exeDir_xbox = Utils::FileSystem::getParent(exePath_xbox);
+    std::string xboxRomPath = Utils::FileSystem::getGenericPath(exeDir_xbox + "/roms/xbox");
+    envData_xbox->mStartPath = xboxRomPath; // Percorso per gamelist.xml e media
+    // Per i giochi UWP, non c'è un'estensione di file reale.
+    // Puoi usare un'estensione fittizia se il sistema lo richiede, o gestire FileData virtuali.
+    // envData_xbox->mSearchExtensions.insert(".xboxlink"); // Esempio fittizio
+    envData_xbox->mPlatformIds = {PlatformIds::PC};
+    envData_xbox->mLaunchCommand = ""; // Il comando di lancio sarà nei metadati del gioco
+
+    std::vector<EmulatorData> xboxEmulators; // Generalmente vuoto, il lancio è via PFN
+
+    // Includi XboxStore.h in SystemData.cpp
+    // #include "GameStore/Xbox/XboxStore.h" // Assicurati che sia presente all'inizio del file
+
+    xboxSystem = new SystemData(md_xbox, envData_xbox, &xboxEmulators, false, false, true, false);
+
+    if (!xboxSystem) {
+        delete envData_xbox;
+        LOG(LogError) << "[XboxDynamic] Failed to dynamically create 'xbox' system object!";
+    } else {
+        LOG(LogInfo) << "[XboxDynamic] Dynamically created 'xbox' system object.";
+        xboxSystemJustCreated = true;
+
+        // Aggiungi il sistema appena creato a sSystemVector *prima* di tentare di caricarne il tema
+        // o di popolarlo, in modo che sia parte dell'elenco di sistemi noti.
+        bool nameCollision = false;
+        for (const auto& sys : SystemData::sSystemVector) {
+            if (sys && sys->getName() == xboxSystem->getName()) {
+                nameCollision = true;
+                break;
+            }
+        }
+        if (!nameCollision) {
+            sSystemVector.push_back(xboxSystem);
+            LOG(LogInfo) << "[XboxDynamic] Added new 'xbox' system to sSystemVector.";
+        } else {
+            LOG(LogWarning) << "[XboxDynamic] 'xbox' system object created but a system with the same name already exists in sSystemVector. This might be an issue.";
+            // Se c'è una collisione e non è lo stesso puntatore, potrebbe esserci un problema logico.
+            // Per ora, assumiamo che getSystem() sopra abbia gestito correttamente i sistemi esistenti.
+            // Se xboxSystem non viene aggiunto, dovresti deallocarlo per evitare memory leak.
+            // delete xboxSystem; xboxSystem = nullptr; // Fai attenzione qui.
+        }
+    }
+} else {
+    LOG(LogInfo) << "[XboxDynamic] Xbox system already loaded.";
+    // Se il sistema esiste già, la sua pulizia e ripopolamento sono gestiti dal refresh asincrono
+    // o da una logica specifica se vuoi forzare un refresh completo qui.
+}
+
+// Se il sistema Xbox è stato creato o esiste, procedi con la configurazione e il popolamento.
+if (xboxSystem != nullptr) {
+    LOG(LogInfo) << "[XboxDynamic] Managing 'xbox' system population and theme.";
+    try {
+        // 1. Carica gamelist.xml esistente, se presente.
+        std::string xboxGamelistPath = xboxSystem->getGamelistPath(false);
+        if (Utils::FileSystem::exists(xboxGamelistPath)) {
+            LOG(LogInfo) << "[XboxDynamic] Parsing gamelist for xbox: " << xboxGamelistPath;
+            std::unordered_map<std::string, FileData*> fileMap;
+            fileMap[xboxSystem->getRootFolder()->getPath()] = xboxSystem->getRootFolder();
+            parseGamelist(xboxSystem, fileMap); // Carica i dati dal gamelist
+            LOG(LogInfo) << "[XboxDynamic] Parsed xbox gamelist. Found "
+                         << xboxSystem->getRootFolder()->getFilesRecursive(GAME, false).size()
+                         << " game entries from XML.";
+        } else {
+            LOG(LogWarning) << "[XboxDynamic] Xbox Gamelist file not found at: " << xboxGamelistPath;
+        }
+
+        // 2. Avvia il refresh asincrono se autenticato (CORREZIONE: usa GameStoreManager::get())
+        GameStoreManager* gsmXbox = GameStoreManager::get(); // Usa ::get()
+        if (gsmXbox) {
+            GameStore* baseStoreXbox = gsmXbox->getStore("XboxStore"); // Assicurati che "XboxStore" sia la chiave corretta
+            if (baseStoreXbox) {
+                XboxStore* concreteXboxStore = dynamic_cast<XboxStore*>(baseStoreXbox); // dynamic_cast
+                if (concreteXboxStore) { // Controlla se il cast ha avuto successo
+                    if (concreteXboxStore->getAuth() && concreteXboxStore->getAuth()->isAuthenticated()) {
+                        LOG(LogInfo) << "[XboxDynamic] Xbox authenticated, queueing async game list refresh for 'xbox' system.";
+                        concreteXboxStore->refreshGamesListAsync(); // Non blocca
+                    } else {
+                        LOG(LogInfo) << "[XboxDynamic] Xbox not authenticated or store not found, skipping async refresh for 'xbox'. UI will prompt for login if needed.";
+                    }
+                } else {
+                    LOG(LogError) << "[XboxDynamic] Failed to cast GameStore to XboxStore for 'xbox' system.";
+                }
+            } else {
+                 LOG(LogWarning) << "[XboxDynamic] XboxStore not found in GameStoreManager.";
+            }
+        } else {
+            LOG(LogError) << "[XboxDynamic] GameStoreManager instance is null.";
+        }
+
+        // 3. Carica il tema
+        // Questa logica è simile a quella per Epic/Steam: carica il tema se il sistema è appena stato creato
+        // (e aggiunto a sSystemVector) O se il sistema ha contenuto O se l'impostazione globale lo richiede.
+        // Rimuoviamo la chiamata a isThemeLoaded() che causava errore.
+        if (xboxSystemJustCreated || // Se appena creato (e aggiunto a sSystemVector)
+            (xboxSystem->getRootFolder() && xboxSystem->getRootFolder()->getChildren().size() > 0) || // O se ha giochi
+            UIModeController::LoadEmptySystems()) // O se carichiamo sistemi vuoti
+        {
+            // Controlla se il tema è già stato caricato (mTheme != nullptr), per evitare ricaricamenti inutili
+            // SystemData::loadTheme() di per sé non ha un check interno per evitare ricaricamenti se già caricato.
+            // Potresti voler aggiungere un flag mThemeLoaded in SystemData o controllare mTheme.
+            // Per semplicità, se è appena creato, carichiamo il tema. Se esisteva già,
+            // il tema dovrebbe essere stato caricato in precedenza.
+            // La condizione principale è che sia in sSystemVector.
+            bool isInVector = false;
+            for (const auto& sys : SystemData::sSystemVector) if (sys == xboxSystem) isInVector = true;
+
+            if (isInVector && xboxSystem->getTheme() == nullptr) { // Carica solo se non ha ancora un tema e fa parte dei sistemi attivi
+                LOG(LogDebug) << "[XboxDynamic] Loading theme for 'xbox' system.";
+                xboxSystem->loadTheme();
+                auto defaultView = Settings::getInstance()->getString(xboxSystem->getName() + ".defaultView");
+                auto gridSizeOverride = Vector2f::parseString(Settings::getInstance()->getString(xboxSystem->getName() + ".gridSize"));
+                xboxSystem->setSystemViewMode(defaultView, gridSizeOverride, false);
+            }
+        }
+
+        // 4. Aggiorna il conteggio dei giochi visualizzato
+        xboxSystem->updateDisplayedGameCount();
+        LOG(LogInfo) << "[XboxDynamic] Finished initial setup for 'xbox'. Displayed game count: "
+                     << (xboxSystem->getGameCountInfo() ? xboxSystem->getGameCountInfo()->visibleGames : 0);
+
+    } catch (const std::exception& e) {
+        LOG(LogError) << "[XboxDynamic] Exception during dynamic setup of 'xbox': " << e.what();
+    } catch (...) {
+        LOG(LogError) << "[XboxDynamic] Unknown exception during dynamic setup of 'xbox'.";
+    }
+} else if (xboxSystem == nullptr && xboxSystemJustCreated) {
+    LOG(LogError) << "[XboxDynamic] 'xboxSystem' pointer became null unexpectedly after creation block for xbox.";
+}
+
   if (SystemData::sSystemVector.size() > 0) {
   createGroupedSystems();
  

@@ -76,7 +76,7 @@ namespace Utils
 
 		std::string getTempPath();
 		std::string getPdfTempPath();
-
+        std::string createValidFileName(const std::string& path); // CORRETTO
 #ifdef WIN32
 		void		splitCommand(std::string cmd, std::string* executable, std::string* parameters);
 #endif

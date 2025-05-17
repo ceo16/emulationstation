@@ -41,6 +41,11 @@ set(ES_HEADERS
     ${CMAKE_CURRENT_SOURCE_DIR}/src/GameStore/Steam/SteamStoreAPI.h
     ${CMAKE_CURRENT_SOURCE_DIR}/src/GameStore/Steam/SteamStore.h
     ${CMAKE_CURRENT_SOURCE_DIR}/src/GameStore/Steam/SteamUI.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/GameStore/Xbox/XboxAuth.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/GameStore/Xbox/XboxStoreAPI.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/GameStore/Xbox/XboxStore.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/GameStore/Xbox/XboxUI.h
+	${CMAKE_CURRENT_SOURCE_DIR}/src/GameStore/Xbox/XboxModels.h
 
 	
 
@@ -101,6 +106,7 @@ set(ES_HEADERS
     ${CMAKE_CURRENT_SOURCE_DIR}/src/scrapers/ScreenScraper.h
     ${CMAKE_CURRENT_SOURCE_DIR}/src/scrapers/EpicGamesScraper.h    
     ${CMAKE_CURRENT_SOURCE_DIR}/src/scrapers/SteamScraper.h
+	${CMAKE_CURRENT_SOURCE_DIR}/src/scrapers/XboxScraper.h
 
     # Views
     ${CMAKE_CURRENT_SOURCE_DIR}/src/views/gamelist/BasicGameListView.h
@@ -165,6 +171,11 @@ set(ES_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/src/GameStore/Steam/SteamStoreAPI.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/GameStore/Steam/SteamStore.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/GameStore/Steam/SteamUI.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/src/GameStore/Xbox/XboxAuth.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/GameStore/Xbox/XboxStoreAPI.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/GameStore/Xbox/XboxStore.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/GameStore/Xbox/XboxUI.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/src/GameStore/Xbox/XboxModels.cpp
     
 
     # GuiComponents    
@@ -221,6 +232,7 @@ set(ES_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/src/scrapers/ScreenScraper.cpp	
 	${CMAKE_CURRENT_SOURCE_DIR}/src/scrapers/EpicGamesScraper.cpp 
 	${CMAKE_CURRENT_SOURCE_DIR}/src/scrapers/SteamScraper.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/src/scrapers/XboxScraper.cpp
 
     # Views
     ${CMAKE_CURRENT_SOURCE_DIR}/src/views/gamelist/BasicGameListView.cpp

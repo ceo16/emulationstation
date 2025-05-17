@@ -10,6 +10,7 @@
 #include <pugixml/src/pugixml.hpp>
 #include "Genres.h"
 #include "Paths.h"
+#include <fstream> 
 
 #ifdef WIN32
 #include <Windows.h>
@@ -25,7 +26,7 @@ std::string getGamelistRecoveryPath(SystemData* system)
 
 FileData* findOrCreateFile(SystemData* system, const std::string& path, FileType type, std::unordered_map<std::string, FileData*>& fileMap)
 {
-    // --- Gestione Percorsi VIRTUALI ---
+    // --- Gestione Percorsi VIRTUALI --
     if (Utils::String::startsWith(path, "epic:/"))
     {
         FolderData* rootCheck = system->getRootFolder();
@@ -99,7 +100,48 @@ FileData* findOrCreateFile(SystemData* system, const std::string& path, FileType
         }
         return virtualItem;
     }
-    // --- FINE Gestione Percorsi VIRTUALI ---
+	
+	 else if (Utils::String::startsWith(path, "xbox:/")) // <<< NUOVA CONDIZIONE PER XBOX
+    {
+        FolderData* rootCheck = system->getRootFolder(); 
+        if (rootCheck != nullptr)
+        {
+            FileData* existingChild = nullptr;
+            for(FileData* child : rootCheck->getChildren()) {
+                 if(child->getPath() == path) {
+                      existingChild = child;
+                      break;
+                 }
+            }
+            if (existingChild != nullptr) {
+                LOG(LogDebug) << "findOrCreateFile: Trovato FileData virtuale ESISTENTE (Xbox) tramite ricerca figli root per path: " << path;
+                fileMap[path] = existingChild;
+                return existingChild;
+            }
+        }
+
+        auto virtual_it = fileMap.find(path);
+        if (virtual_it != fileMap.end()) {
+            LOG(LogDebug) << "findOrCreateFile: Trovato FileData virtuale ESISTENTE (Xbox) tramite mappa locale per path: " << path;
+            return virtual_it->second;
+        }
+
+        LOG(LogInfo) << "findOrCreateFile: Creazione NUOVO FileData virtuale (Xbox) per path: " << path;
+        if (type != GAME) { 
+             LOG(LogWarning) << "findOrCreateFile: Percorso virtuale Xbox per tipo non GAME? Path: " << path;
+             return NULL; 
+        }
+        FileData* virtualItem = new FileData(GAME, path, system); 
+        fileMap[path] = virtualItem; 
+        if (rootCheck) { 
+            rootCheck->addChild(virtualItem); 
+        } else {
+            LOG(LogError) << "findOrCreateFile: Impossibile ottenere root folder per sistema " << system->getName() << " aggiungendo gioco virtuale Xbox.";
+        }
+        return virtualItem;
+    }
+// --- FINE Gestione Percorsi VIRTUALI --
+
 
     // --- Se NON è VIRTUAL ---
 
@@ -350,7 +392,7 @@ std::vector<FileData*> loadGamelistFile(const std::string xmlpath, SystemData* s
 			{
 				// Non trovato nella mappa locale, controlliamo esistenza e validità
 				LOG(LogDebug) << "  Path NOT found in fileMap. Checking virtual/existence/type...";
-				bool isVirtualPath = Utils::String::startsWith(path, "epic:/") || Utils::String::startsWith(path, "steam:"); // O "steam://" se usi quello // Specifico per Epic
+				bool isVirtualPath = Utils::String::startsWith(path, "epic:/") || Utils::String::startsWith(path, "steam:") || Utils::String::startsWith(path, "xbox:/");
 				bool pathExists = !isVirtualPath && Utils::FileSystem::exists(path);
 				bool isDirectory = pathExists && Utils::FileSystem::isDirectory(path);
 				bool isFile = pathExists && !isDirectory; // Assumiamo sia un file se esiste e non è directory
@@ -540,40 +582,110 @@ bool saveToXml(FileData* file, const std::string& fileName, bool fullPaths)
 
 bool saveToGamelistRecovery(FileData* file)
 {
-	if (!Settings::getInstance()->getBool("SaveGamelistsOnExit"))
-		return false;
+    if (!Settings::getInstance()->getBool("SaveGamelistsOnExit"))
+        return false;
 
-	SystemData* system = file->getSourceFileData()->getSystem();
-	if (!Settings::HiddenSystemsShowGames() && !system->isVisible())
-		return false;
+    if (!file || !file->getSourceFileData() || !file->getSourceFileData()->getSystem()) {
+        LOG(LogWarning) << "[Gamelist saveToGamelistRecovery] File, SourceFileData o SystemData nullo. Impossibile salvare il recovery.";
+        return false;
+    }
 
-	std::string fp = file->getFullPath();
-	fp = Utils::FileSystem::createRelativePath(file->getFullPath(), system->getRootFolder()->getFullPath(), true);
-	fp = Utils::FileSystem::getParent(fp) + "/" + Utils::FileSystem::getStem(fp) + ".xml";
+    SystemData* system = file->getSourceFileData()->getSystem();
+    if (!Settings::HiddenSystemsShowGames() && !system->isVisible())
+        return false;
 
-	std::string path = Utils::FileSystem::getAbsolutePath(fp, getGamelistRecoveryPath(system));
-	path = Utils::FileSystem::getCanonicalPath(path);
+    std::string originalGamePath = file->getPath();
+    
+    // Ottieni la directory base per i file di recovery del sistema
+    // La chiamata a Paths::getGamelistRecoveryPath(system) dovrebbe funzionare se Paths.h è incluso
+    // e se non ci sono conflitti di namespace (es. se Gamelist.cpp ha 'using namespace Paths;')
+    std::string recoveryDir = Paths::getGamelistRecoveryPath(system); // Usa Paths:: se necessario
+    if (recoveryDir.empty()) {
+        LOG(LogError) << "[Gamelist saveToGamelistRecovery] Impossibile ottenere la directory di recovery per il sistema: " << system->getName();
+        return false;
+    }
+    if (!Utils::FileSystem::exists(recoveryDir)) { // Assicurati che la directory esista
+         Utils::FileSystem::createDirectory(recoveryDir); // createDirectory dovrebbe creare anche i parenti
+         if (!Utils::FileSystem::exists(recoveryDir)) {
+              LOG(LogError) << "[Gamelist saveToGamelistRecovery] Impossibile creare la directory di recovery: " << recoveryDir;
+              return false;
+         }
+    }
 
-	return saveToXml(file, path);
+    // Sanitizza il path originale del gioco per creare un nome file VALIDO
+    std::string safeBaseFileName = Utils::FileSystem::createValidFileName(originalGamePath); 
+    
+    std::string finalRecoveryPath = recoveryDir + "/" + safeBaseFileName + ".xml";
+
+    LOG(LogDebug) << "[Gamelist saveToGamelistRecovery] Tentativo salvataggio. Original Path: [" << originalGamePath 
+                  << "], Final Recovery Path: [" << finalRecoveryPath << "]";
+
+  pugi::xml_document doc;
+    pugi::xml_node gameNode = doc.append_child("game"); 
+    if (!gameNode) {
+        LOG(LogError) << "[Gamelist saveToGamelistRecovery] Impossibile creare il nodo <game> PugiXML per: " << finalRecoveryPath;
+        return false; // o return; se void
+    }
+
+    SystemEnvironmentData* envData = system->getSystemEnvData();
+    std::string startPath = envData ? envData->mStartPath : "";
+    // Assicurati che il quarto parametro 'detailed' sia quello che vuoi (true di solito per i gamelist)
+    file->getMetadata().appendToXML(gameNode, true, startPath, true); // Passa gameNode
+
+  std::ofstream fileStream(finalRecoveryPath, std::ios_base::out | std::ios_base::trunc);
+    if (!fileStream) { // Controlla se l'APERTURA del file è riuscita
+        LOG(LogError) << "[Gamelist saveToGamelistRecovery] ERRORE nell'apertura del file XML per scrittura: \"" << finalRecoveryPath << "\"!";
+        return false; // O la gestione dell'errore appropriata
+    }
+
+    // La funzione doc.save(std::ostream&...) è void. Non restituisce un valore booleano.
+    doc.save(fileStream, "  ", pugi::format_default | pugi::format_write_bom, pugi::encoding_utf8);
+
+    // Controlla lo stato dello stream DOPO la scrittura per verificare errori.
+    if (!fileStream.good()) { // Se lo stream è andato in uno stato di errore durante la scrittura
+        LOG(LogError) << "[Gamelist saveToGamelistRecovery] ERRORE durante la scrittura PugiXML su file stream per: \"" << finalRecoveryPath << "\"!";
+        fileStream.close(); // Chiudi comunque lo stream
+        // Considera di cancellare il file parzialmente scritto se è un errore critico
+        // Utils::FileSystem::removeFile(finalRecoveryPath); 
+        return false; 
+    }
+    fileStream.close();
+
+    if (!fileStream.good()) { 
+        LOG(LogWarning) << "[Gamelist saveToGamelistRecovery] Errore durante le operazioni di stream per: \"" << finalRecoveryPath << "\".";
+        return false; 
+    }
+
+    LOG(LogDebug) << "[Gamelist saveToGamelistRecovery] File di recovery salvato: " << finalRecoveryPath;
+    return true;
 }
 
+// La tua funzione removeFromGamelistRecovery MODIFICATA:
 bool removeFromGamelistRecovery(FileData* file)
 {
-	SystemData* system = file->getSourceFileData()->getSystem();
-	if (system == nullptr)
-		return false;
+    if (!file || !file->getSourceFileData() || !file->getSourceFileData()->getSystem()) {
+        LOG(LogWarning) << "[Gamelist removeFromGamelistRecovery] File, SourceFileData o SystemData nullo.";
+        return false;
+    }
+    SystemData* system = file->getSourceFileData()->getSystem();
 
-	std::string fp = file->getFullPath();
-	fp = Utils::FileSystem::createRelativePath(file->getFullPath(), system->getRootFolder()->getFullPath(), true);
-	fp = Utils::FileSystem::getParent(fp) + "/" + Utils::FileSystem::getStem(fp) + ".xml";
+    std::string originalGamePath = file->getPath();
+    std::string safeBaseFileName = Utils::FileSystem::createValidFileName(originalGamePath);
+    
+    std::string recoveryDir = Paths::getGamelistRecoveryPath(system); // Usa Paths:: se necessario
+    if (recoveryDir.empty()) {
+         LOG(LogWarning) << "[Gamelist removeFromGamelistRecovery] Impossibile ottenere la directory di recovery per il sistema: " << system->getName();
+         return false;
+    }
 
-	std::string path = Utils::FileSystem::getAbsolutePath(fp, getGamelistRecoveryPath(system));
-	path = Utils::FileSystem::getCanonicalPath(path);
+    std::string finalRecoveryPath = recoveryDir + "/" + safeBaseFileName + ".xml";
 
-	if (Utils::FileSystem::exists(path))
-		return Utils::FileSystem::removeFile(path);
+    LOG(LogDebug) << "[Gamelist removeFromGamelistRecovery] Tentativo rimozione file: [" << finalRecoveryPath << "]";
 
-	return false;
+    if (Utils::FileSystem::exists(finalRecoveryPath))
+        return Utils::FileSystem::removeFile(finalRecoveryPath);
+
+    return false; 
 }
 
 bool hasDirtyFile(SystemData* system)
