@@ -1537,8 +1537,22 @@ if (storeManager != nullptr) {
 // --- XBOX SYSTEM CREATION/POPULATION ---
 LOG(LogInfo) << "[XboxDynamic] Checking/Creating/Populating Xbox system...";
 
+std::string esSystemLanguage = Settings::getInstance()->getString("Language"); // Es. "it_IT"
+if (esSystemLanguage.empty()) {
+    esSystemLanguage = SystemConf::getInstance()->get("system.language"); // Fallback se il primo è vuoto
+}
+if (esSystemLanguage.empty()) {
+    LOG(LogWarning) << "[XboxPopulate] Lingua globale di EmulationStation non trovata, lo scraper potrebbe usare default.";
+    // Potresti voler impostare un default esplicito qui, es. "en_US", se esSystemLanguage rimane vuoto.
+    // esSystemLanguage = "en_US"; // Esempio di default di emergenza
+} else {
+    LOG(LogInfo) << "[XboxPopulate] Lingua globale di EmulationStation rilevata: " << esSystemLanguage;
+}
+
 SystemData* xboxSystem = SystemData::getSystem("xbox");
 bool xboxSystemJustCreated = false;
+
+
 
 if (xboxSystem == nullptr) {
     LOG(LogInfo) << "[XboxDynamic] Xbox system not found, creating dynamically...";
@@ -1692,6 +1706,13 @@ if (xboxSystem) {
                     metadata.set(MetaDataId::LaunchCommand, gameAUMIDPath);
                     // NON IMPOSTARE XboxProductId, Desc, Image, ecc. qui per le NUOVE entry installate.
                     
+					 // --- NUOVA AGGIUNTA PER LA LINGUA ---
+    if (!esSystemLanguage.empty()) {
+        metadata.set(MetaDataId::Language, esSystemLanguage);
+        LOG(LogDebug) << "[XboxPopulateNewInstalled] Impostato MetaDataId::Language a '" << esSystemLanguage << "' per: " << gameInfo.displayName;
+    }
+    // --- FINE NUOVA AGGIUNTA ---
+					
                     currentXboxRootFolder->addChild(gameFileData, false);
                     if (xboxSystem->mFilterIndex) xboxSystem->mFilterIndex->addToIndex(gameFileData);
                     metadata.setDirty(); // Marca come dirty per il salvataggio iniziale
@@ -1771,6 +1792,8 @@ if (currentMetaData.get(MetaDataId::LaunchCommand) != gameInfo.aumid && !gameInf
     currentMetaData.set(MetaDataId::LaunchCommand, gameInfo.aumid);
     metadataWasActuallyChanged = true;
 }
+
+
 
 // IMPORTANTE: Non toccare gli altri metadati ricchi (Desc, Developer, Publisher, Image, Video, Rating, ReleaseDate, XboxProductId, ecc.)
 // Questi sono stati caricati da gamelist.xml e si presume siano il risultato di scraping/editing precedente.
@@ -1859,6 +1882,12 @@ if (metadataWasActuallyChanged) {
                     if (!storeLinkUri.empty() && metadata.get(MetaDataId::LaunchCommand) != storeLinkUri) {
                         metadata.set(MetaDataId::LaunchCommand, storeLinkUri); metadataChangedThisVirtualEntry = true;
                     }
+
+  if (!esSystemLanguage.empty()) {
+        metadata.set(MetaDataId::Language, esSystemLanguage);
+        LOG(LogDebug) << "[XboxPopulateNewVirtual] Impostato MetaDataId::Language a '" << esSystemLanguage << "' per: " << onlineTitle.name;
+    }
+    // --- FINE NUOVA AGGIUNTA ---
 
                     if (isNewVirtualEntry) {
                         if (metadata.get(MetaDataId::Desc).empty() && !onlineTitle.detail.description.empty()) metadata.set(MetaDataId::Desc, onlineTitle.detail.description);

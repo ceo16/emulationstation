@@ -669,39 +669,116 @@ void XboxScraper::generateRequests(
         return; // Non possiamo procedere senza un ProductID per displaycatalog
     }
     
-    std::string market = Settings::getInstance()->getString("ScraperXboxMarket"); 
-    if (market.empty()) {
-        std::string sysLangFull = SystemConf::getInstance()->get("system.language"); 
-        if (sysLangFull.length() >= 2) {
-            market = Utils::String::toLower(sysLangFull.substr(0,2)); 
-            if (market == "en") market = "us"; 
-        } else {
-            market = "us"; 
-        }
-    }
-    if (market.length() != 2) market = "us"; 
+  std::string market = "";             // Es. "IT"
+    std::string languages = "";          // Es. "it-IT" (rinominata da languagesApiFormat per coerenza con il tuo snippet)
+    
+    // 1. PROVA A USARE LA LINGUA PRE-IMPOSTATA SUL FILEDATA (impostata da SystemData.cpp)
+    std::string langTagFromGameData = params.game->getMetadata().get(MetaDataId::Language); //
 
-    std::string languages = Settings::getInstance()->getString("ScraperXboxLanguages"); 
-    if (languages.empty()) {
-        languages = SystemConf::getInstance()->get("system.language"); 
-        if (!languages.empty()) {
-            size_t underscorePos = languages.find('_');
-            if (underscorePos != std::string::npos) {
-                languages.replace(underscorePos, 1, "-");
-                if (languages.length() > underscorePos + 1) { 
-                     for (size_t i = underscorePos + 1; i < languages.length(); ++i) {
-                        languages[i] = ::tolower(languages[i]);
-                    }
-                }
-            } else if (languages.length() == 2) { 
-                 languages = Utils::String::toLower(languages) + "-" + Utils::String::toUpper(languages); 
-                 if (languages == "en-EN") languages = "en-us"; 
-            }
+    if (!langTagFromGameData.empty()) {
+        LOG(LogInfo) << "XboxScraper: Trovata lingua prioritaria nel FileData: '" << langTagFromGameData 
+                     << "' per il gioco '" << params.game->getName() << "'. Tento di usarla.";
+
+        // Logica di conversione da langTagFromGameData (es. "it_IT") a market ("IT") e languages ("it-IT")
+        size_t separatorPos = langTagFromGameData.find_first_of("-_");
+        std::string langPart = "";
+        std::string regionPart = "";
+
+        if (separatorPos != std::string::npos && separatorPos > 0 && separatorPos + 1 < langTagFromGameData.length()) {
+            langPart = Utils::String::toLower(langTagFromGameData.substr(0, separatorPos));
+            regionPart = Utils::String::toUpper(langTagFromGameData.substr(separatorPos + 1));
+            languages = langPart + "-" + regionPart; // Es. "it-IT"
+            market = regionPart; // Usa la parte regione per il market (es. "IT" da "it_IT")
+        } else if (langTagFromGameData.length() == 2) { // Solo codice lingua, es. "it"
+            langPart = Utils::String::toLower(langTagFromGameData);
+            market = Utils::String::toUpper(langTagFromGameData); // "IT" da "it"
+            languages = langPart + "-" + market; // Tenta "it-IT"
+        } else {
+            LOG(LogWarning) << "XboxScraper: Formato lingua da FileData '" << langTagFromGameData 
+                            << "' non standard per conversione automatica. Procedo con fallback.";
+            // Lascia market e languages vuoti per far scattare i fallback sotto.
+            market = ""; 
+            languages = "";
         }
-        if (languages.empty() || languages.find('-') == std::string::npos) {
-             languages = "en-us"; 
+        
+        // Controlli di validità sui valori derivati dal FileData
+        bool marketFromGameDataValid = (!market.empty() && market.length() == 2);
+        bool languagesFromGameDataValid = (!languages.empty() && languages.find('-') != std::string::npos && languages.length() >= 5);
+
+        if (marketFromGameDataValid && languagesFromGameDataValid) {
+             LOG(LogInfo) << "XboxScraper: OK - Usando lingua da FileData: Market='" << market << "', Languages='" << languages << "'";
+        } else {
+             LOG(LogWarning) << "XboxScraper: FALLITO - Derivazione market/languages da FileData Language Tag ('" << langTagFromGameData 
+                             << "') fallita o risultato non valido (Market: " << market << ", Languages: " << languages 
+                             << "). Procedo con altre strategie.";
+             market = ""; // Resetta per sicurezza
+             languages = ""; // Resetta per sicurezza
+        }
+    } else {
+        LOG(LogDebug) << "XboxScraper: Nessuna lingua pre-impostata trovata nel FileData per '" << params.game->getName() << "'. Uso altre strategie.";
+    }
+
+    // 2. Se non impostata/derivata dal FileData, usa la TUA LOGICA ESISTENTE per market e languages
+    // (che inizia con la lettura da Settings::getInstance()->getString("ScraperXboxMarket"))
+    if (market.empty()) { // Solo se non già impostato validamente da FileData
+        market = Settings::getInstance()->getString("ScraperXboxMarket"); 
+        if (!market.empty()) {
+            LOG(LogDebug) << "XboxScraper: Market preso da es_settings (ScraperXboxMarket): '" << market << "'";
+        } else {
+            // Il tuo blocco 'if (market.empty()) { ... }' originale per derivare da system.language
+            std::string sysLangFull = SystemConf::getInstance()->get("system.language"); 
+            if (sysLangFull.length() >= 2) {
+                market = Utils::String::toLower(sysLangFull.substr(0,2)); 
+                if (market == "en") market = "us"; 
+                // Dovresti convertire in maiuscolo per Xbox Market, es. "IT", "US"
+                market = Utils::String::toUpper(market);
+            } else {
+                market = "us"; 
+            }
+            LOG(LogDebug) << "XboxScraper: Market derivato da system.language ('" << sysLangFull << "'): '" << market << "'";
         }
     }
+    // Assicura validità finale per market o usa default
+    if (market.empty() || market.length() != 2) {
+        LOG(LogWarning) << "XboxScraper: Market '" << market << "' non valido dopo tentativi, fallback a 'US'.";
+        market = "us";
+    }
+
+
+    if (languages.empty()) { // Solo se non già impostato validamente da FileData
+        languages = Settings::getInstance()->getString("ScraperXboxLanguages"); 
+        if (!languages.empty()) {
+            LOG(LogDebug) << "XboxScraper: Languages preso da es_settings (ScraperXboxLanguages): '" << languages << "'";
+        } else {
+            // Il tuo blocco 'if (languages.empty()) { ... }' originale per derivare da system.language
+            languages = SystemConf::getInstance()->get("system.language"); 
+            if (!languages.empty()) {
+                size_t underscorePos = languages.find('_');
+                if (underscorePos != std::string::npos) {
+                    // Converti it_IT -> it-it (poi l'API Xbox potrebbe volere it-IT, da verificare)
+                    std::string langPart = Utils::String::toLower(languages.substr(0, underscorePos));
+                    std::string regionPart = Utils::String::toUpper(languages.substr(underscorePos + 1)); // Mantieni regione maiuscola es. IT
+                    languages = langPart + "-" + regionPart; // -> it-IT
+                } else if (languages.length() == 2) { 
+                    languages = Utils::String::toLower(languages) + "-" + Utils::String::toUpper(languages); 
+                    if (languages == "en-EN") languages = "en-US"; // Il tuo caso speciale era en-us
+                }
+            }
+            // Il tuo fallback se ancora vuoto o non ha '-'
+            if (languages.empty() || languages.find('-') == std::string::npos) {
+                languages = "en-US"; // Default più standard per API
+            }
+            LOG(LogDebug) << "XboxScraper: Languages derivato da system.language o default: '" << languages << "'";
+        }
+    }
+    // Assicura validità finale per languages o usa default (questa era la tua riga originale)
+    if (languages.find('-') == std::string::npos) {
+        LOG(LogWarning) << "XboxScraper: Languages '" << languages << "' non valido dopo tentativi (manca '-'), fallback a 'en-US'.";
+        languages = "en-US"; 
+    }
+
+    // A questo punto, market e languages dovrebbero avere i valori corretti e finali.
+    LOG(LogInfo) << "[XboxScraper] Parametri di LINGUA FINALI per DisplayCatalog: Market=[" << market << "], Languages=[" << languages << "]";
     if (languages.find('-') == std::string::npos) languages = "en-us"; 
 
     std::string msCv = Utils::String::generateRandom(16); 

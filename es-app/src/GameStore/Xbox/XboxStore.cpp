@@ -578,10 +578,10 @@ std::vector<FileData*> XboxStore::getGamesList() {
             std::string storeLink;
 
             if (!title.detail.productId.empty()) {
-                pseudoPathForOnline = "xbox_online_prodid://" + title.detail.productId;
+                pseudoPathForOnline = "xbox_online_prodid:/" + title.detail.productId;
                 storeLink = "ms-windows-store://pdp/?ProductId=" + title.detail.productId;
             } else if (!title.pfn.empty()) { 
-                pseudoPathForOnline = "xbox_online_pfn://" + title.pfn;
+                pseudoPathForOnline = "xbox_online_pfn:/" + title.pfn;
                 storeLink = "ms-windows-store://pdp/?PFN=" + title.pfn;
             } else {
                  LOG(LogWarning) << "[XboxStore GetList] Could not create a valid pseudoPath/storeLink for online game: " << title.name;
