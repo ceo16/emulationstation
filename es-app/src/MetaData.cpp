@@ -20,9 +20,14 @@ MetaDataDecl(EpicId,        "epicid",      MD_STRING, "",       false, N_("Epic 
 MetaDataDecl(EpicNamespace, "epicns",      MD_STRING, "",       false, N_("Epic Namespace"),N_("epic namespace"),      false ), // Già presente, verifica ordine
 MetaDataDecl(EpicCatalogId, "epiccstid",   MD_STRING, "",       false, N_("Epic Catalog"), N_("epic catalog id"),    false ), // <<< AGGIUNTA
 MetaDataDecl(InstallDir,    "installdir",  MD_PATH,   "",       false, N_("Install Dir"),  N_("game install path"),    false ), // <<< AGGIUNTA (se mancava)
-MetaDataDecl(Executable,    "executable",  MD_STRING, "",       false, N_("Executable"),   N_("game executable"),      false ), // <<< AGGIUNTA (se mancava)
+MetaDataDecl(Executable,    "executable",  MD_STRING, "",       false, N_("Executable"),   N_("game executable"),      false ), // <<< AGGIUNTA (se mancaa)
 MetaDataDecl(SteamAppId,    "steamappid",  MD_STRING, "",       false, N_("Steam App ID"), N_("steam app id"),         false ),
-
+MetaDataDecl(XboxPfn,       "xboxpfn",     MD_STRING, "",       false, N_("Xbox PFN"), N_("Xbox Package Family Name"), false ),
+MetaDataDecl(XboxTitleId,   "xboxtitleid", MD_STRING, "",       false, N_("Xbox Title ID"),N_("Xbox Live Title ID"),       false ),
+MetaDataDecl(XboxMediaType,"xboxmediatype",MD_STRING, "",       false, N_("Xbox Media Type"),N_("Xbox Media Type (Game, App)"), false ),
+MetaDataDecl(XboxDevices,  "xboxdevices",  MD_STRING, "",       false, N_("Xbox Devices"),N_("Supported Xbox Devices"),   false ),
+MetaDataDecl(XboxProductId, "xboxproductid", MD_STRING,   "",      false, N_("Xbox Product Id"),      N_("Supported Xbox Product"),   false ),
+MetaDataDecl(XboxAumid, "xboxaumid",       MD_STRING,   "",      false, N_("Xbox AUMID"),   N_("Xbox Application User Model ID"),     false ), 
 };
 
 
@@ -119,7 +124,16 @@ void MetaDataList::initMetadata()
         { EpicCatalogId, "epiccstid",   MD_STRING,           "",                 false, N_("Epic Catalog"), N_("epic catalog id"),        false },
         { InstallDir,    "installdir",  MD_PATH,             "",                 false, N_("Install Dir"),  N_("game install path"),        false },
         { Executable,    "executable",  MD_STRING,           "",                 false, N_("Executable"),   N_("game executable"),          false },
-		{ SteamAppId,    "steamappid",  MD_STRING,           "",                 false, N_("Steam App ID"), N_("steam app id"),         false }
+		{ SteamAppId,    "steamappid",  MD_STRING,           "",                 false, N_("Steam App ID"), N_("steam app id"),         false },
+       { Path,             "path",             MD_PATH,     "",      false, N_("Path"),              N_("Path to the game file or folder"),                             true  }, // ID 51, isPath = true
+
+    // Nuovi per Xbox
+    { XboxPfn,          "xboxpfn",          MD_STRING,   "",      false, N_("Xbox PFN"),          N_("Xbox Package Family Name"),                                    false }, // ID 52
+    { XboxTitleId,      "xboxtitleid",      MD_STRING,   "",      false, N_("Xbox Title ID"),     N_("Xbox Live Title ID"),                                          false }, // ID 53
+    { XboxMediaType,    "xboxmediatype",    MD_STRING,   "",      false, N_("Xbox Media Type"),   N_("Xbox Media Type (Game, App, Dlc)"),                            false }, // ID 54
+    { XboxDevices,      "xboxdevices",      MD_STRING,   "",      false, N_("Xbox Devices"),      N_("Supported Xbox Devices (PC, XboxSeries, etc.)"),               false },  // ID 55
+	{ XboxProductId,    "xboxproductid",    MD_STRING,   "",      false, N_("Xbox Product Id"),      N_("Supported Xbox Product"),               false },// <--- NUOVA RIGA AGGIUNTA QUI // <--- NUOVA RIGA AGGIUNTA QUI
+	 { XboxAumid,       "xboxaumid",       MD_STRING,   "",      false, N_("Xbox AUMID"),        N_("Xbox Application User Model ID"),                            false }, 
         // --- ***** FINE DICHIARAZIONI DA AGGIUNGERE ***** ---
 
 		

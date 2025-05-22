@@ -1,6 +1,9 @@
 #pragma once
 
 #include <string>
+#include <map> 
+
+class SystemData;
 
 class Paths
 {
@@ -21,7 +24,7 @@ public:
 																		
 	// Savestates
 	static std::string& getSavesPath() { return getInstance()->mSaveStatesPath; } 
-																   
+															   
 	// Music
 	static std::string& getMusicPath() { return getInstance()->mMusicPath; }
 	static std::string& getUserMusicPath() { return getInstance()->mUserMusicPath; }
@@ -68,6 +71,9 @@ public:
 	static void setExePath(const std::string& _path);
 
 	static std::string findEmulationStationFile(const std::string& fileName);
+	
+  static std::string getGamelistRecoveryPath(const SystemData* system);
+    static std::string getGamelistRecoveryPath(); // Overload senza argomenti
 
 private:
 	static Paths* getInstance() 
@@ -82,6 +88,9 @@ private:
 
 	void loadCustomConfiguration(bool overridesOnly);
 
+    std::string getGamelistRecoveryPath_impl(const SystemData* system) const;
+    std::string getGamelistRecoveryPath_impl() const;
+  
 	std::string mRootPath;
 	std::string mSystemConfFilePath;
 	std::string mLogPath;
@@ -109,4 +118,5 @@ private:
 	std::string mUserManualPath;
 	std::string mVersionInfoPath;
 	std::string mKodiPath;	
+	 std::string mDefaultGamelistRecoveryPath; 
 };

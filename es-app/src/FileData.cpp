@@ -35,6 +35,8 @@
 #include "Paths.h"
 #include "resources/TextureData.h"
 #include "GameStore/EpicGames/EpicGamesStore.h"
+#include "GameStore/GameStoreManager.h" // <<< ADD THIS LINE
+#include "GameStore/Xbox/XboxStore.h" 
 
 
 
@@ -750,208 +752,200 @@ std::string FileData::getMessageFromExitCode(int exitCode)
 }
 
 bool FileData::launchGame(Window* window, LaunchGameOptions options)
- {
-  LOG(LogInfo) << "Attempting to launch game...";
- 
+{
+    LOG(LogInfo) << "Attempting to launch game...";
 
-  FileData* gameToUpdate = getSourceFileData();  //  <<< gameToUpdate dichiarato QUI
-  if (gameToUpdate == nullptr)
-  {
-  LOG(LogError) << "FileData::launchGame - Error: gameToUpdate is null.";
-  return false;
-  }
- 
+    FileData* gameToUpdate = getSourceFileData();
+    if (gameToUpdate == nullptr)
+    {
+        LOG(LogError) << "FileData::launchGame - Error: gameToUpdate is null.";
+        return false;
+    }
 
-  SystemData* system = gameToUpdate->getSystem();
-  if (system == nullptr)
-  {
-  LOG(LogError) << "FileData::launchGame - Error: System is null for game: " << gameToUpdate->getName();
-  return false;
-  }
- 
+    SystemData* system = gameToUpdate->getSystem();
+    if (system == nullptr)
+    {
+        LOG(LogError) << "FileData::launchGame - Error: System is null for game: " << gameToUpdate->getName();
+        return false;
+    }
 
-  //  --- NUOVA LOGICA AGGIORNAMENTO METADATI (ESEGUITA PRIMA DEL LANCIO) ---
-  time_t currentTime = Utils::Time::now();
-  MetaDataList& metadata = gameToUpdate->getMetadata();  // Usa MetaDataList&
- 
+    // --- METADATA UPDATE LOGIC ---
+    time_t currentTime = Utils::Time::now();
+    MetaDataList& metadata = gameToUpdate->getMetadata(); // Use reference
+    time_t lastPlayedTime = Utils::Time::stringToTime(metadata.get(MetaDataId::LastPlayed));
 
-  //  Ottieni l'orario dell'ultimo avvio (o ultima chiusura registrata)
-  //  *** CORREZIONE QUI ***
-  time_t lastPlayedTime = Utils::Time::stringToTime(metadata.get(MetaDataId::LastPlayed));  // Usa get() e stringToTime()
- 
+    if (lastPlayedTime != 0)
+    {
+        long elapsedSeconds = difftime(currentTime, lastPlayedTime);
+        int timesPlayed = metadata.getInt(MetaDataId::PlayCount) + 1; // getInt handles conversion
+        metadata.set(MetaDataId::PlayCount, std::to_string(timesPlayed));
+        LOG(LogDebug) << "Updating PlayCount for " << gameToUpdate->getName() << " to " << timesPlayed;
 
-  if (lastPlayedTime != 0)  // Se è stato giocato almeno una volta
-  {
-  //  Calcola il tempo trascorso dall'ultima registrazione di "LastPlayed"
-  long elapsedSeconds = difftime(currentTime, lastPlayedTime);
- 
+        if (elapsedSeconds >= 60) { // Consider a valid session
+            long gameTime = metadata.getInt(MetaDataId::GameTime) + elapsedSeconds;
+            metadata.set(MetaDataId::GameTime, std::to_string(gameTime));
+            LOG(LogDebug) << "  Updating GameTime for " << gameToUpdate->getName() << " by ~" << elapsedSeconds << " seconds (since last played). Total: " << gameTime;
+        } else {
+            LOG(LogDebug) << "  Skipping GameTime update for " << gameToUpdate->getName() << ", elapsed time (" << elapsedSeconds << "s) too short.";
+        }
+    } else { // First launch
+        metadata.set(MetaDataId::PlayCount, "1");
+        LOG(LogDebug) << "First launch for " << gameToUpdate->getName() << ". Setting PlayCount to 1.";
+        metadata.set(MetaDataId::GameTime, "0"); // Initialize GameTime
+    }
+    metadata.set(MetaDataId::LastPlayed, Utils::Time::DateTime(currentTime)); // Use toString() for consistent format if DateTime has it
+    LOG(LogDebug) << "Updating LastPlayed for " << gameToUpdate->getName() << " to current time.";
+    CollectionSystemManager::get()->refreshCollectionSystems(gameToUpdate);
+    saveToGamelistRecovery(this); // Assuming 'this' is correct here, or gameToUpdate
+    // --- END METADATA UPDATE LOGIC ---
 
-  //  Aggiorna il contatore delle partite (PlayCount)
-  int timesPlayed = metadata.getInt(MetaDataId::PlayCount) + 1;
-  metadata.set(MetaDataId::PlayCount, std::to_string(timesPlayed));
-  LOG(LogDebug) << "Updating PlayCount for " << gameToUpdate->getName() << " to " << timesPlayed;
- 
+    std::string launch_command_str; // Use a distinct name
+    bool isEgsGame = (system->getName() == "epicgamestore");
+    bool isSteamGame = (system->getName() == "steam");
+    bool isXboxGame = (system->getName() == "xbox");
+    bool hideWindow = Settings::getInstance()->getBool("HideWindow");
 
-  //  Aggiorna il tempo totale di gioco (GameTime)
-  //  Considera la sessione valida solo se è durata un tempo minimo (es. 60 secondi)
-  if (elapsedSeconds >= 60) {
-  long gameTime = metadata.getInt(MetaDataId::GameTime) + elapsedSeconds;
-  metadata.set(MetaDataId::GameTime, std::to_string(gameTime));
-  LOG(LogDebug) << "  Updating GameTime for " << gameToUpdate->getName() << " by ~" << elapsedSeconds << " seconds (since last played). Total: " << gameTime;
-  } else {
-  LOG(LogDebug) << "  Skipping GameTime update for " << gameToUpdate->getName() << ", elapsed time (" << elapsedSeconds << "s) too short.";
-  }
-  } else {
-  //  Se è la prima volta che viene lanciato
-  metadata.set(MetaDataId::PlayCount, "1");
-  LOG(LogDebug) << "First launch for " << gameToUpdate->getName() << ". Setting PlayCount to 1.";
-  metadata.set(MetaDataId::GameTime, "0");  // Inizializza GameTime a 0
-  }
- 
+    // Deinitialize audio/window once before any launch attempt
+    // These were correctly placed in your original code block for launchGame
+    AudioManager::getInstance()->deinit();
+    VolumeControl::getInstance()->deinit();
+    window->deinit(hideWindow);
 
-  //  Aggiorna sempre l'orario dell'ultima partita (LastPlayed) all'orario di questo avvio
-  metadata.set(MetaDataId::LastPlayed, Utils::Time::DateTime(currentTime));
-  LOG(LogDebug) << "Updating LastPlayed for " << gameToUpdate->getName() << " to current time.";
- 
+    Scripting::fireEvent("game-start", gameToUpdate->getPath(), gameToUpdate->getFileName(), gameToUpdate->getName());
 
-  CollectionSystemManager::get()->refreshCollectionSystems(gameToUpdate);
-  saveToGamelistRecovery(gameToUpdate);
-  //  --- FINE NUOVA LOGICA AGGIORNAMENTO METADATI ---
- 
+    bool overallLaunchSuccess = false;
+    int exitCode = 0; // For emulator path
 
- 
+    if (isEgsGame) {
+        launch_command_str = metadata.get(MetaDataId::LaunchCommand);
+        LOG(LogDebug) << "FileData::launchGame - EGS Game. URL: " << launch_command_str;
+        if (launch_command_str.empty()) {
+            LOG(LogError) << "EGS launch command empty for " << gameToUpdate->getName();
+            overallLaunchSuccess = false;
+        } else {
+            Utils::Platform::openUrl(launch_command_str);
+            overallLaunchSuccess = true; // Assume URL opening is a "successful start"
+        }
+    } else if (isSteamGame) {
+        launch_command_str = metadata.get(MetaDataId::LaunchCommand);
+        LOG(LogDebug) << "FileData::launchGame - Steam Game. URL: " << launch_command_str;
+        if (launch_command_str.empty()) {
+            LOG(LogError) << "Steam launch command empty for " << gameToUpdate->getName();
+            overallLaunchSuccess = false;
+        } else {
+            Utils::Platform::openUrl(launch_command_str);
+            overallLaunchSuccess = true;
+        }
+    } else if (isXboxGame) {
+        launch_command_str = metadata.get(MetaDataId::LaunchCommand);
+        LOG(LogDebug) << "FileData::launchGame - Xbox Game. LaunchCommand from metadata: " << launch_command_str;
 
-  //  --- Logica di Lancio Esistente ---
-  std::string command;
-  bool isEgsGame = (system->getName() == "epicgamestore");
-  bool hideWindow = Settings::getInstance()->getBool("HideWindow");
- 
+        if (launch_command_str.empty()) {
+            LOG(LogError) << "Xbox launch command metadata is empty for " << gameToUpdate->getName() << "!";
+            overallLaunchSuccess = false;
+        } else {
+            // 'isVirtual' è dichiarata qui e usata nello scope sottostante.
+            bool isVirtualXboxGame = metadata.get(MetaDataId::Virtual) == "true"; // Variabile con scope locale al blocco Xbox
+            if (!isVirtualXboxGame) { // Installed game
+                GameStoreManager* gsm = GameStoreManager::get();
+                XboxStore* xboxStore = nullptr;
+                if (gsm) {
+                    GameStore* baseStore = gsm->getStore("XboxStore");
+                    if (baseStore) {
+                        xboxStore = dynamic_cast<XboxStore*>(baseStore);
+                    }
+                }
+                if (xboxStore) {
+                    LOG(LogInfo) << "  Attempting to launch installed Xbox game (AUMID): " << launch_command_str;
+                    overallLaunchSuccess = xboxStore->launchGameByAumid(launch_command_str);
+                } else {
+                    LOG(LogError) << "  XboxStore instance not available for installed game launch: " << launch_command_str;
+                    overallLaunchSuccess = false;
+                }
+            } else { // Virtual game
+                LOG(LogInfo) << "  Executing URL for Xbox virtual game (Store Link): " << launch_command_str;
+                Utils::Platform::openUrl(launch_command_str);
+                overallLaunchSuccess = true;
+            }
+            // L'eventuale popup di errore specifico per Xbox è gestito DOPO la reinizializzazione della finestra.
+        }
 
-  if (isEgsGame) {
-  command = metadata.get(MetaDataId::LaunchCommand);
-  LOG(LogDebug) << "FileData::launchGame - EGS Game detected. Using URL command: " << command;
-  if (command.empty()) {
-  LOG(LogError) << "Epic Games launch command metadata is empty for " << gameToUpdate->getName() << "!";
-  return false;
-  }
-  } else {
-  command = getlaunchCommand(options);
-  LOG(LogDebug) << "FileData::launchGame - Non-EGS Game. Using command: " << command;
-  if (command.empty()) {
-  LOG(LogError) << "Standard launch command is empty for " << gameToUpdate->getName() << "!";
-  return false;
-  }
-  }
- 
+    } else { // Default emulator path
+        launch_command_str = getlaunchCommand(options);
+        LOG(LogDebug) << "FileData::launchGame - Non-Store Game. Using command: " << launch_command_str;
+        if (launch_command_str.empty()) {
+            LOG(LogError) << "Standard launch command is empty for " << gameToUpdate->getName() << "!";
+            overallLaunchSuccess = false;
+        } else {
+            LOG(LogInfo) << "  Executing Command: " << launch_command_str;
+            auto p2kConv = convertP2kFile(); // Specific to your setup
+            mRunningGame = gameToUpdate;
 
-  AudioManager::getInstance()->deinit();
-  VolumeControl::getInstance()->deinit();
-  window->deinit(hideWindow);
- 
+            ProcessStartInfo process(launch_command_str);
+            process.window = hideWindow ? NULL : window;
+            exitCode = process.run();
 
-  Scripting::fireEvent("game-start", gameToUpdate->getPath(), gameToUpdate->getFileName(), gameToUpdate->getName());
- 
+            mRunningGame = nullptr; // Clear running game state
 
-  int exitCode = 0;
- 
+            if (exitCode != 0) {
+                LOG(LogWarning) << "...launch terminated with nonzero exit code " << exitCode << "!";
+            }
+            overallLaunchSuccess = (exitCode == 0);
 
-    if (isEgsGame || system->getName() == "steam") { // Modified to include Steam
-  LOG(LogInfo) << "  Executing URL: " << command;
-  Utils::Platform::openUrl(command);
-  LOG(LogDebug) << "FileData::launchGame - URL opened. Reinitializing ES Window/Audio.";
- 
+            // Post-launch for emulators
+            if (SaveStateRepository::isEnabled(this)) {
+                if (options.saveStateInfo != nullptr) {
+                    options.saveStateInfo->onGameEnded(this);
+                }
+                if (getSourceFileData() && getSourceFileData()->getSystem() && getSourceFileData()->getSystem()->getSaveStateRepository()) {
+                     getSourceFileData()->getSystem()->getSaveStateRepository()->refresh();
+                }
+            }
+            if (!p2kConv.empty()) {
+                Utils::FileSystem::removeFile(p2kConv);
+            }
+             if (exitCode >= 200 && exitCode <= 300) {
+                 // Defer GuiMsgBox until after window reinitialization if possible.
+                 LOG(LogError) << "Emulator launch error: " << getMessageFromExitCode(exitCode);
+                // window->pushGui(new GuiMsgBox(window, _("AN ERROR OCCURRED") + ":\r\n" + getMessageFromExitCode(exitCode), _("OK"), nullptr, GuiMsgBoxIcon::ICON_ERROR));
+            }
+        }
+    }
 
-  //  Re-inizializza subito la finestra/audio
-  if (!hideWindow && Settings::getInstance()->getBool("HideWindowFullReinit")) {
-  LOG(LogDebug) << "FileData::launchGame - EGS/Steam Launch: Full reinitialization.";
-  ResourceManager::getInstance()->reloadAll();
-  window->init();
-  window->setCustomSplashScreen(gameToUpdate->getImagePath(), gameToUpdate->getName(), gameToUpdate);
-  } else {
-  LOG(LogDebug) << "FileData::launchGame - EGS/Steam Launch: Standard reinitialization.";
-  window->init(hideWindow);
-  }
- 
+    Scripting::fireEvent("game-end"); // Fire game-end, should be common for all paths that started
 
-  VolumeControl::getInstance()->init();
-  AudioManager::getInstance()->init();
-  window->normalizeNextUpdate();
-  window->reactivateGui();
- 
+    // Common reinitialization logic for all paths
+    LOG(LogDebug) << "FileData::launchGame - Common Reinitialization. Launch success so far: " << std::boolalpha << overallLaunchSuccess;
+    if (!hideWindow && Settings::getInstance()->getBool("HideWindowFullReinit")) {
+        LOG(LogDebug) << "FileData::launchGame - Full reinitialization.";
+        ResourceManager::getInstance()->reloadAll(); // Make sure ResourceManager is included
+        window->init();
+        window->setCustomSplashScreen(gameToUpdate->getImagePath(), gameToUpdate->getName(), gameToUpdate);
+    } else {
+        LOG(LogDebug) << "FileData::launchGame - Standard reinitialization.";
+        window->init(hideWindow);
+    }
+    VolumeControl::getInstance()->init();
+    AudioManager::getInstance()->init();
+    window->normalizeNextUpdate();
+    window->reactivateGui();
 
-  if (system != nullptr && system->getTheme() != nullptr)
-  AudioManager::getInstance()->changePlaylist(system->getTheme(), true);
-  else
-  AudioManager::getInstance()->playRandomMusic();
- 
+    if (system != nullptr && system->getTheme() != nullptr) {
+        AudioManager::getInstance()->changePlaylist(system->getTheme(), true);
+    } else {
+        AudioManager::getInstance()->playRandomMusic();
+    }
+    
+    // Show error popups now that the window is reinitialized
+    if (isXboxGame && metadata.get(MetaDataId::Virtual) != "true" && !overallLaunchSuccess && !metadata.get(MetaDataId::LaunchCommand).empty()){
+        window->pushGui(new GuiMsgBox(window, _("XBOX LAUNCH FAILED") + std::string("\n") + _("Could not start the selected Xbox game."), _("OK"), nullptr, GuiMsgBoxIcon::ICON_ERROR));
+    } else if (!isEgsGame && !isSteamGame && !isXboxGame && exitCode >= 200 && exitCode <= 300) {
+        window->pushGui(new GuiMsgBox(window, _("AN ERROR OCCURRED") + ":\r\n" + getMessageFromExitCode(exitCode), _("OK"), nullptr, GuiMsgBoxIcon::ICON_ERROR));
+    }
 
-  return true;
- 
 
-  } else {
-  //  Percorso originale per giochi non-EGS
-  LOG(LogInfo) << "  Executing Command: " << command;
-  auto p2kConv = convertP2kFile();
-  mRunningGame = gameToUpdate;
- 
-
-  ProcessStartInfo process(command);
-  process.window = hideWindow ? NULL : window;
-  exitCode = process.run();
-  if (exitCode != 0)
-  LOG(LogWarning) << "...launch terminated with nonzero exit code " << exitCode << "!";
- 
-
-  mRunningGame = nullptr;
- 
-
-  //  --- Logica Post-Lancio per non-EGS ---
-  if (SaveStateRepository::isEnabled(this)) {
-  if (options.saveStateInfo != nullptr)
-  options.saveStateInfo->onGameEnded(this);
-  getSourceFileData()->getSystem()->getSaveStateRepository()->refresh();
-  }
- 
-
-  if (!p2kConv.empty())
-  Utils::FileSystem::removeFile(p2kConv);
- 
-
-  Scripting::fireEvent("game-end");
- 
-
-  //  Re-inizializzazione finestra/audio dopo la fine del processo
-  if (!hideWindow && Settings::getInstance()->getBool("HideWindowFullReinit")) {
-  LOG(LogDebug) << "FileData::launchGame - Non-EGS Launch: Full reinitialization.";
-  ResourceManager::getInstance()->reloadAll();
-  window->init();
-  window->setCustomSplashScreen(gameToUpdate->getImagePath(), gameToUpdate->getName(), gameToUpdate);
-  } else {
-  LOG(LogDebug) << "FileData::launchGame - Non-EGS Launch: Standard reinitialization.";
-  window->init(hideWindow);
-  }
- 
-
-  VolumeControl::getInstance()->init();
-  AudioManager::getInstance()->init();
-  window->normalizeNextUpdate();
-  window->reactivateGui();
- 
-
-  if (system != nullptr && system->getTheme() != nullptr)
-  AudioManager::getInstance()->changePlaylist(system->getTheme(), true);
-  else
-  AudioManager::getInstance()->playRandomMusic();
- 
-
-  if (exitCode >= 200 && exitCode <= 300)
-  window->pushGui(new GuiMsgBox(window, _("AN ERROR OCCURRED") + ":\r\n" + getMessageFromExitCode(exitCode), _("OK"), nullptr, GuiMsgBoxIcon::ICON_ERROR));
- 
-
-  //  Metadati già aggiornati all'inizio
-  return exitCode == 0;
-  }
- }
+    return overallLaunchSuccess;
+}
 
 
 bool FileData::hasContentFiles()

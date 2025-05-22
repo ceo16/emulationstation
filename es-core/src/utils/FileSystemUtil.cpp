@@ -1,7 +1,7 @@
 #define _FILE_OFFSET_BITS 64
 
 #include "utils/FileSystemUtil.h"
- #include "Log.h" // for errors
+ #include "Log.h" // for error
 #include "utils/StringUtil.h"
 #include "utils/ZipFile.h"
 #include "utils/md5.h"
@@ -1636,6 +1636,24 @@ namespace Utils
 			::SetThreadPriority(thread.native_handle(), THREAD_PRIORITY_LOWEST);
 			thread.detach();
 #endif
+		}
+		std::string createValidFileName(const std::string& path)
+		{
+			if (path.empty())
+				return "_empty_path_"; 
+
+			std::string FOSSNAME = path;
+			const std::string invalidChars = "/\\:*?\"<>|"; // Assicurati che ':' sia qui
+			for (char& c : FOSSNAME) {
+				if (invalidChars.find(c) != std::string::npos) {
+					c = '_';
+				}
+			}
+            
+			if (FOSSNAME.empty() || FOSSNAME == "." || FOSSNAME == ".." || std::all_of(FOSSNAME.begin(), FOSSNAME.end(), [](char c){ return c == '_'; }))
+				FOSSNAME = "_sanitized_path_"; // Nome di default se il risultato è problematico
+			
+			return FOSSNAME;
 		}
 
 	} // FileSystem::

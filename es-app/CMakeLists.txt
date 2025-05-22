@@ -41,6 +41,11 @@ set(ES_HEADERS
     ${CMAKE_CURRENT_SOURCE_DIR}/src/GameStore/Steam/SteamStoreAPI.h
     ${CMAKE_CURRENT_SOURCE_DIR}/src/GameStore/Steam/SteamStore.h
     ${CMAKE_CURRENT_SOURCE_DIR}/src/GameStore/Steam/SteamUI.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/GameStore/Xbox/XboxAuth.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/GameStore/Xbox/XboxStoreAPI.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/GameStore/Xbox/XboxStore.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/GameStore/Xbox/XboxUI.h
+	${CMAKE_CURRENT_SOURCE_DIR}/src/GameStore/Xbox/XboxModels.h
 
 	
 
@@ -101,6 +106,7 @@ set(ES_HEADERS
     ${CMAKE_CURRENT_SOURCE_DIR}/src/scrapers/ScreenScraper.h
     ${CMAKE_CURRENT_SOURCE_DIR}/src/scrapers/EpicGamesScraper.h    
     ${CMAKE_CURRENT_SOURCE_DIR}/src/scrapers/SteamScraper.h
+	${CMAKE_CURRENT_SOURCE_DIR}/src/scrapers/XboxScraper.h
 
     # Views
     ${CMAKE_CURRENT_SOURCE_DIR}/src/views/gamelist/BasicGameListView.h
@@ -165,6 +171,11 @@ set(ES_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/src/GameStore/Steam/SteamStoreAPI.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/GameStore/Steam/SteamStore.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/GameStore/Steam/SteamUI.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/src/GameStore/Xbox/XboxAuth.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/GameStore/Xbox/XboxStoreAPI.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/GameStore/Xbox/XboxStore.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/GameStore/Xbox/XboxUI.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/src/GameStore/Xbox/XboxModels.cpp
     
 
     # GuiComponents    
@@ -221,6 +232,7 @@ set(ES_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/src/scrapers/ScreenScraper.cpp	
 	${CMAKE_CURRENT_SOURCE_DIR}/src/scrapers/EpicGamesScraper.cpp 
 	${CMAKE_CURRENT_SOURCE_DIR}/src/scrapers/SteamScraper.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/src/scrapers/XboxScraper.cpp
 
     # Views
     ${CMAKE_CURRENT_SOURCE_DIR}/src/views/gamelist/BasicGameListView.cpp
@@ -266,26 +278,35 @@ endif()
 
 #-------------------------------------------------------------------------------
 # define target
-include_directories(
-    ${COMMON_INCLUDE_DIRS}
+add_executable(emulationstation ${ES_SOURCES} ${ES_HEADERS})
+
+target_include_directories(emulationstation PRIVATE
+    ${COMMON_INCLUDE_DIRS} 
     ${CMAKE_CURRENT_SOURCE_DIR}/src
     ${CMAKE_CURRENT_SOURCE_DIR}/src/GamesStore
     ${CMAKE_CURRENT_SOURCE_DIR}/src/GamesStore/EpicGames
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/GamesStore/Steam	# Add this line
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/GamesStore/Steam
+    # RIGA RIMOSSA CORRETTAMENTE: "${CMAKE_SOURCE_DIR}/third_party/cppwinrt" 
 )
-add_executable(emulationstation ${ES_SOURCES} ${ES_HEADERS})
-target_link_libraries(emulationstation ${COMMON_LIBRARIES} es-core)
 
-# special properties for Windows builds
-if(MSVC)
-    # Always compile with the "WINDOWS" subsystem to avoid console window flashing at startup
-    # when --debug is not set (see es-core/src/main.cpp for explanation).
-    # The console will still be shown if launched with --debug.
-    # Note that up to CMake 2.8.10 this feature is broken: http://public.kitware.com/Bug/view.php?id=12566
-    set_target_properties(emulationstation PROPERTIES LINK_FLAGS_DEBUG "/SUBSYSTEM:WINDOWS")
-    set_target_properties(emulationstation PROPERTIES LINK_FLAGS_RELWITHDEBINFO "/SUBSYSTEM:WINDOWS")
-    set_target_properties(emulationstation PROPERTIES LINK_FLAGS_RELEASE "/SUBSYSTEM:WINDOWS")
-    set_target_properties(emulationstation PROPERTIES LINK_FLAGS_MINSIZEREL "/SUBSYSTEM:WINDOWS")
+target_link_libraries(emulationstation PRIVATE
+    ${COMMON_LIBRARIES}
+    es-core
+)
+
+if(WIN32)
+    target_link_libraries(emulationstation PRIVATE WindowsApp.lib) # QUESTA È CORRETTA E NECESSARIA
+
+    if(MSVC)
+        target_compile_options(emulationstation PRIVATE 
+            /await      
+            /bigobj     
+            /EHsc       
+            /permissive- 
+        )
+
+        set_target_properties(emulationstation PROPERTIES WIN32_EXECUTABLE ON) 
+    endif()
 endif()
 
 

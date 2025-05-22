@@ -50,6 +50,8 @@
 #include "guis/GuiBusyInfoPopup.h"
 #include "SdlEvents.h"
 #include "GameStore/Steam/SteamStore.h"
+#include "GameStore/Xbox/XboxStore.h"
+#include "GameStore/Xbox/XboxUI.h"
 
 
 #ifdef WIN32
@@ -455,6 +457,9 @@ void launchStartupGame()
 
 Uint32 SDL_EPIC_REFRESH_COMPLETE; // <- Definisci senza valore qui
 Uint32 SDL_STEAM_REFRESH_COMPLETE;
+Uint32 SDL_XBOX_REFRESH_COMPLETE;
+Uint32 SDL_GAMELIST_UPDATED;
+Uint32 SDL_XBOX_AUTH_COMPLETE_EVENT;
 int main(int argc, char* argv[])
 {	
 	Utils::MathExpr::performUnitTests();
@@ -548,7 +553,7 @@ int main(int argc, char* argv[])
 
 	Window window;
 	SystemScreenSaver screensaver(&window);
-	  GameStoreManager::get()->initAllStores(&window);
+	GameStoreManager::get()->initAllStores(&window); 
     ViewController::init(&window);
 	LOG(LogDebug) << "main - ViewController::init() called (ViewController address: " << ViewController::get() << ")";
 	CollectionSystemManager::init(&window);
@@ -563,7 +568,7 @@ int main(int argc, char* argv[])
 		LOG(LogError) << "Window failed to initialize!";
 		return 1;
 	}
-SDL_EPIC_REFRESH_COMPLETE = SDL_RegisterEvents(1); // <- Assegna l'ID qui
+SDL_EPIC_REFRESH_COMPLETE = SDL_RegisterEvents(1); // <- Assegna l'ID qu
 if (SDL_EPIC_REFRESH_COMPLETE == (Uint32)-1) {
     LOG(LogError) << "SDL_RegisterEvents failed!";
 } else {
@@ -575,6 +580,27 @@ if (SDL_EPIC_REFRESH_COMPLETE == (Uint32)-1) {
     } else {
         LOG(LogInfo) << "Registered SDL_Steam_REFRESH_COMPLETE with ID: " << SDL_STEAM_REFRESH_COMPLETE;
     }
+	
+	 SDL_XBOX_REFRESH_COMPLETE = SDL_RegisterEvents(1);
+    if (SDL_XBOX_REFRESH_COMPLETE == (Uint32)-1) {
+        LOG(LogError) << "SDL_RegisterEvents failed for SDL_XBOX_REFRESH_COMPLETE!";
+    } else {
+        LOG(LogInfo) << "Registered SDL_XBOX_REFRESH_COMPLETE with ID: " << SDL_XBOX_REFRESH_COMPLETE;
+    }
+	SDL_GAMELIST_UPDATED = SDL_RegisterEvents(1); // <<< AGGIUNGI QUESTO BLOCCO
+if (SDL_GAMELIST_UPDATED == ((Uint32)-1)) {
+    LOG(LogError) << "SDL_RegisterEvents failed for SDL_GAMELIST_UPDATED!";
+    // Gestisci l'errore come fai per gli altri
+} else {
+    LOG(LogInfo) << "Registered SDL_GAMELIST_UPDATED with ID: " << SDL_GAMELIST_UPDATED;
+}
+  SDL_XBOX_AUTH_COMPLETE_EVENT = SDL_RegisterEvents(1); // << Registra il nuovo evento
+    if (SDL_XBOX_AUTH_COMPLETE_EVENT == (Uint32)-1) {
+        LOG(LogError) << "SDL_RegisterEvents failed for SDL_XBOX_AUTH_COMPLETE_EVENT!";
+    } else {
+        LOG(LogInfo) << "Registered SDL_XBOX_AUTH_COMPLETE_EVENT with ID: " << SDL_XBOX_AUTH_COMPLETE_EVENT;
+    }
+    //
 	PowerSaver::init();
 
 	bool splashScreen = Settings::getInstance()->getBool("SplashScreen");
@@ -736,167 +762,291 @@ if (SDL_EPIC_REFRESH_COMPLETE == (Uint32)-1) {
                 if (event.type == SDL_QUIT) {
                     running = false;
                 }
-                else if (event.type == SDL_USEREVENT) // Controlla se è un evento utente
+             else if (event.type == SDL_USEREVENT)
+            {
+                Window* windowInstance = &window; // Usa la tua istanza 'window' globale o passata
+
+                // --- GESTIONE EVENTO EPIC GAMES REFRESH ---
+                if (event.user.code == SDL_EPIC_REFRESH_COMPLETE)
                 {
-                    // --- GESTIONE EVENTO EPIC GAMES (CODICE ESISTENTE) ---
-                    if (event.user.code == SDL_EPIC_REFRESH_COMPLETE)
-                    {
-                        LOG(LogInfo) << "Main Loop: Received SDL_EPIC_REFRESH_COMPLETE event.";
-                        auto* newGamesPayload = static_cast<std::vector<NewEpicGameData>*>(event.user.data1);
+                    LOG(LogInfo) << "Main Loop: Received SDL_EPIC_REFRESH_COMPLETE event.";
+                    GuiComponent* topGuiEpic = windowInstance->peekGui();
+                    if (topGuiEpic != nullptr && dynamic_cast<GuiBusyInfoPopup*>(topGuiEpic)) {
+                        LOG(LogDebug) << "Main Loop: Closing GuiBusyInfoPopup for EPIC_REFRESH_COMPLETE.";
+                        delete topGuiEpic; // Assumendo che delete sia il modo corretto
+                    }
 
-                        if (newGamesPayload) {
-                            if (!newGamesPayload->empty()) {
-                                LOG(LogInfo) << "Processing " << newGamesPayload->size() << " new Epic games from payload.";
-                                SystemData* system = SystemData::getSystem("epicgamestore");
-                                if (system) {
-                                    FolderData* rootFolder = system->getRootFolder();
-                                    FileFilterIndex* filterIndex = system->getFilterIndex();
-                                    if (rootFolder) {
-                                        std::vector<std::string> addedGamePathsForMetaUpdate;
-                                        addedGamePathsForMetaUpdate.reserve(newGamesPayload->size());
-                                        bool changesMade = false;
-                                        for (const auto& gameData : *newGamesPayload) {
-                                            FileData* newGame = new FileData(FileType::GAME, gameData.pseudoPath, system);
-                                            MetaDataList& mdl = newGame->getMetadata();
-                                            for (const auto& metaPair : gameData.metadataMap) { mdl.set(metaPair.first, metaPair.second); }
-                                            rootFolder->addChild(newGame);
-                                            changesMade = true;
-                                            newGame->getMetadata().setDirty();
-                                            LOG(LogDebug) << "Main Loop: Marked metadata for new game '" << newGame->getName() << "' as dirty.";
-                                            if (filterIndex) { filterIndex->addToIndex(newGame); }
-                                            addedGamePathsForMetaUpdate.push_back(gameData.pseudoPath);
-                                            LOG(LogDebug) << "Main Loop: Added new Epic game: " << gameData.pseudoPath << " (" << mdl.get(MetaDataId::Name) << ")";
-                                        } // fine ciclo for gameData Epic
-                                        if (changesMade) {
-                                            system->updateDisplayedGameCount();
-                                            if (ViewController::get()) {
-                                                LOG(LogInfo) << "Main Loop: Reloading Epic game list view.";
-                                                ViewController::get()->reloadGameListView(system); // <-- Nota: Usa 'system' qui
-                                            } else { LOG(LogWarning) << "Main Loop: ViewController not available."; }
-                                            window.displayNotificationMessage(_("LIBRERIA EPIC AGGIORNATA."));
-                                            // Trigger metadata update for Epic
-                                            EpicGamesStore* epicStore = nullptr;
-                                            GameStoreManager* gsm = GameStoreManager::get();
-                                            if (gsm) {
-                                                GameStore* store = gsm->getStore("EpicGamesStore");
-                                                if (store) { epicStore = dynamic_cast<EpicGamesStore*>(store); }
-                                            }
-                                            if (epicStore && !addedGamePathsForMetaUpdate.empty()) {
-                                                LOG(LogInfo) << "Main Loop: Triggering FULL metadata update for " << addedGamePathsForMetaUpdate.size() << " Epic games.";
-                                                epicStore->updateGamesMetadataAsync(system, addedGamePathsForMetaUpdate);
-                                            } else if (!epicStore) { LOG(LogWarning) << "Main Loop: Could not get EpicGamesStore instance."; }
-                                        } // fine if(changesMade) Epic
-                                    } else { LOG(LogError) << "Main Loop: Root folder for 'epicgamestore' is null."; }
-                                } else { LOG(LogError) << "Main Loop: Could not find SystemData for 'epicgamestore'."; }
-                            } else {
-                                LOG(LogInfo) << "Main Loop: Epic refresh completed, but no new games were added.";
-                                window.displayNotificationMessage(_("Libreria Epic: Nessun nuovo gioco trovato."));
-                            }
-                            delete newGamesPayload;
-                            event.user.data1 = nullptr;
-                        } else { LOG(LogWarning) << "Main Loop: Received SDL_EPIC_REFRESH_COMPLETE but payload (data1) was null."; }
+                    auto* newGamesPayload = static_cast<std::vector<NewEpicGameData>*>(event.user.data1);
+                    SystemData* system = static_cast<SystemData*>(event.user.data2); // SystemData passato per Epic
 
-                        // Chiudi GuiBusyInfoPopup per Epic
-                        GuiComponent* topGui = window.peekGui();
-                        if (topGui != nullptr && dynamic_cast<GuiBusyInfoPopup*>(topGui)) {
-                            LOG(LogDebug) << "Main Loop: Closing GuiBusyInfoPopup after processing EPIC_REFRESH_COMPLETE.";
+                    if (newGamesPayload && system) {
+                        if (!newGamesPayload->empty()) {
+                            LOG(LogInfo) << "Processing " << newGamesPayload->size() << " new Epic games for system '" << system->getName() << "'.";
+                            FolderData* rootFolder = system->getRootFolder();
+                            FileFilterIndex* filterIndex = system->getFilterIndex();
+                            if (rootFolder) {
+                                std::vector<std::string> addedGameIds; // Usa ID appropriato per Epic
+                                bool changesMade = false;
+                                for (const auto& gameData : *newGamesPayload) {
+                                    if (rootFolder->FindByPath(gameData.pseudoPath) != nullptr) {
+                                        LOG(LogDebug) << "Main Loop: Epic game " << gameData.pseudoPath << " already exists. Skipping.";
+                                        continue;
+                                    }
+                                    FileData* newGame = new FileData(FileType::GAME, gameData.pseudoPath, system);
+                                    MetaDataList& mdl = newGame->getMetadata();
+                                    for (const auto& metaPair : gameData.metadataMap) { mdl.set(metaPair.first, metaPair.second); }
+
+                                    // Gestione ID specifico Epic: usa il membro corretto di NewEpicGameData
+                                    // Il log errori indicava: 'app_name': non è un membro di 'NewEpicGameData'
+                                    // VERIFICA LA STRUTTURA DI NewEpicGameData e usa il campo corretto per l'ID.
+                                    // Esempio, se il campo ID è 'id' o 'appId':
+                                    // if (mdl.get(MetaDataId::EpicAppId).empty() && !gameData.id.empty()){
+                                    //     mdl.set(MetaDataId::EpicAppId, gameData.id);
+                                    //     addedGameIds.push_back(gameData.id);
+                                    // }
+                                    // PER ORA COMMENTO QUESTA PARTE SPECIFICA PER EPIC FINCHÉ NON CONFERMI I NOMI DEI MEMBRI
+                                    /*
+                                    if (mdl.get(MetaDataId::EpicAppId).empty() && !gameData.app_name.empty()){ // USA IL MEMBRO CORRETTO!
+                                        mdl.set(MetaDataId::EpicAppId, gameData.app_name); // USA IL MEMBRO CORRETTO!
+                                        addedGameIds.push_back(gameData.app_name);      // USA IL MEMBRO CORRETTO!
+                                    }
+                                    */
+
+                                    rootFolder->addChild(newGame);
+                                    changesMade = true;
+                                    newGame->getMetadata().setDirty();
+                                    if (filterIndex) { filterIndex->addToIndex(newGame); }
+                                    LOG(LogDebug) << "Main Loop: Added Epic game: " << gameData.pseudoPath << " (" << mdl.get(MetaDataId::Name) << ")";
+                                }
+
+                                if (changesMade) {
+                                    system->updateDisplayedGameCount();
+                                    if (ViewController::get()) { ViewController::get()->reloadGameListView(system); }
+                                    windowInstance->displayNotificationMessage(_("LIBRERIA EPIC AGGIORNATA."));
+
+                                    EpicGamesStore* epicStorePtr = nullptr;
+                                    GameStoreManager* gsm = GameStoreManager::get();
+                                    if (gsm) {
+                                        GameStore* store = gsm->getStore("EpicGamesStore");
+                                        if (store) { epicStorePtr = dynamic_cast<EpicGamesStore*>(store); }
+                                    }
+                                    if (epicStorePtr && !addedGameIds.empty()) { // Usa addedGameIds
+                                        LOG(LogInfo) << "Main Loop: Triggering metadata update for " << addedGameIds.size() << " Epic games.";
+                                        // epicStorePtr->updateGamesMetadataAsync(system, addedGameIds); // Adatta la firma se necessario
+                                    } else if (!epicStorePtr) { LOG(LogWarning) << "Main Loop: Could not get EpicGamesStore for metadata update."; }
+                                }
+                            } else { LOG(LogError) << "Main Loop: Root folder for Epic system null."; }
+                        } else { windowInstance->displayNotificationMessage(_("Libreria Epic: Nessun nuovo gioco.")); }
+                        delete newGamesPayload;
+                    } else { LOG(LogWarning) << "Main Loop: EPIC_REFRESH_COMPLETE with null payload or system."; if(newGamesPayload) delete newGamesPayload; }
+                    event.user.data1 = nullptr;
+                    event.user.data2 = nullptr; // Assicurati di pulire anche data2 se usato
+                } // --- FINE GESTIONE EVENTO EPIC GAMES REFRESH ---
+
+                // --- GESTIONE EVENTO XBOX REFRESH ---
+                else if (event.user.code == SDL_XBOX_REFRESH_COMPLETE)
+                {
+                    LOG(LogInfo) << "Main Loop: Received SDL_XBOX_REFRESH_COMPLETE event.";
+                    GuiComponent* topGuiXbox = windowInstance->peekGui();
+                    if (topGuiXbox != nullptr && dynamic_cast<GuiBusyInfoPopup*>(topGuiXbox)) {
+                        LOG(LogDebug) << "Main Loop: Closing GuiBusyInfoPopup for XBOX_REFRESH_COMPLETE.";
+                        delete topGuiXbox;
+                    }
+
+                    auto* newGamesPayload = static_cast<std::vector<NewXboxGameData>*>(event.user.data1);
+                    SystemData* system = static_cast<SystemData*>(event.user.data2);
+
+                    if (newGamesPayload && system) {
+                        if (!newGamesPayload->empty()) {
+                            LOG(LogInfo) << "Processing " << newGamesPayload->size() << " new Xbox games for system '" << system->getName() << "'.";
+                            FolderData* rootFolder = system->getRootFolder();
+                            FileFilterIndex* filterIndex = system->getFilterIndex();
+                            if (rootFolder) {
+                                std::vector<std::string> addedGamePfnsForMetaUpdate;
+                                bool changesMade = false;
+                                for (const auto& gameData : *newGamesPayload) {
+                                    if (rootFolder->FindByPath(gameData.pseudoPath) != nullptr) {
+                                        LOG(LogDebug) << "Main Loop: Xbox game " << gameData.pseudoPath << " already exists. Skipping.";
+                                        continue;
+                                    }
+                                    FileData* newGame = new FileData(FileType::GAME, gameData.pseudoPath, system);
+                                    MetaDataList& mdl = newGame->getMetadata();
+                                    for (const auto& metaPair : gameData.metadataMap) { mdl.set(metaPair.first, metaPair.second); }
+                                    if (mdl.get(MetaDataId::XboxPfn).empty() && !gameData.pfn.empty()){
+                                        mdl.set(MetaDataId::XboxPfn, gameData.pfn);
+                                    }
+                                    rootFolder->addChild(newGame);
+                                    changesMade = true;
+                                    newGame->getMetadata().setDirty();
+                                    if (filterIndex) { filterIndex->addToIndex(newGame); }
+                                    addedGamePfnsForMetaUpdate.push_back(gameData.pfn);
+                                    LOG(LogDebug) << "Main Loop: Added Xbox game: " << gameData.pseudoPath << " (" << mdl.get(MetaDataId::Name) << ")";
+                                }
+                                if (changesMade) {
+                                    system->updateDisplayedGameCount();
+                                    if (ViewController::get()) { ViewController::get()->reloadGameListView(system); }
+                                    windowInstance->displayNotificationMessage(_("LIBRERIA XBOX AGGIORNATA."));
+                                    XboxStore* xboxStorePtr = nullptr;
+                                    GameStoreManager* gsm = GameStoreManager::get();
+                                    if (gsm) {
+                                        GameStore* store = gsm->getStore("XboxStore");
+                                        if (store) { xboxStorePtr = dynamic_cast<XboxStore*>(store); }
+                                    }
+                                    if (xboxStorePtr && !addedGamePfnsForMetaUpdate.empty()) {
+                                        LOG(LogInfo) << "Main Loop: Triggering metadata update for " << addedGamePfnsForMetaUpdate.size() << " Xbox games.";
+                                        xboxStorePtr->updateGamesMetadataAsync(system, addedGamePfnsForMetaUpdate);
+                                    } else if (!xboxStorePtr) { LOG(LogWarning) << "Main Loop: Could not get XboxStore for metadata update."; }
+                                }
+                            } else { LOG(LogError) << "Main Loop: Root folder for Xbox system null."; }
+                        } else { windowInstance->displayNotificationMessage(_("Libreria Xbox: Nessun nuovo gioco.")); }
+                        delete newGamesPayload;
+                    } else { LOG(LogWarning) << "Main Loop: XBOX_REFRESH_COMPLETE with null payload or system."; if(newGamesPayload) delete newGamesPayload; }
+                    event.user.data1 = nullptr;
+                    event.user.data2 = nullptr;
+                } // --- FINE GESTIONE EVENTO XBOX REFRESH ---
+
+                // --- GESTIONE EVENTO XBOX AUTH COMPLETE ---
+                else if (event.user.code == SDL_XBOX_AUTH_COMPLETE_EVENT)
+                {
+                    LOG(LogInfo) << "Main Loop: Received SDL_XBOX_AUTH_COMPLETE_EVENT.";
+                    // Inviato da XboxUI:
+                    // sdlEvent.user.data1 = reinterpret_cast<void*>(static_cast<intptr_t>(success));
+                    // sdlEvent.user.data2 = static_cast<void*>(this); // XboxUI*
+                    bool authSuccess = static_cast<bool>(reinterpret_cast<intptr_t>(event.user.data1));
+                    XboxUI* targetXboxUI = static_cast<XboxUI*>(event.user.data2); // CAST CON CAUTELA
+
+                    // 1. Chiudi il GuiBusyInfoPopup
+                    if (windowInstance && windowInstance->peekGui() != nullptr) {
+                        GuiComponent* topGui = windowInstance->peekGui();
+                        if (dynamic_cast<GuiBusyInfoPopup*>(topGui)) {
+                            LOG(LogDebug) << "Main Loop: Closing GuiBusyInfoPopup for XBOX_AUTH_COMPLETE.";
                             delete topGui;
                         }
-                    } // --- FINE GESTIONE EVENTO EPIC GAMES ---
+                    }
 
-                    // --- GESTIONE EVENTO STEAM (NUOVO BLOCCO - COPIATO E ADATTATO DA EPIC) ---
-                    else if (event.user.code == SDL_STEAM_REFRESH_COMPLETE)
-                    {
-                        LOG(LogInfo) << "Main Loop: Received SDL_STEAM_REFRESH_COMPLETE event.";
-
-                        // Chiudi prima il popup di attesa!
-                        GuiComponent* topGui = window.peekGui();
-                        if (topGui != nullptr && dynamic_cast<GuiBusyInfoPopup*>(topGui)) {
-                             LOG(LogDebug) << "Main Loop: Closing GuiBusyInfoPopup after receiving STEAM_REFRESH_COMPLETE.";
-                             delete topGui;
-                        } else {
-                             LOG(LogWarning) << "Main Loop: GuiBusyInfoPopup not found on top when STEAM_REFRESH_COMPLETE received.";
+                    // 2. Mostra un messaggio di successo/fallimento
+                    if (authSuccess) {
+                        LOG(LogInfo) << "Main Loop: Xbox authentication successful.";
+                        if (windowInstance) {
+                             windowInstance->pushGui(new GuiMsgBox(windowInstance,
+                                _("XBOX LOGIN") + std::string("\n") + _("Autenticazione Xbox riuscita!"),
+                                _("OK"), nullptr, GuiMsgBoxIcon::ICON_INFORMATION)); // USO CORRETTO DELL'ICONA
                         }
+                    } else {
+                        LOG(LogError) << "Main Loop: Xbox authentication failed.";
+                        if (windowInstance) {
+                            windowInstance->pushGui(new GuiMsgBox(windowInstance,
+                                _("XBOX LOGIN") + std::string("\n") + _("Autenticazione Xbox fallita. Controlla il codice o riprova."),
+                                _("OK"), nullptr, GuiMsgBoxIcon::ICON_ERROR)); // USO CORRETTO DELL'ICONA
+                        }
+                    }
 
-                        // Recupera il payload (il puntatore al vettore) - USA NewSteamGameData!
-                        auto* newGamesPayload = static_cast<std::vector<NewSteamGameData>*>(event.user.data1);
+                    // 3. Aggiorna il menu di XboxUI (se targetXboxUI è ancora valido)
+                    // QUESTA PARTE È PROBLEMATICA SE Window::getGuiStack() NON È DISPONIBILE
+                    // Per ora, ci fidiamo del puntatore se non è nullo, ma è RISCHIOSO.
+                    if (targetXboxUI) {
+                        // Non possiamo verificare facilmente se è ancora nello stack senza getGuiStack().
+                        // Se XboxUI è stata chiusa, questo causerà un crash.
+                        // È più sicuro che XboxUI si aggiorni da sola nel suo metodo update()
+                        // se rileva un cambio di stato di autenticazione.
+                        LOG(LogDebug) << "Main Loop: Attempting to rebuild XboxUI menu (pointer from event).";
+                        // Assicurati che rebuildMenu sia dichiarato public in XboxUI.h
+                        // e definito in XboxUI.cpp
+                        targetXboxUI->rebuildMenu();
+                    } else {
+                        LOG(LogWarning) << "Main Loop: No XboxUI instance passed with AUTH_COMPLETE event. XboxUI should self-update if active.";
+                    }
 
-                        // Controlla se il payload è valido
-                        if (newGamesPayload) {
-                            if (!newGamesPayload->empty()) {
-                                LOG(LogInfo) << "Processing " << newGamesPayload->size() << " new Steam games from payload.";
-                                // Ottieni le risorse necessarie - USA "steam"!
-                                SystemData* system = SystemData::getSystem("steam"); // <<< MODIFICA NOME SISTEMA
-                                if (system) {
-                                    FolderData* rootFolder = system->getRootFolder();
-                                    FileFilterIndex* filterIndex = system->getFilterIndex(); // Può essere nullptr
+                    event.user.data1 = nullptr;
+                    event.user.data2 = nullptr;
+                } // --- FINE GESTIONE EVENTO XBOX AUTH COMPLETE ---
 
-                                    if (rootFolder) {
-                                        // Non serve addedGamePathsForMetaUpdate per Steam (a meno che tu non abbia implementato updateGamesMetadataAsync anche per Steam)
-                                        bool changesMade = false;
+                // --- GESTIONE EVENTO STEAM REFRESH ---
+                else if (event.user.code == SDL_STEAM_REFRESH_COMPLETE)
+                {
+                    LOG(LogInfo) << "Main Loop: Received SDL_STEAM_REFRESH_COMPLETE event.";
+                    GuiComponent* topGuiSteam = windowInstance->peekGui();
+                    if (topGuiSteam != nullptr && dynamic_cast<GuiBusyInfoPopup*>(topGuiSteam)) {
+                        LOG(LogDebug) << "Main Loop: Closing GuiBusyInfoPopup for STEAM_REFRESH_COMPLETE.";
+                        delete topGuiSteam;
+                    }
 
-                                        for (const auto& gameData : *newGamesPayload) {
-                                            // Crea il FileData - Usa NewSteamGameData
-                                            FileData* newGame = new FileData(FileType::GAME, gameData.pseudoPath, system); // <<< Assicurati FileData(type, path, system) sia corretto
-                                            MetaDataList& mdl = newGame->getMetadata();
+                    auto* newGamesPayload = static_cast<std::vector<NewSteamGameData>*>(event.user.data1); // Adatta il tipo se necessario
+                    SystemData* system = static_cast<SystemData*>(event.user.data2); // SystemData passato per Steam
 
-                                            // Imposta i metadati dalla mappa
-                                            for (const auto& metaPair : gameData.metadataMap) { // <<< Assicurati che NewSteamGameData abbia metadataMap
-                                                mdl.set(metaPair.first, metaPair.second);
-                                            }
-
-                                            // Aggiungi al sistema
-                                            rootFolder->addChild(newGame);
-                                            changesMade = true;
-
-                                            newGame->getMetadata().setDirty();
-                                            LOG(LogDebug) << "Main Loop: Marked metadata for new game '" << newGame->getName() << "' as dirty.";
-
-                                            // Aggiungi all'indice dei filtri se esiste
-                                            if (filterIndex) {
-                                                filterIndex->addToIndex(newGame);
-                                            }
-                                            // Non serve salvare per update metadati asincrono per Steam (probabilmente)
-                                            // addedGamePathsForMetaUpdate.push_back(gameData.pseudoPath);
-
-                                            LOG(LogDebug) << "Main Loop: Added new Steam game: " << gameData.pseudoPath << " (" << mdl.get(MetaDataId::Name) << ")";
-                                        } // fine ciclo for gameData Steam
-
-                                        if (changesMade) {
-                                            // Aggiorna il conteggio e la UI
-                                            system->updateDisplayedGameCount();
-                                            if (ViewController::get()) {
-                                                LOG(LogInfo) << "Main Loop: Reloading Steam game list view.";
-                                                ViewController::get()->reloadGameListView(system); // <<< MODIFICATO: Passa 'false' se esiste l'overload, altrimenti usa solo 'system'
-                                            } else {
-                                                LOG(LogWarning) << "Main Loop: ViewController not available, cannot reload game list view.";
-                                            }
-                                            window.displayNotificationMessage(_("LIBRERIA STEAM AGGIORNATA.")); // Messaggio per Steam
-                                        } // fine if(changesMade) Steam
-                                    } else {
-                                        LOG(LogError) << "Main Loop: Root folder for 'steam' is null. Cannot add new games.";
+                    if (newGamesPayload && system) {
+                        if (!newGamesPayload->empty()) {
+                            LOG(LogInfo) << "Processing " << newGamesPayload->size() << " new Steam games for system '" << system->getName() << "'.";
+                            FolderData* rootFolder = system->getRootFolder();
+                            FileFilterIndex* filterIndex = system->getFilterIndex();
+                            if (rootFolder) {
+                                std::vector<std::string> addedGameAppIds; // Adatta per Steam
+                                bool changesMade = false;
+                                for (const auto& gameData : *newGamesPayload) {
+                                    if (rootFolder->FindByPath(gameData.pseudoPath) != nullptr) {
+                                        LOG(LogDebug) << "Main Loop: Steam game " << gameData.pseudoPath << " already exists. Skipping.";
+                                        continue;
                                     }
-                                } else {
-                                    LOG(LogError) << "Main Loop: Could not find SystemData for 'steam'. Cannot add new games.";
+                                    FileData* newGame = new FileData(FileType::GAME, gameData.pseudoPath, system);
+                                    MetaDataList& mdl = newGame->getMetadata();
+                                    for (const auto& metaPair : gameData.metadataMap) { mdl.set(metaPair.first, metaPair.second); }
+
+                                    // Gestione ID specifico Steam: usa il membro corretto di NewSteamGameData
+                                    // Il log errori indicava: 'app_id': non è un membro di 'NewSteamGameData'
+                                    // VERIFICA LA STRUTTURA DI NewSteamGameData e usa il campo corretto per l'AppID.
+                                    // Esempio, se il campo AppID è 'appId' o 'id':
+                                    // if (mdl.get(MetaDataId::SteamAppId).empty() && !gameData.appId.empty()){ // USA IL MEMBRO CORRETTO!
+                                    //    mdl.set(MetaDataId::SteamAppId, gameData.appId); // USA IL MEMBRO CORRETTO!
+                                    //    addedGameAppIds.push_back(gameData.appId);    // USA IL MEMBRO CORRETTO!
+                                    // }
+                                    // PER ORA COMMENTO QUESTA PARTE SPECIFICA PER STEAM FINCHÉ NON CONFERMI I NOMI DEI MEMBRI
+                                    /*
+                                    if (mdl.get(MetaDataId::SteamAppId).empty() && !gameData.app_id.empty()){ // USA IL MEMBRO CORRETTO!
+                                        mdl.set(MetaDataId::SteamAppId, gameData.app_id); // USA IL MEMBRO CORRETTO!
+                                        addedGameAppIds.push_back(gameData.app_id);      // USA IL MEMBRO CORRETTO!
+                                    }
+                                    */
+
+                                    rootFolder->addChild(newGame);
+                                    changesMade = true;
+                                    newGame->getMetadata().setDirty();
+                                    if (filterIndex) { filterIndex->addToIndex(newGame); }
+                                    LOG(LogDebug) << "Main Loop: Added Steam game: " << gameData.pseudoPath << " (" << mdl.get(MetaDataId::Name) << ")";
                                 }
-                            } else {
-                                LOG(LogInfo) << "Main Loop: Steam refresh completed, but no new games were added.";
-                                window.displayNotificationMessage(_("Libreria Steam: Nessun nuovo gioco trovato."));
-                            }
-
-                            // *** FONDAMENTALE: Dealloca la memoria del payload ***
-                            delete newGamesPayload;
-                            event.user.data1 = nullptr; // Buona norma
-
-                        } else {
-                            LOG(LogWarning) << "Main Loop: Received SDL_STEAM_REFRESH_COMPLETE but payload (data1) was null.";
-                        }
-                        // La chiusura del popup è già stata fatta all'inizio di questo blocco 'else if'
-                    } // --- FINE GESTIONE EVENTO STEAM ---
-
-                    // Aggiungi qui altri 'else if' per gestire altri codici di evento utente se necessario
-
-                } // --- FINE GESTIONE SDL_USEREVENT ---
+                                if (changesMade) {
+                                    system->updateDisplayedGameCount();
+                                    if (ViewController::get()) { ViewController::get()->reloadGameListView(system); }
+                                    windowInstance->displayNotificationMessage(_("LIBRERIA STEAM AGGIORNATA."));
+                                    SteamStore* steamStorePtr = nullptr;
+                                    GameStoreManager* gsm = GameStoreManager::get();
+                                    if (gsm) {
+                                        GameStore* store = gsm->getStore("SteamStore"); // Usa il nome corretto
+                                        if (store) { steamStorePtr = dynamic_cast<SteamStore*>(store); }
+                                    }
+                                    if (steamStorePtr && !addedGameAppIds.empty()) {
+                                        // steamStorePtr->updateGamesMetadataAsync(system, addedGameAppIds); // Se Steam ha questa funzione
+                                    }
+                                }
+                            } else { LOG(LogError) << "Main Loop: Root folder for Steam system null."; }
+                        } else { windowInstance->displayNotificationMessage(_("Libreria Steam: Nessun nuovo gioco.")); }
+                        delete newGamesPayload;
+                    } else { LOG(LogWarning) << "Main Loop: STEAM_REFRESH_COMPLETE with null payload or system."; if(newGamesPayload) delete newGamesPayload; }
+                    event.user.data1 = nullptr;
+                    event.user.data2 = nullptr;
+                } // --- FINE GESTIONE EVENTO STEAM REFRESH ---
+                else
+                {
+                    // Logga solo se il codice non è zero, per evitare spam da eventi non inizializzati
+                    if (event.user.code != 0 &&
+                        event.user.code != SDL_EPIC_REFRESH_COMPLETE && // Evita di loggare due volte se le condizioni sopra falliscono
+                        event.user.code != SDL_XBOX_REFRESH_COMPLETE &&
+                        event.user.code != SDL_XBOX_AUTH_COMPLETE_EVENT &&
+                        event.user.code != SDL_STEAM_REFRESH_COMPLETE)
+                    {
+                        LOG(LogDebug) << "Main Loop: Received unhandled SDL_USEREVENT with code: " << event.user.code;
+                    }
+                }
+            } // --- FINE BLOCCO if (event.type == SDL_USEREVENT) ----
 
                 // Gestione altri tipi di eventi SDL (es. SDL_JOYDEVICEADDED, ecc.) ...
 

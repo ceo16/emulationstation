@@ -88,8 +88,14 @@ enum MetaDataId
     EpicCatalogId = 49, // <<< OK (ri-numerato)
 	SteamAppId = 50,
 	Path = 51,
+	XboxPfn = 52,       // Package Family Name (usato come ID univoco del gioco UWP)
+    XboxTitleId = 53,     // Xbox Live Title ID (stringa numerica, per API stats/achievements)
+    XboxMediaType = 54,   // Es. "Game", "App", "Dlc" (dall'API Xbox)
+    XboxDevices = 55,     // Lista di device supportati (es. "PC", "XboxSeries", "XboxOne")
+	XboxProductId = 56,
+	XboxAumid = 57, 
 
-
+Count
     // Assicurati che gli ID siano sequenziali e univoci
 };
 

@@ -34,6 +34,7 @@
   EpicGamesStore();
   ~EpicGamesStore();
  
+ 
 
   bool init(Window* window) override;
   void shutdown() override;

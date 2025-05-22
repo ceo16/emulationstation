@@ -6,6 +6,8 @@
 #include "guis/GuiMenu.h"
 #include "Log.h"
 #include "Window.h"
+#include "GameStore/Xbox/XboxStore.h"
+#include "GameStore/Xbox/XboxAuth.h"
 
 GameStoreManager* GameStoreManager::sInstance = nullptr;
 
@@ -23,7 +25,15 @@ GameStoreManager::GameStoreManager(std::function<void(const std::string&)> setSt
     SteamStore* steamStoreInstance = new SteamStore(steamAuthInstance);
     registerStore(steamStoreInstance); // Solo registra
     LOG(LogInfo) << "GameStoreManager: SteamStore registered successfully.";
+	
+	 XboxAuth* xboxAuth = new XboxAuth(nullptr); // XboxAuth potrebbe aver bisogno di Window per i suoi GuiMsgBox
+                                                // Se sì, dovrai passare mWindow da GameStoreManager
+                                                // o inizializzarlo in XboxStore::init
+    XboxStore* xboxStore = new XboxStore(xboxAuth, nullptr);
+    registerStore(xboxStore);
+    LOG(LogInfo) << "GameStoreManager: XboxStore registered.";
 }
+
 
 GameStoreManager::~GameStoreManager() {
     LOG(LogDebug) << "GameStoreManager: Destructor";

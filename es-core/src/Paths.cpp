@@ -1,25 +1,30 @@
 #include "Paths.h"
+#include "../../es-app/src/SystemData.h"           // <-- INCLUDI LA DEFINIZIONE COMPLETA DI SYSTEMDATA QU
+#include "utils/FileSystemUtil.h" 
+#include "utils/StringUtil.h"     
+#include "Log.h"                  // Includi Log.h se non è già transitiv
+#include <iostream>               // Già presente nel tuo file
+#include <fstream>                // Già presente nel tuo file
 
-#include <iostream>
-#include <fstream>
-#include <map>
-
-#include "utils/FileSystemUtil.h"
-#include "utils/StringUtil.h"
-
+// Inizializzazione del puntatore statico (già presente nel tuo file)
 Paths* Paths::_instance = nullptr;
 
+// Definizione per SETTINGS_FILENAME (già presente nel tuo file)
 #ifdef WIN32
 #define SETTINGS_FILENAME "emulatorLauncher.cfg"
 #else
 #define SETTINGS_FILENAME "emulationstation.ini"
 #endif
 
+// Costruttore Paths() (dal tuo file)
 Paths::Paths()
 {	
-	mEmulationStationPath = getExePath();
+    // LA TUA LOGICA DI INIZIALIZZAZIONE ESISTENTE per mRootPath, mUserEmulationStationPath, ecc.
+    // Assicurati che mUserEmulationStationPath sia inizializzato in modo affidabile qui,
+    // perché getGamelistRecoveryPath_impl lo userà.
+	mEmulationStationPath = getExePath(); 
 	mUserEmulationStationPath = Utils::FileSystem::getCanonicalPath(getHomePath() + "/.emulationstation");
-	mRootPath = Utils::FileSystem::getParent(getHomePath());
+	mRootPath = Utils::FileSystem::getParent(getHomePath()); 
 
 	mLogPath = mUserEmulationStationPath;
 	mThemesPath = mUserEmulationStationPath + "/themes";
@@ -31,15 +36,13 @@ Paths::Paths()
 	mSystemConfFilePath = mUserEmulationStationPath + "/batocera.conf";
 #endif
 
-	loadCustomConfiguration(false); // Try to detect alternate paths ( Decorations, Shaders... ) without loading overrides
-
-	// Here, BATOCERA & Forks can define their own paths
+	loadCustomConfiguration(false); 
 
 #if BATOCERA
+    // LA TUA LOGICA BATOCERA ESISTENTE...
 	mRootPath = "/userdata";
 	mEmulationStationPath = "/usr/share/emulationstation";
 	mUserEmulationStationPath = "/userdata/system/configs/emulationstation";
-
 	mLogPath = "/userdata/system/logs";
 	mScreenShotsPath = "/userdata/screenshots";
 	mSaveStatesPath = "/userdata/saves";
@@ -55,36 +58,25 @@ Paths::Paths()
 	mUserShadersPath = "/userdata/shaders/configs";
 	mTimeZonesPath = "/usr/share/zoneinfo/";
 	mRetroachivementSounds = "/usr/share/libretro/assets/sounds";
-	mUserRetroachivementSounds = "/userdata/sounds/retroachievements";
-	
+	mUserRetroachivementSounds = "/userdata/sounds/retroachievements";	
 	mSystemConfFilePath = "/userdata/system/batocera.conf";
 	mUserManualPath = "/usr/share/batocera/doc/notice.pdf";
 	mVersionInfoPath = "/usr/share/batocera/batocera.version";
 	mKodiPath = "/usr/bin/kodi";
 #endif
 
-/* EmuElec sample locations.
+/* EmuElec sample locations (dal tuo file)
 #ifdef _ENABLEEMUELEC
-	mRootPath = "/storage/roms"; // ?
-	mEmulationStationPath = Utils::FileSystem::getExePath();
-	mUserEmulationStationPath = Utils::FileSystem::getCanonicalPath(Utils::FileSystem::getHomePath() + "/.emulationstation");
-	mLogPath = "/storage/.config/emuelec/logs";
-	mThemesPath = mEmulationStationPath + "/themes";
-	mUserThemesPath = "/emuelec/themes";
-	mMusicPath = "/storage/roms/BGM";
-	mUserMusicPath = "/storage/.config/emuelec/BGM";
-	mDecorationsPath = "/storage/roms/bezels";
-	mUserDecorationsPath = "/tmp/overlays/bezels";
-	mVersionInfoPath = "/usr/config/EE_VERSION";
-	mSystemConfFilePath = "/storage/.config/emuelec/configs/emuelec.conf";
+    // ...
 #endif
 */
-	loadCustomConfiguration(true); // Load paths overrides from emulationstation.ini file
+	loadCustomConfiguration(true); 
 }
 
+// loadCustomConfiguration (la tua implementazione esistente)
 void Paths::loadCustomConfiguration(bool overridesOnly)
 {
-	// Files
+    // ... (LA TUA IMPLEMENTAZIONE ESISTENTE, SENZA MODIFICHE QUI) ...
 	std::map<std::string, std::string*> files =
 	{
 		{ "config", &mSystemConfFilePath },
@@ -174,9 +166,9 @@ void Paths::loadCustomConfiguration(bool overridesOnly)
 					ret[variable] = dir;
 				else
 				{
-					auto dir = Utils::FileSystem::getCanonicalPath(relativeTo + "/../system/" + name);
-					if (Utils::FileSystem::isDirectory(dir))
-						ret[variable] = dir;
+					auto dir2 = Utils::FileSystem::getCanonicalPath(relativeTo + "/../system/" + name); // rinominato dir
+					if (Utils::FileSystem::isDirectory(dir2))
+						ret[variable] = dir2;
 				}
 			}
 			else
@@ -186,9 +178,9 @@ void Paths::loadCustomConfiguration(bool overridesOnly)
 					ret[variable] = dir;
 				else
 				{
-					auto dir = Utils::FileSystem::getCanonicalPath(relativeTo + "/../system/" + variable);
-					if (Utils::FileSystem::isDirectory(dir))
-						ret[variable] = dir;
+					auto dir2 = Utils::FileSystem::getCanonicalPath(relativeTo + "/../system/" + variable); // rinominato dir
+					if (Utils::FileSystem::isDirectory(dir2))
+						ret[variable] = dir2;
 				}
 			}
 		}
@@ -209,7 +201,7 @@ void Paths::loadCustomConfiguration(bool overridesOnly)
 			while (std::getline(systemConf, line))
 			{
 				int idx = line.find("=");
-				if (idx == std::string::npos || line.find("#") == 0 || line.find(";") == 0)
+				if (idx == (int)std::string::npos || line.find("#") == 0 || line.find(";") == 0) // cast a int per confronto
 					continue;
 
 				std::string key = line.substr(0, idx);
@@ -217,11 +209,10 @@ void Paths::loadCustomConfiguration(bool overridesOnly)
 				if (!key.empty() && !value.empty())
 				{
 					auto dir = Utils::FileSystem::resolveRelativePath(value, relativeTo, true);
-					if (Utils::FileSystem::isDirectory(dir))
+					if (Utils::FileSystem::isDirectory(dir)) // Dovrebbe essere isDirectory o exists a seconda del tipo
 						ret[key] = dir;
 				}
 			}
-
 			systemConf.close();
 		}
 	}
@@ -231,7 +222,6 @@ void Paths::loadCustomConfiguration(bool overridesOnly)
 		auto it = ret.find(vv.first);
 		if (it == ret.cend())
 			continue;
-
 		(*vv.second) = it->second;
 	}
 
@@ -240,82 +230,139 @@ void Paths::loadCustomConfiguration(bool overridesOnly)
 		auto it = ret.find(vv.first);
 		if (it == ret.cend())
 			continue;
-
 		(*vv.second) = it->second;
 	}
 }
 
-static std::string homePath;
+
+// --- IMPLEMENTAZIONE DELLE NUOVE FUNZIONI ---
+
+// Metodi statici pubblici (chiamano le versioni _impl)
+std::string Paths::getGamelistRecoveryPath(const SystemData* system) {
+    if (getInstance() == nullptr) {
+        LOG(LogError) << "Paths::getInstance() è nullo in getGamelistRecoveryPath(system)!";
+        return ""; 
+    }
+    return getInstance()->getGamelistRecoveryPath_impl(system);
+}
+
+std::string Paths::getGamelistRecoveryPath() { 
+    if (getInstance() == nullptr) {
+        LOG(LogError) << "Paths::getInstance() è nullo in getGamelistRecoveryPath()!";
+        return "";
+    }
+    return getInstance()->getGamelistRecoveryPath_impl();
+}
+
+// Metodi _impl privati (non statici)
+std::string Paths::getGamelistRecoveryPath_impl(const SystemData* system) const {
+    // Usa mUserEmulationStationPath, che dovrebbe essere inizializzato nel costruttore.
+    // Se mUserEmulationStationPath è vuoto, significa che l'inizializzazione di Paths non è completa o è fallita.
+    if (mUserEmulationStationPath.empty()) {
+        LOG(LogError) << "Paths::getGamelistRecoveryPath_impl(system): mUserEmulationStationPath è vuoto! Impossibile costruire il percorso di recovery.";
+        return ""; // Ritorna una stringa vuota per indicare errore
+    }
+
+    std::string recovery_path = mUserEmulationStationPath + "/recovery"; // Cartella base di recovery
+
+    if (system != nullptr && !system->getName().empty()) {
+        // Sanitizza il nome del sistema per creare una sottocartella valida
+        // Utils::FileSystem::createValidFileName dovrebbe essere disponibile se l'hai aggiunto.
+        std::string systemFolderName = Utils::FileSystem::createValidFileName(system->getName());
+        recovery_path += "/" + systemFolderName;
+    } else {
+        // Se system è nullo o non ha nome, usiamo solo la cartella base /recovery.
+        LOG(LogDebug) << "Paths::getGamelistRecoveryPath_impl(system): SystemData è nullo o nome vuoto, uso path di recovery generale: " << recovery_path;
+    }
+
+    Utils::FileSystem::createDirectory(recovery_path); // Assicura che la directory esista
+    LOG(LogDebug) << "Paths::getGamelistRecoveryPath_impl(system) -> Ritorno path: [" << recovery_path << "]";
+    return recovery_path;
+}
+
+std::string Paths::getGamelistRecoveryPath_impl() const {
+    if (mUserEmulationStationPath.empty()) {
+        LOG(LogError) << "Paths::getGamelistRecoveryPath_impl(): mUserEmulationStationPath è vuoto! Impossibile costruire il percorso di recovery.";
+        return "";
+    }
+    std::string recovery_path = mUserEmulationStationPath + "/recovery";
+    Utils::FileSystem::createDirectory(recovery_path);
+    LOG(LogDebug) << "Paths::getGamelistRecoveryPath_impl() -> Ritorno path: [" << recovery_path << "]";
+    return recovery_path;
+}
+// --- FINE NUOVE IMPLEMENTAZIONI ---
+
+
+// Implementazioni di getHomePath, setHomePath, getExePath, setExePath (dal tuo file)
+// Assicurati che queste variabili statiche siano definite solo una volta, solitamente in Paths.cpp
+static std::string static_homePath_variable; // Rinominata per evitare conflitti
+static std::string static_exePath_variable;  // Rinominata per evitare conflitti
 
 std::string& Paths::getHomePath()
 {
-	if (homePath.length())
-		return homePath;
+	if (static_homePath_variable.length()) // Usa la variabile rinominata
+		return static_homePath_variable;
 
 #ifdef WIN32
-	// Is it a portable installation ? Check if ".emulationstation/es_systems.cfg" exists in the exe's path
-	if (!homePath.length())
+	if (static_homePath_variable.empty()) // Usa la variabile rinominata
 	{
 		std::string portableCfg = getExePath() + "/.emulationstation/es_systems.cfg";
 		if (Utils::FileSystem::exists(portableCfg))
-			homePath = getExePath();
+			static_homePath_variable = getExePath(); // Usa la variabile rinominata
 	}
 #endif
 
-	// HOME has different usages in Linux & Windows
-	// On Windows,  "HOME" is not a system variable but a user's environment variable that can be defined by users in batch files. 
-	// If defined : The environment variable has priority over all
 	char* envHome = getenv("HOME");
 	if (envHome)
-		homePath = Utils::FileSystem::getGenericPath(envHome);
+		static_homePath_variable = Utils::FileSystem::getGenericPath(envHome); // Usa la variabile rinominata
 
 #ifdef WIN32
-	// On Windows, getenv("HOME") is not the system's user path but a user environment variable.
-	// Instead we get the home user's path using %HOMEDRIVE%/%HOMEPATH% which are system variables.
-	if (!homePath.length())
+	if (static_homePath_variable.empty()) // Usa la variabile rinominata
 	{
 		char* envHomeDrive = getenv("HOMEDRIVE");
 		char* envHomePath = getenv("HOMEPATH");
 		if (envHomeDrive && envHomePath)
-			homePath = Utils::FileSystem::getGenericPath(std::string(envHomeDrive) + "/" + envHomePath);
+			static_homePath_variable = Utils::FileSystem::getGenericPath(std::string(envHomeDrive) + "/" + envHomePath); // Usa la variabile rinominata
 	}
-#endif // _WIN32
+#endif 
 
-	// no homepath found, fall back to current working directory
-	if (!homePath.length())
-		homePath = Utils::FileSystem::getCWDPath();
+	if (static_homePath_variable.empty()) // Usa la variabile rinominata
+		static_homePath_variable = Utils::FileSystem::getCWDPath(); // Usa la variabile rinominata
 
-	homePath = Utils::FileSystem::getGenericPath(homePath);
-
-	// return constructed homepath
-	return homePath;
-
-} // getHomePath
+	static_homePath_variable = Utils::FileSystem::getGenericPath(static_homePath_variable); // Usa la variabile rinominata
+	return static_homePath_variable; // Usa la variabile rinominata
+}
 
 
 void Paths::setHomePath(const std::string& _path)
 {
-	homePath = Utils::FileSystem::getGenericPath(_path);
+	static_homePath_variable = Utils::FileSystem::getGenericPath(_path); // Usa la variabile rinominata
 }
 
-static std::string exePath;
 
 std::string& Paths::getExePath()
 {
-	return exePath;
+    // L'implementazione di getExePath nel tuo file caricato è vuota.
+    // Solitamente, setExePath imposta una variabile statica e getExePath la ritorna.
+    // Se static_exePath_variable non è impostata da setExePath prima di questa chiamata,
+    // ritornerà una stringa vuota o un comportamento indefinito.
+    // Assicurati che setExePath venga chiamata all'avvio dell'applicazione (es. in main.cpp).
+	return static_exePath_variable; // Usa la variabile rinominata
 }
 
 void Paths::setExePath(const std::string& _path)
 {
-	std::string path = Utils::FileSystem::getCanonicalPath(_path);
-	if (Utils::FileSystem::isRegularFile(path))
-		path = Utils::FileSystem::getParent(path);
-
-	exePath = Utils::FileSystem::getGenericPath(path);
+	std::string path_val = Utils::FileSystem::getCanonicalPath(_path); // Rinomina per evitare shadowing
+	if (Utils::FileSystem::isRegularFile(path_val))
+		path_val = Utils::FileSystem::getParent(path_val);
+	static_exePath_variable = Utils::FileSystem::getGenericPath(path_val); // Usa la variabile rinominata
 }
 
 std::string Paths::findEmulationStationFile(const std::string& fileName)
 {
+    // Questa funzione usa altri metodi statici di Paths.
+    // Assicurati che getEmulationStationPath() e getUserEmulationStationPath()
+    // siano implementati correttamente (probabilmente nel costruttore o tramite i loro _impl).
 	std::string localVersionFile = Paths::getEmulationStationPath() + "/" + fileName;
 	if (Utils::FileSystem::exists(localVersionFile))
 		return localVersionFile;
@@ -324,9 +371,13 @@ std::string Paths::findEmulationStationFile(const std::string& fileName)
 	if (Utils::FileSystem::exists(localVersionFile))
 		return localVersionFile;
 
-	localVersionFile = Utils::FileSystem::getParent(Paths::getUserEmulationStationPath()) + "/" + fileName;
-	if (Utils::FileSystem::exists(localVersionFile))
-		return localVersionFile;
+    //getParent potrebbe restituire una stringa vuota se il path è già radice o malformato
+	std::string parentUserESPath = Utils::FileSystem::getParent(Paths::getUserEmulationStationPath());
+    if (!parentUserESPath.empty()) {
+        localVersionFile = parentUserESPath + "/" + fileName;
+        if (Utils::FileSystem::exists(localVersionFile))
+            return localVersionFile;
+    }
 
 	return std::string();
 }
