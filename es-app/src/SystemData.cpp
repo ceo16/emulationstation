@@ -1122,8 +1122,6 @@ void SystemData::loadAdditionnalConfig(pugi::xml_node& srcSystems)
 // --- All'interno di SystemData::loadConfig() o funzione equivalente ---
 // Questo è l'inizio della sezione di codice che gestisce il sistema 'epicgamestore'
 
-// --- All'interno di SystemData::loadConfig() o funzione equivalente ---
-// Questo è l'inizio della sezione di codice che gestisce il sistema 'epicgamestore'
 
 LOG(LogInfo) << "[EpicDynamic] Checking/Creating Epic Games Store system in loadConfig...";
 
