@@ -766,82 +766,71 @@ if (SDL_GAMELIST_UPDATED == ((Uint32)-1)) {
             {
                 Window* windowInstance = &window; // Usa la tua istanza 'window' globale o passata
 
-                // --- GESTIONE EVENTO EPIC GAMES REFRESH ---
-                if (event.user.code == SDL_EPIC_REFRESH_COMPLETE)
-                {
-                    LOG(LogInfo) << "Main Loop: Received SDL_EPIC_REFRESH_COMPLETE event.";
-                    GuiComponent* topGuiEpic = windowInstance->peekGui();
-                    if (topGuiEpic != nullptr && dynamic_cast<GuiBusyInfoPopup*>(topGuiEpic)) {
-                        LOG(LogDebug) << "Main Loop: Closing GuiBusyInfoPopup for EPIC_REFRESH_COMPLETE.";
-                        delete topGuiEpic; // Assumendo che delete sia il modo corretto
-                    }
+                    // --- GESTIONE EVENTO EPIC GAMES (CODICE ESISTENTE) ---
+                    if (event.user.code == SDL_EPIC_REFRESH_COMPLETE)
+                    {
+                        LOG(LogInfo) << "Main Loop: Received SDL_EPIC_REFRESH_COMPLETE event.";
+                        auto* newGamesPayload = static_cast<std::vector<NewEpicGameData>*>(event.user.data1);
 
-                    auto* newGamesPayload = static_cast<std::vector<NewEpicGameData>*>(event.user.data1);
-                    SystemData* system = static_cast<SystemData*>(event.user.data2); // SystemData passato per Epic
+                        if (newGamesPayload) {
+                            if (!newGamesPayload->empty()) {
+                                LOG(LogInfo) << "Processing " << newGamesPayload->size() << " new Epic games from payload.";
+                                SystemData* system = SystemData::getSystem("epicgamestore");
+                                if (system) {
+                                    FolderData* rootFolder = system->getRootFolder();
+                                    FileFilterIndex* filterIndex = system->getFilterIndex();
+                                    if (rootFolder) {
+                                        std::vector<std::string> addedGamePathsForMetaUpdate;
+                                        addedGamePathsForMetaUpdate.reserve(newGamesPayload->size());
+                                        bool changesMade = false;
+                                        for (const auto& gameData : *newGamesPayload) {
+                                            FileData* newGame = new FileData(FileType::GAME, gameData.pseudoPath, system);
+                                            MetaDataList& mdl = newGame->getMetadata();
+                                            for (const auto& metaPair : gameData.metadataMap) { mdl.set(metaPair.first, metaPair.second); }
+                                            rootFolder->addChild(newGame);
+                                            changesMade = true;
+                                            newGame->getMetadata().setDirty();
+                                            LOG(LogDebug) << "Main Loop: Marked metadata for new game '" << newGame->getName() << "' as dirty.";
+                                            if (filterIndex) { filterIndex->addToIndex(newGame); }
+                                            addedGamePathsForMetaUpdate.push_back(gameData.pseudoPath);
+                                            LOG(LogDebug) << "Main Loop: Added new Epic game: " << gameData.pseudoPath << " (" << mdl.get(MetaDataId::Name) << ")";
+                                        } // fine ciclo for gameData Epic
+                                        if (changesMade) {
+                                            system->updateDisplayedGameCount();
+                                            if (ViewController::get()) {
+                                                LOG(LogInfo) << "Main Loop: Reloading Epic game list view.";
+                                                ViewController::get()->reloadGameListView(system); // <-- Nota: Usa 'system' qui
+                                            } else { LOG(LogWarning) << "Main Loop: ViewController not available."; }
+                                            window.displayNotificationMessage(_("LIBRERIA EPIC AGGIORNATA."));
+                                            // Trigger metadata update for Epic
+                                            EpicGamesStore* epicStore = nullptr;
+                                            GameStoreManager* gsm = GameStoreManager::get();
+                                            if (gsm) {
+                                                GameStore* store = gsm->getStore("EpicGamesStore");
+                                                if (store) { epicStore = dynamic_cast<EpicGamesStore*>(store); }
+                                            }
+                                            if (epicStore && !addedGamePathsForMetaUpdate.empty()) {
+                                                LOG(LogInfo) << "Main Loop: Triggering FULL metadata update for " << addedGamePathsForMetaUpdate.size() << " Epic games.";
+                                                epicStore->updateGamesMetadataAsync(system, addedGamePathsForMetaUpdate);
+                                            } else if (!epicStore) { LOG(LogWarning) << "Main Loop: Could not get EpicGamesStore instance."; }
+                                        } // fine if(changesMade) Epic
+                                    } else { LOG(LogError) << "Main Loop: Root folder for 'epicgamestore' is null."; }
+                                } else { LOG(LogError) << "Main Loop: Could not find SystemData for 'epicgamestore'."; }
+                            } else {
+                                LOG(LogInfo) << "Main Loop: Epic refresh completed, but no new games were added.";
+                                window.displayNotificationMessage(_("Libreria Epic: Nessun nuovo gioco trovato."));
+                            }
+                            delete newGamesPayload;
+                            event.user.data1 = nullptr;
+                        } else { LOG(LogWarning) << "Main Loop: Received SDL_EPIC_REFRESH_COMPLETE but payload (data1) was null."; }
 
-                    if (newGamesPayload && system) {
-                        if (!newGamesPayload->empty()) {
-                            LOG(LogInfo) << "Processing " << newGamesPayload->size() << " new Epic games for system '" << system->getName() << "'.";
-                            FolderData* rootFolder = system->getRootFolder();
-                            FileFilterIndex* filterIndex = system->getFilterIndex();
-                            if (rootFolder) {
-                                std::vector<std::string> addedGameIds; // Usa ID appropriato per Epic
-                                bool changesMade = false;
-                                for (const auto& gameData : *newGamesPayload) {
-                                    if (rootFolder->FindByPath(gameData.pseudoPath) != nullptr) {
-                                        LOG(LogDebug) << "Main Loop: Epic game " << gameData.pseudoPath << " already exists. Skipping.";
-                                        continue;
-                                    }
-                                    FileData* newGame = new FileData(FileType::GAME, gameData.pseudoPath, system);
-                                    MetaDataList& mdl = newGame->getMetadata();
-                                    for (const auto& metaPair : gameData.metadataMap) { mdl.set(metaPair.first, metaPair.second); }
-
-                                    // Gestione ID specifico Epic: usa il membro corretto di NewEpicGameData
-                                    // Il log errori indicava: 'app_name': non è un membro di 'NewEpicGameData'
-                                    // VERIFICA LA STRUTTURA DI NewEpicGameData e usa il campo corretto per l'ID.
-                                    // Esempio, se il campo ID è 'id' o 'appId':
-                                    // if (mdl.get(MetaDataId::EpicAppId).empty() && !gameData.id.empty()){
-                                    //     mdl.set(MetaDataId::EpicAppId, gameData.id);
-                                    //     addedGameIds.push_back(gameData.id);
-                                    // }
-                                    // PER ORA COMMENTO QUESTA PARTE SPECIFICA PER EPIC FINCHÉ NON CONFERMI I NOMI DEI MEMBRI
-                                    /*
-                                    if (mdl.get(MetaDataId::EpicAppId).empty() && !gameData.app_name.empty()){ // USA IL MEMBRO CORRETTO!
-                                        mdl.set(MetaDataId::EpicAppId, gameData.app_name); // USA IL MEMBRO CORRETTO!
-                                        addedGameIds.push_back(gameData.app_name);      // USA IL MEMBRO CORRETTO!
-                                    }
-                                    */
-
-                                    rootFolder->addChild(newGame);
-                                    changesMade = true;
-                                    newGame->getMetadata().setDirty();
-                                    if (filterIndex) { filterIndex->addToIndex(newGame); }
-                                    LOG(LogDebug) << "Main Loop: Added Epic game: " << gameData.pseudoPath << " (" << mdl.get(MetaDataId::Name) << ")";
-                                }
-
-                                if (changesMade) {
-                                    system->updateDisplayedGameCount();
-                                    if (ViewController::get()) { ViewController::get()->reloadGameListView(system); }
-                                    windowInstance->displayNotificationMessage(_("LIBRERIA EPIC AGGIORNATA."));
-
-                                    EpicGamesStore* epicStorePtr = nullptr;
-                                    GameStoreManager* gsm = GameStoreManager::get();
-                                    if (gsm) {
-                                        GameStore* store = gsm->getStore("EpicGamesStore");
-                                        if (store) { epicStorePtr = dynamic_cast<EpicGamesStore*>(store); }
-                                    }
-                                    if (epicStorePtr && !addedGameIds.empty()) { // Usa addedGameIds
-                                        LOG(LogInfo) << "Main Loop: Triggering metadata update for " << addedGameIds.size() << " Epic games.";
-                                        // epicStorePtr->updateGamesMetadataAsync(system, addedGameIds); // Adatta la firma se necessario
-                                    } else if (!epicStorePtr) { LOG(LogWarning) << "Main Loop: Could not get EpicGamesStore for metadata update."; }
-                                }
-                            } else { LOG(LogError) << "Main Loop: Root folder for Epic system null."; }
-                        } else { windowInstance->displayNotificationMessage(_("Libreria Epic: Nessun nuovo gioco.")); }
-                        delete newGamesPayload;
-                    } else { LOG(LogWarning) << "Main Loop: EPIC_REFRESH_COMPLETE with null payload or system."; if(newGamesPayload) delete newGamesPayload; }
-                    event.user.data1 = nullptr;
-                    event.user.data2 = nullptr; // Assicurati di pulire anche data2 se usato
-                } // --- FINE GESTIONE EVENTO EPIC GAMES REFRESH ---
+                        // Chiudi GuiBusyInfoPopup per Epic
+                        GuiComponent* topGui = window.peekGui();
+                        if (topGui != nullptr && dynamic_cast<GuiBusyInfoPopup*>(topGui)) {
+                            LOG(LogDebug) << "Main Loop: Closing GuiBusyInfoPopup after processing EPIC_REFRESH_COMPLETE.";
+                            delete topGui;
+                        }
+                    } // --- FINE GESTIONE EVENTO EPIC GAMES ---
 
                 // --- GESTIONE EVENTO XBOX REFRESH ---
                 else if (event.user.code == SDL_XBOX_REFRESH_COMPLETE)
