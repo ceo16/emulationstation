@@ -547,18 +547,20 @@ int main(int argc, char* argv[])
 	Scripting::fireEvent("start");
 
 	// metadata init
+	if (!HttpReq::initializeGlobal()) {
+        LOG(LogError) << "Inizializzazione globale di HttpReq/libcurl FALLITA!";
+        // Considera di terminare se questo fallisce
+    }
 	HttpReq::resetCookies();
 	Genres::init();
 	MetaDataList::initMetadata();
 
 	Window window;
 	SystemScreenSaver screensaver(&window);
-	GameStoreManager::get()->initAllStores(&window); 
     ViewController::init(&window);
 	LOG(LogDebug) << "main - ViewController::init() called (ViewController address: " << ViewController::get() << ")";
 	CollectionSystemManager::init(&window);
   LOG(LogDebug) << "main - CollectionSystemManager::init() called";
-
   VideoVlcComponent::init();
   LOG(LogDebug) << "main - VideoVlcComponent::init() called";
 
@@ -614,13 +616,12 @@ if (SDL_GAMELIST_UPDATED == ((Uint32)-1)) {
 
 		window.renderSplashScreen(progressText);
 	}
-    NetworkThread* nthread = new NetworkThread(&window);
-	 std::function<void(const std::string&)> dummySetStateCallback = [](const std::string& state) {
-  // Do nothing or log if needed
-  };
+
 
 	MameNames::init();
-	HttpServerThread httpServer(&window, dummySetStateCallback); // 
+		NetworkThread* nthread = new NetworkThread(&window);
+    HttpServerThread httpServer(&window); 
+	GameStoreManager::getInstance(&window)->initAllStores(); 
 	
 	const char* errorMsg = NULL;
 	if(!loadSystemConfigFile(splashScreen && splashScreenProgress ? &window : nullptr, &errorMsg))
@@ -804,7 +805,7 @@ if (SDL_GAMELIST_UPDATED == ((Uint32)-1)) {
                                             window.displayNotificationMessage(_("LIBRERIA EPIC AGGIORNATA."));
                                             // Trigger metadata update for Epic
                                             EpicGamesStore* epicStore = nullptr;
-                                            GameStoreManager* gsm = GameStoreManager::get();
+                                            GameStoreManager* gsm = GameStoreManager::getInstance(nullptr); 
                                             if (gsm) {
                                                 GameStore* store = gsm->getStore("EpicGamesStore");
                                                 if (store) { epicStore = dynamic_cast<EpicGamesStore*>(store); }
@@ -876,7 +877,7 @@ if (SDL_GAMELIST_UPDATED == ((Uint32)-1)) {
                                     if (ViewController::get()) { ViewController::get()->reloadGameListView(system); }
                                     windowInstance->displayNotificationMessage(_("LIBRERIA XBOX AGGIORNATA."));
                                     XboxStore* xboxStorePtr = nullptr;
-                                    GameStoreManager* gsm = GameStoreManager::get();
+                                    GameStoreManager* gsm = GameStoreManager::getInstance(nullptr); 
                                     if (gsm) {
                                         GameStore* store = gsm->getStore("XboxStore");
                                         if (store) { xboxStorePtr = dynamic_cast<XboxStore*>(store); }
@@ -1007,7 +1008,7 @@ if (SDL_GAMELIST_UPDATED == ((Uint32)-1)) {
                                     if (ViewController::get()) { ViewController::get()->reloadGameListView(system); }
                                     windowInstance->displayNotificationMessage(_("LIBRERIA STEAM AGGIORNATA."));
                                     SteamStore* steamStorePtr = nullptr;
-                                    GameStoreManager* gsm = GameStoreManager::get();
+                                    GameStoreManager* gsm = GameStoreManager::getInstance(nullptr); 
                                     if (gsm) {
                                         GameStore* store = gsm->getStore("SteamStore"); // Usa il nome corretto
                                         if (store) { steamStorePtr = dynamic_cast<SteamStore*>(store); }

@@ -471,7 +471,7 @@ XboxScraper::XboxScraper() {
 }
 
 ::XboxStoreAPI* XboxScraper::getXboxApi() { 
-    ::GameStoreManager* gsm = ::GameStoreManager::get(); 
+    GameStoreManager* gsm = GameStoreManager::getInstance(nullptr);  
     if (gsm) {
         GameStore* store = gsm->getStore("XboxStore"); 
         if (store) {

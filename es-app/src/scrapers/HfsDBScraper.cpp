@@ -13,6 +13,7 @@
 #include "Genres.h"
 #include "SystemConf.h"
 #include "ApiSystem.h"
+#include "services/httplib.h"
 
 #include <rapidjson/document.h>
 #include <rapidjson/error/en.h>
@@ -20,11 +21,11 @@
 using namespace PlatformIds;
 using namespace rapidjson;
 
-namespace httplib { namespace detail { extern std::string base64_encode(const std::string &in); } } // see declaration in httplib.h
+//namespace httplib { namespace detail { extern std::string base64_encode(const std::string &in); } } // see declaration in httplib.h
 
 const std::map<PlatformId, std::string> hfsdb_platformids
 { 
-	{ ARCADE, "29794" }, // Has special filtering
+	{ ARCADE, "29794" }, // Has special filterin
 	{ TEKNOPARROT, "29794" },
 
 	{ THREEDO, "82826" },

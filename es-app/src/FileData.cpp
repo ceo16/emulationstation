@@ -148,17 +148,19 @@ FileData::~FileData()
 		mSystem->removeFromIndex(this);
 }
 
-std::string& FileData::getDisplayName()
+const std::string& FileData::getDisplayName() const
 {
 	if (mDisplayName == nullptr)
 	{
-		std::string stem = Utils::FileSystem::getStem(getPath());
-		if (mSystem && (mSystem->hasPlatformId(PlatformIds::ARCADE) || mSystem->hasPlatformId(PlatformIds::NEOGEO)))
+		std::string stem = Utils::FileSystem::getStem(getPath()); // getPath() DEVE essere const
+		if (mSystem && (mSystem->hasPlatformId(PlatformIds::ARCADE) || mSystem->hasPlatformId(PlatformIds::NEOGEO))) // mSystem->hasPlatformId() DEVE essere const
 			stem = MameNames::getInstance()->getRealName(stem);
-
-		mDisplayName = new std::string(stem);
+		
+		// Questa assegnazione è permessa perché:
+		// 1. Il metodo getDisplayName() è const.
+		// 2. mDisplayName è dichiarato 'mutable'.
+		mDisplayName = new std::string(stem); 
 	}
-
 	return *mDisplayName;
 }
 
@@ -323,7 +325,7 @@ void FileData::resetSettings()
 	
 }
 
-const std::string& FileData::getName()
+const std::string& FileData::getName() const
 {
 	if (mSystem != nullptr && mSystem->getShowFilenames())
 		return getDisplayName();
@@ -847,7 +849,7 @@ bool FileData::launchGame(Window* window, LaunchGameOptions options)
             // 'isVirtual' è dichiarata qui e usata nello scope sottostante.
             bool isVirtualXboxGame = metadata.get(MetaDataId::Virtual) == "true"; // Variabile con scope locale al blocco Xbox
             if (!isVirtualXboxGame) { // Installed game
-                GameStoreManager* gsm = GameStoreManager::get();
+                GameStoreManager* gsm = GameStoreManager::getInstance(nullptr); 
                 XboxStore* xboxStore = nullptr;
                 if (gsm) {
                     GameStore* baseStore = gsm->getStore("XboxStore");
@@ -1149,6 +1151,22 @@ std::string CollectionFileData::getKey()
 FileData* CollectionFileData::getSourceFileData()
 {
 	return mSourceFileData;
+}
+
+const std::string& CollectionFileData::getDisplayName() const
+{
+    // Delegates to the source file data's getDisplayName method
+    if (mSourceFileData) { // Add a check for null, though typically it should be valid
+        return mSourceFileData->getDisplayName();
+    }
+    // Fallback or error handling if mSourceFileData is null, though typically not expected
+    // For now, assuming mSourceFileData is always valid as per other methods.
+    // If it can be null, a more robust fallback (like returning an empty static string) would be needed.
+    // However, to match the style of other accessors, direct delegation is common.
+    // Re-accessing mMetadata.getName() or mMetadata.get(MetaDataId::Name) if mSourceFileData is null
+    // might be an option, but mSourceFileData->getDisplayName() is the most direct approach.
+    // Let's stick to direct delegation as per the class design.
+    return mSourceFileData->getDisplayName(); 
 }
 
 const std::string& CollectionFileData::getName()

@@ -134,6 +134,7 @@ set(CORE_HEADERS
 	${CMAKE_CURRENT_SOURCE_DIR}/src/utils/VectorEx.h
 	${CMAKE_CURRENT_SOURCE_DIR}/src/utils/HtmlColor.h
 	${CMAKE_CURRENT_SOURCE_DIR}/src/utils/base64.h
+	${CMAKE_CURRENT_SOURCE_DIR}/src/utils/Crypto.h
 
 	# Watchers
 	${CMAKE_CURRENT_SOURCE_DIR}/src/watchers/WatchersManager.h
@@ -265,6 +266,7 @@ set(CORE_SOURCES
 	${CMAKE_CURRENT_SOURCE_DIR}/src/utils/Randomizer.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/src/utils/HtmlColor.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/src/utils/base64.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/src/utils/Crypto.cpp
 
 	# Watchers
 	${CMAKE_CURRENT_SOURCE_DIR}/src/watchers/WatchersManager.cpp

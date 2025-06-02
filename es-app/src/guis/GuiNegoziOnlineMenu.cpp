@@ -3,6 +3,8 @@
 #include "LocaleES.h" // Per _()
 #include "guis/GuiMsgBox.h"
 // GameStoreManager.h è già incluso tramite GuiNegoziOnlineMenu.h
+#include "GameStore/EAGames/EAGamesStore.h" 
+#include "guis/GuiWebViewAuthLogin.h"
 
 GuiNegoziOnlineMenu::GuiNegoziOnlineMenu(Window* window) :
     GuiComponent(window),
@@ -33,27 +35,92 @@ void GuiNegoziOnlineMenu::loadMenuEntries()
 
     // Voce per EPIC GAMES STORE
     mMenu.addEntry(_("EPIC GAMES STORE"), true, [this] {
-        GameStoreManager::get()->getStore("EpicGamesStore")->showStoreUI(mWindow);
-        // delete this; // Opzionale, come sopra
-    }, "iconGames"); // Usa un'icona appropriata se disponibile
+        // CORREZIONE: Usa getInstance(mWindow)
+        GameStoreManager* gsm = GameStoreManager::getInstance(mWindow); 
+        if (gsm) { // Controlla sempre se l'istanza è valida
+            GameStore* store = gsm->getStore("EpicGamesStore");
+            if (store) {
+                store->showStoreUI(mWindow);
+            } else {
+                LOG(LogError) << "EpicGamesStore non trovato nel GameStoreManager!";
+                // Mostra messaggio di errore
+            }
+        }
+    }, "iconGames"); 
 
       mMenu.addEntry(_("STEAM STORE"), true, [this] {
-        if (GameStoreManager::get()->getStore("SteamStore")) { // Controlla se lo store è registrato
-            GameStoreManager::get()->getStore("SteamStore")->showStoreUI(mWindow);
-        } else {
-            LOG(LogError) << "SteamStore non registrato nel GameStoreManager!";
-            mWindow->pushGui(new GuiMsgBox(mWindow, _("ERRORE"), _("STEAM STORE NON ANCORA IMPLEMENTATO CORRETTAMENTE.")));
+        // CORREZIONE: Usa getInstance(mWindow)
+        GameStoreManager* gsm = GameStoreManager::getInstance(mWindow);
+        if (gsm) {
+            GameStore* store = gsm->getStore("SteamStore");
+            if (store) { 
+                store->showStoreUI(mWindow);
+            } else {
+                LOG(LogError) << "SteamStore non registrato nel GameStoreManager!";
+                mWindow->pushGui(new GuiMsgBox(mWindow, _("ERRORE"), _("STEAM STORE NON ANCORA IMPLEMENTATO CORRETTAMENTE.")));
+            }
         }
-    }, "iconGames"); // TODO: Aggiungi un'icona per Steam (es. "iconSteam")
-	      mMenu.addEntry(_("XBOX STORE"), true, [this] {
-        if (GameStoreManager::get()->getStore("XboxStore")) { // Controlla se lo store è registrato
-            GameStoreManager::get()->getStore("XboxStore")->showStoreUI(mWindow);
-        } else {
-            LOG(LogError) << "XboxStore non registrato nel GameStoreManager!";
-            mWindow->pushGui(new GuiMsgBox(mWindow, _("ERRORE"), _("XBOX STORE NON ANCORA IMPLEMENTATO CORRETTAMENTE.")));
+    }, "iconGames"); 
+   mMenu.addEntry(_("XBOX STORE"), true, [this] {
+        // CORREZIONE: Usa getInstance(mWindow)
+        GameStoreManager* gsm = GameStoreManager::getInstance(mWindow);
+        if (gsm) {
+            GameStore* store = gsm->getStore("XboxStore");
+            if (store) { 
+                store->showStoreUI(mWindow);
+            } else {
+                LOG(LogError) << "XboxStore non registrato nel GameStoreManager!";
+                mWindow->pushGui(new GuiMsgBox(mWindow, _("ERRORE"), _("XBOX STORE NON ANCORA IMPLEMENTATO CORRETTAMENTE.")));
+            }
         }
+    // La parentesi graffa di chiusura della lambda per XBOX STORE è qui
     }, "iconGames");
+	
+mMenu.addEntry("APRI PAGINA TEST WEBVIEW", true, [this] {
+    std::string testUrl = "https://www.google.com"; 
+    std::string storeIdentifier = "TestWebView";
+    
+    // DICHIARA dummyRedirectPrefix QUI
+    std::string dummyRedirectPrefix = ""; // Puoi usare una stringa vuota se non ti serve un prefisso specifico per il test di Google
 
+    LOG(LogInfo) << "Tentativo di aprire la pagina di test WebView: " << testUrl;
+
+    // Ora la chiamata al costruttore con 4 argomenti è corretta
+    GuiWebViewAuthLogin* webViewTestGui = new GuiWebViewAuthLogin(mWindow, testUrl, storeIdentifier, dummyRedirectPrefix); 
+    
+    webViewTestGui->setOnLoginFinishedCallback([this, storeIdentifier](bool success, const std::string& dataOrError) {
+        LOG(LogInfo) << "Callback dalla WebView (" << storeIdentifier << "): Successo - " << (success ? "Si" : "No") << ", Dati/Errore: " << dataOrError;
+        
+        std::string titleText = _("RISULTATO TEST WEBVIEW"); 
+        std::string bodyText = storeIdentifier + ": " + (success ? "Token/Dati: " : "Errore: ") + dataOrError;
+        std::string fullMessageText = titleText + "\n\n" + bodyText;
+
+        mWindow->pushGui(new GuiMsgBox(mWindow, 
+            fullMessageText, 
+            _("OK"), 
+            nullptr, 
+            GuiMsgBoxIcon::ICON_INFORMATION 
+        ));
+    });
+    
+    mWindow->pushGui(webViewTestGui); 
+    webViewTestGui->init(); 
+});
+    
+
+mMenu.addEntry(_("EA GAME STORE"), true, [this] {
+    GameStoreManager* gsm = GameStoreManager::getInstance(mWindow);
+    if (gsm) {
+        // USA LA COSTANTE STORE_ID PER RECUPERARE
+        GameStore* store = gsm->getStore(EAGamesStore::STORE_ID); 
+        if (store) { 
+            store->showStoreUI(mWindow);
+        } else {
+            LOG(LogError) << "EAGamesStore con ID '" << EAGamesStore::STORE_ID << "' non registrato nel GameStoreManager!";
+            mWindow->pushGui(new GuiMsgBox(mWindow, _("ERRORE"), _("EAGame STORE NON ANCORA IMPLEMENTATO CORRETTAMENTE.")));
+        }
+    }
+}, "iconGames");
     // Aggiungi un'opzione per chiudere questo sottomenu
     mMenu.addEntry(_("CHIUDI"), false, [this] { // "CLOSE"
         delete this;

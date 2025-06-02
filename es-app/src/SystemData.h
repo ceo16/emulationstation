@@ -83,7 +83,7 @@ private:
 class SystemData : public IKeyboardMapContainer, public IBindable
 {
 public:
-    SystemData(const SystemMetadata& type, SystemEnvironmentData* envData, std::vector<EmulatorData>* pEmulators, bool CollectionSystem = false, bool groupedSystem = false, bool withTheme = true, bool loadThemeOnlyIfElements = false);
+    SystemData(const SystemMetadata& type, SystemEnvironmentData* envData, std::vector<EmulatorData>* pEmulators, bool CollectionSystem = false, bool groupedSystem = false, bool withTheme = true, bool loadThemeOnlyIfElements = false, bool isItAStoreSystem = false);
 	~SystemData();
 
 	static SystemData* getSystem(const std::string name);
@@ -102,6 +102,7 @@ public:
 	 void populateEpicGamesVirtual(EpicGamesStoreAPI* epicApi, const std::map<std::string, std::string>& existingNames); // << ASSICURATI CHE SIA COSI'
        void populateSteamVirtual(SystemData* system); // Add this line!
 	   static const std::string VIRTUAL_EPIC_PREFIX; 
+	    bool isStoreSystem() const; // Aggiungi questo
 
 	inline const std::shared_ptr<ThemeData>& getTheme() const { return mTheme; }
 
@@ -245,7 +246,7 @@ private:
 	bool mIsCollectionSystem;
 	bool mIsGameSystem;
 	bool mIsGroupSystem;
-
+    bool mIsStoreSystem;
 	int mIsCheevosSupported;
 
 	SystemMetadata mMetadata;

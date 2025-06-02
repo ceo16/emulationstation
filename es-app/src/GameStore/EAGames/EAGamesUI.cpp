@@ -1,0 +1,293 @@
+// emulationstation-master/es-app/src/GameStore/EAGames/EAGamesUI.cpp
+#include "GameStore/EAGames/EAGamesUI.h" 
+#include "GameStore/EAGames/EAGamesStore.h"
+#include "GameStore/GameStoreManager.h"
+
+#include "Window.h"
+#include "components/ButtonComponent.h"
+#include "components/TextComponent.h"
+#include "components/MenuComponent.h"
+#include "components/NinePatchComponent.h"
+#include "components/ComponentGrid.h" 
+#include "guis/GuiMsgBox.h"
+#include "guis/GuiInfoPopup.h"
+#include "LocaleES.h"
+#include "Settings.h"
+#include "Log.h" 
+#include "ApiSystem.h"
+#include "views/ViewController.h" 
+#include "SystemData.h"     
+
+// Assicurati che EAGamesStore::STORE_ID sia definito in EAGamesStore.cpp come:
+// const std::string EAGamesStore::STORE_ID = "EAGamesStore"; 
+// E che GameStoreManager.cpp registri lo store usando questa costante:
+// mStores[EAGamesStore::STORE_ID] = new EAGamesStore(mWindow);
+
+EAGamesUI::EAGamesUI(Window* window) : GuiComponent(window),
+    mBackground(window, ":/frame.png"), 
+    mGrid(window, Vector2i(1, 3)),
+    mStore(nullptr)
+{
+    LOG(LogInfo) << "EAGamesUI: Constructor called."; // Log generico per vedere se il costruttore parte
+    LOG(LogDebug) << "EAGamesUI: Attempting to get store with ID: '" << EAGamesStore::STORE_ID << "'";
+    GameStore* storeBase = GameStoreManager::getInstance(mWindow)->getStore(EAGamesStore::STORE_ID);
+    LOG(LogDebug) << "EAGamesUI: storeBase pointer from getStore: " << storeBase; // VEDIAMO QUESTO
+
+    if (storeBase) {
+        mStore = dynamic_cast<EAGamesStore*>(storeBase);
+        LOG(LogDebug) << "EAGamesUI: mStore pointer after dynamic_cast: " << mStore; // E QUESTO
+    } else {
+        mStore = nullptr; 
+        LOG(LogWarning) << "EAGamesUI: getStore returned nullptr for ID: '" << EAGamesStore::STORE_ID << "'";
+    }
+
+    if (!mStore) {
+        LOG(LogError) << "EAGamesUI: mStore is NULL. EAGamesStore not found or dynamic_cast failed. STORE_ID used: '" << EAGamesStore::STORE_ID << "'. Value of storeBase was: " << storeBase;
+        // ... resto della UI di errore ...
+        setSize(Renderer::getScreenWidth() * 0.6f, Renderer::getScreenHeight() * 0.4f);
+        setPosition((Renderer::getScreenWidth() - mSize.x()) / 2, (Renderer::getScreenHeight() - mSize.y()) / 2);
+        addChild(&mBackground); 
+        mGrid.clearChildren(); 
+        mTitle = std::make_shared<TextComponent>(mWindow, _("EA STORE ERROR"), Font::get(FONT_SIZE_MEDIUM), 0xFF0000FF, ALIGN_CENTER);
+        mGrid.setEntry(mTitle, Vector2i(0,0),false,true);
+        auto errMsg = std::make_shared<TextComponent>(mWindow, _("EA Store module not loaded correctly."), Font::get(FONT_SIZE_SMALL), 0xAAAAAAFF, ALIGN_CENTER);
+        mGrid.setEntry(errMsg, Vector2i(0,1),false,true);
+        auto okBtn = std::make_shared<ButtonComponent>(mWindow, _("OK"), _("DISMISS"), [this] { delete this; });
+        mGrid.setEntry(okBtn, Vector2i(0,2),true,true, Vector2i(1,1), GridFlags::BORDER_TOP); 
+        addChild(&mGrid); 
+        mGrid.setSize(mSize);
+        mGrid.setRowHeightPerc(0, 0.3f); 
+        mGrid.setRowHeightPerc(1, 0.4f);
+        mGrid.setRowHeightPerc(2, 0.3f);
+        return;
+    }
+
+    // Setup UI normale (come prima)
+    float width = Renderer::getScreenWidth() * 0.8f;
+    float height = Renderer::getScreenHeight() * 0.7f;
+    setSize(width, height);
+    setPosition((Renderer::getScreenWidth() - mSize.x()) / 2, (Renderer::getScreenHeight() - mSize.y()) / 2);
+
+    addChild(&mBackground);
+    addChild(&mGrid);
+
+    mTitle = std::make_shared<TextComponent>(mWindow, _("EA GAMES STORE"), Font::get(FONT_SIZE_LARGE), 0x555555FF, ALIGN_CENTER);
+    mGrid.setEntry(mTitle, Vector2i(0, 0), false, true, Vector2i(1,1), GridFlags::BORDER_BOTTOM);
+
+    mMenu = std::make_shared<MenuComponent>(mWindow, "");
+    mGrid.setEntry(mMenu, Vector2i(0, 1), true, true);
+
+    mVersionInfo = std::make_shared<TextComponent>(mWindow, "", Font::get(FONT_SIZE_SMALL), 0x777777FF, ALIGN_CENTER);
+    mGrid.setEntry(mVersionInfo, Vector2i(0, 2), false, true, Vector2i(1,1), GridFlags::BORDER_TOP);
+    
+    mGrid.setRowHeightPerc(0, 0.15f);
+    mGrid.setRowHeightPerc(1, 0.75f);
+    mGrid.setRowHeightPerc(2, 0.10f);
+
+    buildMenu();
+}
+
+// ... (il resto del file EAGamesUI.cpp rimane invariato rispetto alla v10/ultima versione corretta per la compilazione) ...
+
+void EAGamesUI::onSizeChanged()
+{
+    mBackground.fitTo(mSize, Vector3f::Zero(), Vector2f(-32, -32));
+    mGrid.setSize(mSize);
+}
+
+void EAGamesUI::buildMenu()
+{
+    if (!mStore) return; 
+
+    mMenu->clear();
+
+    if (mStore->IsUserLoggedIn()) 
+    {
+        mVersionInfo->setText(_("LOGGED IN TO EA ACCOUNT")); 
+        mVersionInfo->setColor(0x00C000FF);
+
+        mMenu->addEntry(_("LOGOUT"), true, [this]() {
+            this->processLogout(); 
+        });
+
+        mMenu->addEntry(_("REFRESH EA GAME LIST"), true, [this]() {
+            this->processImportGames(); 
+        });
+    }
+    else
+    {
+        mVersionInfo->setText(_("NOT LOGGED IN"));
+        mVersionInfo->setColor(0xC00000FF);
+
+        mMenu->addEntry(_("LOGIN TO EA ACCOUNT"), true, [this]() {
+            this->processStartLoginFlow(); 
+        });
+    }
+
+    mMenu->addEntry(_("BACK"), true, [this]() {
+        delete this; 
+    });
+}
+
+void EAGamesUI::processStartLoginFlow()
+{
+    if (!this->mStore) return;
+
+    GuiInfoPopup* waitPopup = new GuiInfoPopup(this->mWindow, _("Initiating EA Login..."), 10000);
+    this->mWindow->pushGui(waitPopup);
+
+    this->mStore->StartLoginFlow([this, waitPopup](bool success, const std::string& message) {
+        if (this->mWindow->peekGui() == waitPopup) {
+             delete waitPopup;
+        }
+        this->onLoginFinished(success, message);
+    });
+}
+
+void EAGamesUI::onLoginFinished(bool success, const std::string& message)
+{
+    std::string finalMessage = message;
+    if (message.empty()) {
+        finalMessage = success ? _("Login process completed successfully.") : _("Login process failed or was cancelled.");
+    }
+    
+    this->mWindow->pushGui(new GuiMsgBox(this->mWindow, finalMessage, std::string(_("OK")), nullptr));
+    
+    this->buildMenu(); 
+}
+
+void EAGamesUI::processLogout()
+{
+    if (!this->mStore) return;
+    this->mStore->Logout(); 
+    this->mWindow->pushGui(new GuiMsgBox(this->mWindow, _("You have been logged out."), std::string(_("OK")), nullptr));
+    this->buildMenu();
+}
+
+void EAGamesUI::processImportGames()
+{
+    if (!this->mStore) return;
+    if (!this->mStore->IsUserLoggedIn()) { 
+        this->mWindow->pushGui(new GuiMsgBox(this->mWindow, _("YOU NEED TO BE LOGGED IN TO IMPORT GAMES."), std::string(_("OK")), nullptr));
+        return;
+    }
+    
+    GuiInfoPopup* waitPopup = new GuiInfoPopup(this->mWindow, _("Syncing EA games... This may take a while."), 180000);
+    this->mWindow->pushGui(waitPopup);
+
+    this->mStore->SyncGames([this, waitPopup](bool success) { 
+        if (waitPopup) { delete waitPopup; }
+        
+        std::string msg = success ? _("EA Games synced successfully!") : _("Failed to sync EA Games.");
+        this->onImportGamesFinished(success, msg);
+    });
+}
+
+void EAGamesUI::onImportGamesFinished(bool success, const std::string& message)
+{
+    this->mWindow->pushGui(new GuiMsgBox(this->mWindow, message, std::string(_("OK")), nullptr));
+
+    if (success) {
+        SystemData* eaSystem = SystemData::getSystem(EAGamesStore::STORE_ID);
+        // mStore è un membro di EAGamesUI e dovrebbe essere valido qui 
+        // se processImportGames è stato chiamato e SyncGames ha avuto successo.
+        if (eaSystem && mStore) { 
+            FolderData* root = eaSystem->getRootFolder();
+            if (root) {
+                LOG(LogInfo) << "EAGamesUI: Clearing and repopulating EA system's root folder with synced games.";
+
+                // 1. Pulisci i vecchi giochi EA dal root folder e resetta l'indice dei filtri.
+                //    Itera sui figli e rimuovi solo quelli specifici di EA per sicurezza.
+                //    La gestione della memoria è cruciale qui.
+                auto currentChildren = root->getChildren(); // Copia per iterazione sicura
+                std::vector<FileData*> childrenToRemove;
+                for (FileData* child : currentChildren) {
+                    // Identifica i giochi EA (es. tramite path o un metadato)
+                    // Assumiamo che i giochi EA abbiano un path che inizia con "ea://" come definito in processAndCacheGames.
+                    if (Utils::String::startsWith(child->getPath(), "ea://")) { 
+                        childrenToRemove.push_back(child);
+                    }
+                }
+                for (FileData* childToRemove : childrenToRemove) {
+                    root->removeChild(childToRemove); 
+                    // NON chiamare 'delete childToRemove' qui, perché EAGamesStore 
+                    // gestisce la memoria di questi FileData* tramite mCachedGameFileDatas (unique_ptr).
+                }
+                
+                // Correzione per Errore 1: Usa il metodo pubblico per resettare l'indice
+                eaSystem->deleteIndex(); 
+
+                // 2. Ottieni la lista aggiornata dei giochi da EAGamesStore
+                std::vector<FileData*> gamesFromStore = mStore->getGamesList(); 
+                LOG(LogInfo) << "EAGamesUI: Adding " << gamesFromStore.size() << " games from EAGamesStore to EA system's root folder.";
+
+                // 3. Aggiungi i nuovi FileData* al root folder.
+                for (FileData* game : gamesFromStore) {
+                    // game->getSystem() dovrebbe già essere 'eaSystem'.
+                    // Il 'false' in addChild indica a FolderData di NON prendere la proprietà
+                    // della memoria, dato che EAGamesStore (unique_ptr) la gestisce.
+                    if (game->getParent() == nullptr || game->getParent() == root) { // Evita di aggiungere se ha già un altro parent
+                        root->addChild(game, false); 
+                    } else {
+                        LOG(LogWarning) << "EAGamesUI: Game " << game->getName() << " (" << game->getPath() << ") already has a different parent. Not adding to EA root.";
+                    }
+                }
+                
+                // 4. Aggiorna il conteggio dei giochi visualizzati per il sistema.
+                eaSystem->updateDisplayedGameCount(); 
+            } else {
+                LOG(LogError) << "EAGamesUI: Root folder for EA system is null.";
+            }
+            
+            LOG(LogInfo) << "EAGamesUI: Reloading and navigating to EA game list view.";
+            // Correzione per Errore 2: Usa la chiamata a un argomento se quella a due dà problemi.
+            ViewController::get()->reloadGameListView(eaSystem); 
+            ViewController::get()->goToGameList(eaSystem);       
+
+        } else {
+            if (!eaSystem) {
+                LOG(LogWarning) << "EAGamesUI: System '" << EAGamesStore::STORE_ID << "' not found after sync. Cannot update view specifically. Reloading all views.";
+            }
+            if (!mStore) { // Questo controllo è più per scrupolo, mStore dovrebbe essere valido.
+                 LOG(LogError) << "EAGamesUI: mStore (EAGamesStore instance) is null in onImportGamesFinished. Cannot get game list.";
+            }
+            ViewController::get()->reloadAll(this->mWindow); 
+        }
+    }
+}
+bool EAGamesUI::input(InputConfig* config, Input input)
+{
+    if (!mStore && mMenu == nullptr) { 
+         if (mGrid.input(config, input)) { 
+             return true;
+         }
+         return GuiComponent::input(config, input);
+    }
+
+    if (mMenu && mMenu->input(config, input)) {
+        return true;
+    }
+
+    if (input.value != 0 && config->isMappedTo("b", input)) {
+        delete this; 
+        return true;
+    }
+    return GuiComponent::input(config, input);
+}
+
+std::vector<HelpPrompt> EAGamesUI::getHelpPrompts()
+{
+    std::vector<HelpPrompt> final_prompts; 
+
+    if (!mStore && mMenu == nullptr) { 
+        final_prompts.push_back(HelpPrompt("a", _("DISMISS"))); 
+        return final_prompts;
+    }
+    
+    if (mMenu) {
+        final_prompts = mMenu->getHelpPrompts();
+    }
+    
+    final_prompts.push_back(HelpPrompt("b", _("BACK")));
+    return final_prompts;
+}

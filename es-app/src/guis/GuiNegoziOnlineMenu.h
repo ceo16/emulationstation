@@ -6,7 +6,7 @@
 #include "GuiComponent.h"
 #include "components/MenuComponent.h"
 #include "Window.h"
-#include "GameStore/EpicGames/GameStoreManager.h" // Assumendo il percorso corretto
+#include "GameStore/GameStoreManager.h" // Assumendo il percorso corretto
 
 class GuiNegoziOnlineMenu : public GuiComponent
 {

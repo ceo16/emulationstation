@@ -29,7 +29,8 @@ static bool isPathActuallyVirtual(const std::string& path) {
            Utils::String::startsWith(path, "steam:/") ||   // Assicurati che i tuoi prefissi reali siano "steam://" vs "steam:/"
            Utils::String::startsWith(path, "xbox_online_prodid:/") ||
            Utils::String::startsWith(path, "xbox_online_pfn:/") ||
-           Utils::String::startsWith(path, "xbox:/pfn/"); // Se usi anche questo formato generale
+           Utils::String::startsWith(path, "xbox:/pfn/") || // Se usi anche questo formato generale
+		   Utils::String::startsWith(path, "ea:/");      // <<< ADD THIS LINE
 }
 
 FileData* findOrCreateFile(SystemData* system, const std::string& path, FileType type, std::unordered_map<std::string, FileData*>& fileMap)
@@ -41,7 +42,8 @@ FileData* findOrCreateFile(SystemData* system, const std::string& path, FileType
         Utils::String::startsWith(path, "steam:/") ||        // Assumi "steam://"
         Utils::String::startsWith(path, "xbox_online_prodid:/") ||  // CORRETTO DAL LOG
         Utils::String::startsWith(path, "xbox_online_pfn:/") ||    // CORRETTO DAL LOG (presumendo stesso formato)
-        Utils::String::startsWith(path, "xbox:/pfn/"))      // Altro formato virtuale Xbox, se usato
+        Utils::String::startsWith(path, "xbox:/pfn/")  ||    // Altro formato virtuale Xbox, se usato
+		Utils::String::startsWith(path, "ea:/"))   // <<< ADD THIS LINE (adjust prefix if different)
     {
         LOG(LogDebug) << "findOrCreateFile: Handling VIRTUAL path for system '" << system->getName() << "': " << path;
         FolderData* rootCheck = system->getRootFolder();
@@ -690,7 +692,8 @@ void updateGamelist(SystemData* system)
                 Utils::String::startsWith(nodePathText, "steam:/") ||
                 Utils::String::startsWith(nodePathText, "xbox_online_prodid:/") ||
                 Utils::String::startsWith(nodePathText, "xbox_online_pfn:/") ||
-                Utils::String::startsWith(nodePathText, "xbox:/")) // General Xbox virtual path
+                Utils::String::startsWith(nodePathText, "xbox:/") || // General Xbox virtual path
+				Utils::String::startsWith(nodePathText, "ea:/"))   // <<< ADD THIS
             {
                 lookupPath = nodePathText; // Use the raw path for all known virtual prefixes
             } else {
@@ -715,7 +718,8 @@ void updateGamelist(SystemData* system)
             Utils::String::startsWith(currentFilePath, "steam:/") ||
             Utils::String::startsWith(currentFilePath, "xbox_online_prodid:/") ||
             Utils::String::startsWith(currentFilePath, "xbox_online_pfn:/") ||
-            Utils::String::startsWith(currentFilePath, "xbox:/")) // General Xbox virtual path
+            Utils::String::startsWith(currentFilePath, "xbox:/") || // General Xbox virtual path
+			Utils::String::startsWith(currentFilePath, "ea:/"))  // <<< ADD THIS
         {
             lookupKey = currentFilePath; // Use the raw path for all known virtual prefixes
         } else {

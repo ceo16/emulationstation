@@ -1,122 +1,122 @@
+// emulationstation-master/es-app/src/GameStore/GameStoreManager.cpp
 #include "GameStore/GameStoreManager.h"
 #include "GameStore/EpicGames/EpicGamesStore.h"
-#include "GameStore/EpicGames/PlaceholderStore.h"
-#include "GameStore/EpicGames/EpicGamesStore.h" // Includi EpicGamesStore
 #include "GameStore/Steam/SteamStore.h"
-#include "guis/GuiMenu.h"
-#include "Log.h"
-#include "Window.h"
 #include "GameStore/Xbox/XboxStore.h"
-#include "GameStore/Xbox/XboxAuth.h"
+#include "GameStore/EAGames/EAGamesStore.h" // Includi per la definizione completa
 
+#include "GameStore/EpicGames/EpicGamesAuth.h" 
+#include "GameStore/Steam/SteamAuth.h"       
+#include "GameStore/Xbox/XboxAuth.h"         
+// EAGamesAuth è gestito internamente da EAGamesStore
+
+#include "guis/GuiMenu.h" // Necessario per GuiMenu::openQuitMenu_static (se showStoreSelectionUI usa una logica simile)
+#include "Log.h"
+#include "Window.h"       
+#include "Settings.h"     
+// #include "HttpReq.h" // Non più necessario per HttpReq::Manager
+
+// CORREZIONE: Definizione di sInstance
 GameStoreManager* GameStoreManager::sInstance = nullptr;
 
-GameStoreManager* GameStoreManager::get() {
-    if (!sInstance) {
-        sInstance = new GameStoreManager(nullptr); // Back to simpler constructor
+// CORREZIONE: Implementazione di getInstance
+GameStoreManager* GameStoreManager::getInstance(Window* window) {
+    if (sInstance == nullptr) {
+        if (window == nullptr && sInstance == nullptr) { 
+            LOG(LogError) << "GameStoreManager::getInstance chiamato per la prima volta con window nullptr!";
+            return nullptr; 
+        }
+        sInstance = new GameStoreManager(window);
     }
     return sInstance;
 }
-
-GameStoreManager::GameStoreManager(std::function<void(const std::string&)> setStateCallback) : setStateCallback(setStateCallback) {
-    LOG(LogDebug) << "GameStoreManager: Constructor (with callback)";
- LOG(LogDebug) << "GameStoreManager: Attempting to register SteamStore.";
-    SteamAuth* steamAuthInstance = new SteamAuth();
-    SteamStore* steamStoreInstance = new SteamStore(steamAuthInstance);
-    registerStore(steamStoreInstance); // Solo registra
-    LOG(LogInfo) << "GameStoreManager: SteamStore registered successfully.";
-	
-	 XboxAuth* xboxAuth = new XboxAuth(nullptr); // XboxAuth potrebbe aver bisogno di Window per i suoi GuiMsgBox
-                                                // Se sì, dovrai passare mWindow da GameStoreManager
-                                                // o inizializzarlo in XboxStore::init
-    XboxStore* xboxStore = new XboxStore(xboxAuth, nullptr);
-    registerStore(xboxStore);
-    LOG(LogInfo) << "GameStoreManager: XboxStore registered.";
-}
-
-
-GameStoreManager::~GameStoreManager() {
-    LOG(LogDebug) << "GameStoreManager: Destructor";
-    shutdownAllStores();
-    for (auto& pair : mStores) {
-        delete pair.second;
-    }
-    mStores.clear();
-}
-
-
-void GameStoreManager::registerStore(GameStore* store) { // Back to raw pointer
-    LOG(LogDebug) << "GameStoreManager: Registering store " << store->getStoreName();
-    mStores[store->getStoreName()] = store; // Back to raw pointer
-}
-
 GameStore* GameStoreManager::getStore(const std::string& storeName) {
     auto it = mStores.find(storeName);
     if (it != mStores.end()) {
         return it->second;
     }
+    LOG(LogWarning) << "GameStoreManager: Store not found: " << storeName;
     return nullptr;
 }
 
+GameStoreManager::GameStoreManager(Window* window) : mWindow(window) {
+    LOG(LogDebug) << "GameStoreManager: Constructor";
+
+    // Rimuovi HttpReq::Manager* httpManager e Settings::getInstance()->getHttpManager()
+    // poiché non esistono e non sono più passati.
+
+    if (Settings::getInstance()->getBool("EnableEpicGamesStore")) {
+        LOG(LogDebug) << "GameStoreManager: Attempting to register EpicGamesStore.";
+        // Il tuo EpicGamesStore.h ha EpicGamesStore(EpicGamesAuth* auth);
+        EpicGamesAuth* epicAuth = new EpicGamesAuth(/* parametri per EpicGamesAuth? */); 
+        mStores["EpicGamesStore"] = new EpicGamesStore(epicAuth); 
+        LOG(LogInfo) << "GameStoreManager: Epic Games Store registered.";
+    }
+
+    if (Settings::getInstance()->getBool("EnableSteamStore")) {
+        LOG(LogDebug) << "GameStoreManager: Attempting to register SteamStore.";
+        // Il tuo SteamStore.h ha SteamStore(SteamAuth* auth); e uno che prendeva HttpManager.
+        // Usa quello che prende solo SteamAuth*.
+        SteamAuth* steamAuth = new SteamAuth(/* params per SteamAuth? */);
+        mStores["SteamStore"] = new SteamStore(steamAuth); // CORREZIONE: Assumendo che prenda solo SteamAuth*
+        LOG(LogInfo) << "GameStoreManager: SteamStore registered successfully.";
+    }
+    
+    if (Settings::getInstance()->getBool("EnableXboxStore")) {
+        LOG(LogDebug) << "GameStoreManager: Attempting to register XboxStore.";
+        // Il tuo XboxStore.h ha XboxStore(XboxAuth* auth, Window* window);
+        std::function<void(const std::string&)> xboxStateCb = [](const std::string&){ /*...*/ };
+        XboxAuth* xboxAuth = new XboxAuth(xboxStateCb); 
+        mStores["XboxStore"] = new XboxStore(xboxAuth, mWindow); // CORREZIONE
+        LOG(LogInfo) << "GameStoreManager: XboxStore registered.";
+    }
+
+if (Settings::getInstance()->getBool("EnableEAGamesStore")) {
+    LOG(LogDebug) << "GameStoreManager: Attempting to register EAGamesStore.";
+    // USA LA COSTANTE STORE_ID PER LA CHIAVE
+    mStores[EAGamesStore::STORE_ID] = new EAGamesStore(mWindow); 
+    LOG(LogInfo) << "GameStoreManager: EAGamesStore registered successfully with ID: " << EAGamesStore::STORE_ID; // Log più preciso
+}
+}
+// ... (destructor e altri metodi come getStore, registerStore come nel tuo file) ...
+// Rimuovi showStoreSelectionUI e showIndividualStoreUI se sono state spostate o sono obsolete
+// La logica di GuiMenu era problematica (errore C2061, C3536, C2664).
+// Se devi mantenerle, la creazione del menu e l'aggiunta di entry va corretta.
+// Esempio di come potrebbe essere (ma va adattato):
+/*
 void GameStoreManager::showStoreSelectionUI(Window* window) {
-    LOG(LogDebug) << "GameStoreManager: Showing Store Selection UI";
-    auto menu = new GuiMenu(window, false);
+    auto s = new GuiSettings(window, _("NEGOZI ONLINE")); // Esempio, usa una GUI appropriata
 
-    menu->addEntry("Game Store", true, [window] {
-        GameStoreManager::get()->showIndividualStoreUI(window);
-    }, "iconFolder");
-
-    menu->addEntry("Epic Games Store", true, [window] {
-        GameStoreManager* manager = GameStoreManager::get(); // Be explicit
-        manager->getStore("EpicGamesStore")->showStoreUI(window);
-    }, "iconGames");
-
-    window->pushGui(menu);
-}
-
-void GameStoreManager::showIndividualStoreUI(Window* window) {
-    auto menu = new GuiMenu(window, false);
-
-    for (auto& pair : mStores) {
-        menu->addEntry(
-            pair.first,
-            true,
-            [pair, window] {
-                if (pair.second) {
-                    pair.second->showStoreUI(window);
-                }
-            },
-            "iconGames"
-        );
-    }
-
-    window->pushGui(menu);
-}
-
-void GameStoreManager::initAllStores(Window* window) {
-  LOG(LogDebug) << "GameStoreManager: Initializing all stores";
-  // Questo ciclo scorre TUTTI gli store registrati in mStores
-  // 'pair.first' è probabilmente il nome dello store (es. "SteamStore")
-  // 'pair.second' è il puntatore all'oggetto GameStore* (es. SteamStore*)
-  for (auto& pair : mStores) {
-   if (pair.second) { // Controlla che il puntatore sia valido
-     // Chiama il metodo init() sull'oggetto store (SteamStore, EpicGamesStore, ecc.)
-    if (!pair.second->init(window)) {
-     LOG(LogError) << "GameStoreManager: Failed to initialize store " << pair.first;
-    }
-   }
-  }
- }
-
-void GameStoreManager::shutdownAllStores() {
-    LOG(LogDebug) << "GameStoreManager: Shutting down all stores";
-    for (auto& pair : mStores) {
-        if (pair.second) {
-            pair.second->shutdown();
+    for (auto const& [storeName, storeInstance] : mStores) {
+        if (storeInstance) {
+            s->addEntry(storeInstance->getStoreName(), true, [window, storeInstance]() {
+                storeInstance->showStoreUI(window);
+            });
         }
     }
+    window->pushGui(s);
+}
+*/
+
+// CORREZIONE: initAllStores non prende argomenti (usa mWindow membro)
+// Assicurati che la dichiarazione in GameStoreManager.h sia void initAllStores();
+void GameStoreManager::initAllStores() { 
+    LOG(LogInfo) << "GameStoreManager: Initializing all registered stores (" << mStores.size() << " stores).";
+    for (auto& pair : mStores) { 
+        if (pair.second) {
+            LOG(LogDebug) << "GameStoreManager: Initializing store: " << pair.first;
+            // CORREZIONE: GameStore::init prende solo Window*
+            // Rimuovi l'argomento HttpReq::Manager.
+            if (!pair.second->init(mWindow)) { 
+                LOG(LogError) << "GameStoreManager: Failed to initialize store " << pair.first;
+            }
+        }
+    }
+    LOG(LogInfo) << "GameStoreManager: Finished initializing all stores.";
 }
 
-void GameStoreManager::setSetStateCallback(std::function<void(const std::string&)> setStateCallback) {
-    this->setStateCallback = setStateCallback;
-}
+// Rimuovi la funzione run() e setSetStateCallback se non sono definite/usate correttamente.
+// L'errore C2039 per setSetStateCallback è in HttpServerThread.cpp che chiama
+// mGameStoreManager->setSetStateCallback(...). Se mSetStateCallback è un membro pubblico in GameStoreManager.h,
+// allora HttpServerThread.cpp dovrebbe fare `mGameStoreManager->mSetStateCallback = ...`.
+// Altrimenti, GameStoreManager deve definire un metodo `setSetStateCallback`.

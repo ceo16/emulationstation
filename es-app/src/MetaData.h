@@ -94,7 +94,16 @@ enum MetaDataId
     XboxDevices = 55,     // Lista di device supportati (es. "PC", "XboxSeries", "XboxOne")
 	XboxProductId = 56,
 	XboxAumid = 57, 
+	StoreProvider = 58,  // Stringa: "STEAM", "EPIC", "EAGAMES", "XBOX" (Generico, se vuoi standardizzare)
+	                     // Se preferisci campi super-specifici per ogni store, puoi saltarlo e dedurlo dal sistema.
+	                     // Ma averlo esplicito può aiutare.
 
+	IsOwned = 59,        // Booleano: "true" / "false" (Generico per tutti gli store)
+
+	EaOfferId = 60,      // Stringa: Es. "OFB-EAST:12345" (Specifico per EA)
+	EaMasterTitleId = 61,// Stringa: Es. "190619" (Specifico per EA, usato per lancio e libreria)
+    EaMultiplayerId = 62,
+    MAX_METADATA_TYPES = 63,
 Count
     // Assicurati che gli ID siano sequenziali e univoci
 };

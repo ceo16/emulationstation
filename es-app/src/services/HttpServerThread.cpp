@@ -66,45 +66,32 @@ GET /resources/{path relative to resources}"					-> any file in resources
 GET /{path relative to resources/services}"						-> any other file in resources/services
 
 */
-HttpServerThread::HttpServerThread(Window* window, std::function<void(const std::string&)> setStateCallback) : mWindow(window),
-  mAuthCallback([this](const std::string& state) { mExpectedState = state; }),
-  mAuth(setStateCallback)
-  //mStore(mAuthCallback)
- {
-  LOG(LogDebug) << "HttpServerThread : Starting. Instance: " << this;
-  LOG(LogDebug) << "  mAuthCallback initialized";
-  LOG(LogDebug) << "  mAuth instance: " << &mAuth;
-  LOG(LogDebug) << "  setStateCallback in Constructor: " << (setStateCallback ? "NOT NULL" : "NULL")
-              << "  Address of setStateCallback: " << &setStateCallback;  // Added log for address
-  mHttpServer = nullptr;
-  mFirstRun = true;
-  mRunning = true;
-  mThread = new std::thread(&HttpServerThread::run, this);
+HttpServerThread::HttpServerThread(Window* window) : mWindow(window)
+{
+	LOG(LogDebug) << "HttpServerThread : Starting";
 
-  mGameStoreManager = GameStoreManager::get();
-  mGameStoreManager->setSetStateCallback(setStateCallback);
-  mStore = new EpicGamesStore(&mAuth); // Pass mAuth instead of setStateCallbac
-  mGameStoreManager->registerStore(mStore);
-  mEpicLoginCallback = nullptr;
- }
+	mHttpServer = nullptr;
 
-void HttpServerThread::setExpectedState(const std::string& state) {
-    mExpectedState = state;
+	// creer le thread
+	mFirstRun = true;
+	mRunning = true;
+	mThread = new std::thread(&HttpServerThread::run, this);
 }
 
 HttpServerThread::~HttpServerThread()
 {
-    LOG(LogDebug) << "HttpServerThread : Exit. Instance: " << this; // Added instance addres
-    if (mHttpServer != nullptr)
-    {
-        mHttpServer->stop();
-        delete mHttpServer;
-        mHttpServer = nullptr;
-    }
+	LOG(LogDebug) << "HttpServerThread : Exit";
 
-    mRunning = false;
-    mThread->join();
-    delete mThread;
+	if (mHttpServer != nullptr)
+	{
+		mHttpServer->stop();
+		delete mHttpServer;
+		mHttpServer = nullptr;
+	}
+
+	mRunning = false;
+	mThread->join();
+	delete mThread;
 }
 
 static std::map<std::string, std::string> mimeTypes = 

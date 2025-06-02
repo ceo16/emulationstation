@@ -22,7 +22,7 @@
       in a product, an acknowledgment in the product documentation would be
       appreciated but is not required.
 
-   2. Altered source versions must be plainly marked as such, and must not be
+   2. Altered source versions must be plainly marked as such, and must not b
       misrepresented as being the original source code.
 
    3. This notice may not be removed or altered from any source distribution.
@@ -110,20 +110,11 @@ static std::string encode(String s, bool url) {
 
 std::string base64_encode(unsigned char const* bytes_to_encode, size_t in_len, bool url) {
 
-    size_t len_encoded = (in_len +2) / 3 * 4;
+    size_t len_encoded = (in_len + 2) / 3 * 4;
+    // unsigned char trailing_char = url ? '.' : '='; // Vecchia logica con '.' per URL
+                                                  // Per PKCE, non vogliamo nessun padding se url è true.
 
-    unsigned char trailing_char = url ? '.' : '=';
-
- //
- // Choose set of base64 characters. They differ
- // for the last two positions, depending on the url
- // parameter.
- // A bool (as is the parameter url) is guaranteed
- // to evaluate to either 0 or 1 in C++ therefore,
- // the correct character set is chosen by subscripting
- // base64_chars with url.
- //
-    const char* base64_chars_ = base64_chars[url];
+    const char* base64_chars_ = base64_chars[url]; // Questo seleziona i caratteri corretti ('-' e '_') se url è true
 
     std::string ret;
     ret.reserve(len_encoded);
@@ -133,28 +124,40 @@ std::string base64_encode(unsigned char const* bytes_to_encode, size_t in_len, b
     while (pos < in_len) {
         ret.push_back(base64_chars_[(bytes_to_encode[pos + 0] & 0xfc) >> 2]);
 
-        if (pos+1 < in_len) {
-           ret.push_back(base64_chars_[((bytes_to_encode[pos + 0] & 0x03) << 4) + ((bytes_to_encode[pos + 1] & 0xf0) >> 4)]);
+        if (pos + 1 < in_len) {
+            ret.push_back(base64_chars_[((bytes_to_encode[pos + 0] & 0x03) << 4) + ((bytes_to_encode[pos + 1] & 0xf0) >> 4)]);
 
-           if (pos+2 < in_len) {
-              ret.push_back(base64_chars_[((bytes_to_encode[pos + 1] & 0x0f) << 2) + ((bytes_to_encode[pos + 2] & 0xc0) >> 6)]);
-              ret.push_back(base64_chars_[  bytes_to_encode[pos + 2] & 0x3f]);
-           }
-           else {
-              ret.push_back(base64_chars_[(bytes_to_encode[pos + 1] & 0x0f) << 2]);
-              ret.push_back(trailing_char);
-           }
-        }
-        else {
-
+            if (pos + 2 < in_len) {
+                ret.push_back(base64_chars_[((bytes_to_encode[pos + 1] & 0x0f) << 2) + ((bytes_to_encode[pos + 2] & 0xc0) >> 6)]);
+                ret.push_back(base64_chars_[bytes_to_encode[pos + 2] & 0x3f]);
+            } else { // Ultimi due byte da codificare (output di 3 caratteri Base64)
+                ret.push_back(base64_chars_[(bytes_to_encode[pos + 1] & 0x0f) << 2]);
+                if (!url) { // Aggiungi padding solo se NON è Base64URL
+                    ret.push_back('='); // Carattere di padding standard
+                }
+                // Se url è true, non aggiungiamo padding (né '.' né '=')
+            }
+        } else { // Ultimo byte da codificare (output di 2 caratteri Base64)
             ret.push_back(base64_chars_[(bytes_to_encode[pos + 0] & 0x03) << 4]);
-            ret.push_back(trailing_char);
-            ret.push_back(trailing_char);
+            if (!url) { // Aggiungi padding solo se NON è Base64URL
+                ret.push_back('=');
+                ret.push_back('=');
+            }
+            // Se url è true, non aggiungiamo padding (né '.' né '=')
         }
-
         pos += 3;
     }
 
+    // Rimuovi il padding esplicito se è stato aggiunto e url è true (doppio controllo, anche se sopra non dovrebbe aggiungerlo)
+    // La logica sopra dovrebbe già prevenire l'aggiunta di '=' o '.' se url è true e l'output non è un multiplo di 4.
+    // La specifica PKCE dice che il risultato finale NON deve avere padding.
+    // La tua libreria base64, quando url=true, usava '.' come trailing_char.
+    // La modifica sopra ora omette qualsiasi trailing_char se url=true.
+
+    // Se la lunghezza della stringa Base64URL non è un multiplo di 4,
+    // la specifica PKCE non richiede padding. La libreria base64 che usi
+    // produce output che è sempre un multiplo di 4 caratteri (usando '=' o '.' come padding).
+    // Con la modifica sopra, se url=true, non ci sarà padding.
 
     return ret;
 }

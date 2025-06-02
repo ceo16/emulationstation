@@ -18,6 +18,7 @@
 #include "scrapers/EpicGamesScraper.h" 
 #include "scrapers/SteamScraper.h"
 #include "scrapers/XboxScraper.h"
+#include "scrapers/EAGamesScraper.h"
 
 #define OVERQUOTA_RETRY_DELAY 15000
 #define OVERQUOTA_RETRY_COUNT 5
@@ -39,7 +40,8 @@ std::vector<std::pair<std::string, Scraper*>> Scraper::scrapers
 	{ "ArcadeDB", new ArcadeDBScraper() },
 	{ "EPIC GAMES STORE", new EpicGamesScraper() },
 	{ "STEAM", new SteamScraper() },
-	{ "XBOX", new Scrapers::XboxScraper() } 
+	{ "XBOX", new Scrapers::XboxScraper() }, 
+	{ "EA GAMES", new EAGamesScraper() }
 };
 
 std::string Scraper::getScraperName(Scraper* scraper)

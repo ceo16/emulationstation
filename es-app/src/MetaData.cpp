@@ -132,37 +132,54 @@ void MetaDataList::initMetadata()
     { XboxTitleId,      "xboxtitleid",      MD_STRING,   "",      false, N_("Xbox Title ID"),     N_("Xbox Live Title ID"),                                          false }, // ID 53
     { XboxMediaType,    "xboxmediatype",    MD_STRING,   "",      false, N_("Xbox Media Type"),   N_("Xbox Media Type (Game, App, Dlc)"),                            false }, // ID 54
     { XboxDevices,      "xboxdevices",      MD_STRING,   "",      false, N_("Xbox Devices"),      N_("Supported Xbox Devices (PC, XboxSeries, etc.)"),               false },  // ID 55
-	{ XboxProductId,    "xboxproductid",    MD_STRING,   "",      false, N_("Xbox Product Id"),      N_("Supported Xbox Product"),               false },// <--- NUOVA RIGA AGGIUNTA QUI // <--- NUOVA RIGA AGGIUNTA QUI
-	 { XboxAumid,       "xboxaumid",       MD_STRING,   "",      false, N_("Xbox AUMID"),        N_("Xbox Application User Model ID"),                            false }, 
-        // --- ***** FINE DICHIARAZIONI DA AGGIUNGERE ***** ---
+	{ XboxProductId,    "xboxproductid",    MD_STRING,   "",      false, N_("Xbox Product Id"),   N_("Supported Xbox Product"),               false },// <--- NUOVA RIGA AGGIUNTA QUI // <--- NUOVA RIGA AGGIUNTA QUI
+	 { XboxAumid,       "xboxaumid",       MD_STRING,   "",      false, N_("Xbox AUMID"),         N_("Xbox Application User Model ID"),                            false }, 
+     { StoreProvider,    "storeprovider",    MD_STRING,   "false", false,      N_("Store Provider"),    N_("game store provider (STEAM, EPIC, EAGAMES, etc)"), false}, // Default a "false" per MD_STRING è strano, forse ""?
+     { IsOwned,          "isowned",          MD_BOOL,     "false", false,      N_("Owned"),             N_("is game owned in online library"), false}, // Tag XML "isowned"
+	{ EaOfferId,        "eaofferid",        MD_STRING,   "",      false,      N_("EA Offer ID"),       N_("EA Games Offer ID"), false},
+	{ EaMasterTitleId,  "eamastertitleid",  MD_STRING,   "",      false,      N_("EA Master Title ID"),   N_("EA Games Master Title ID"), false },
+	{ EaMultiplayerId,  "eamultiplayerid",  MD_STRING,   "",      false,      N_("EA Multiplayer ID"), N_("EA Games Multiplayer ID from manifest"), false },
 
 		
 	};
 	
+// Questa riga è FONDAMENTALE: popola mMetaDataDecls con il contenuto di gameDecls.
 	mMetaDataDecls = std::vector<MetaDataDecl>(gameDecls, gameDecls + sizeof(gameDecls) / sizeof(gameDecls[0]));
-	
+
+	// Il resto della funzione initMetadata() dovrebbe rimanere invariato,
+	// poiché ricalcola mMetaDataIndexes, mDefaultGameMap, mGameTypeMap, e mGameIdMap
+	// basandosi sul contenuto aggiornato di mMetaDataDecls.
+
 	mMetaDataIndexes.clear();
-	for (int i = 0 ; i < mMetaDataDecls.size() ; i++)
+	for (int i = 0 ; i < (int)mMetaDataDecls.size() ; i++) // Cast a (int) per sicurezza con size_t
 		mMetaDataIndexes[mMetaDataDecls[i].id] = i;
 
-	int maxID = mMetaDataDecls.size() + 1;
+	// int maxID = mMetaDataDecls.size() + 1; // Questo calcolo di maxID potrebbe essere problematico se MetaDataId non è contiguo o parte da 0.
+	                                        // È più sicuro usare MetaDataId::MAX_METADATA_TYPES che abbiamo definito nell'enum.
+	int maxID = MetaDataId::MAX_METADATA_TYPES; // Usa il valore dall'enum MAX_METADATA_TYPES
 
-	if (mDefaultGameMap != nullptr) 
+	if (mDefaultGameMap != nullptr)
 		delete[] mDefaultGameMap;
 
-	if (mGameTypeMap != nullptr) 
+	if (mGameTypeMap != nullptr)
 		delete[] mGameTypeMap;
 
-	mDefaultGameMap = new std::string[maxID];
-	mGameTypeMap = new MetaDataType[maxID];
+	mDefaultGameMap = new std::string[maxID]; // indicizzato da MetaDataId enum
+	mGameTypeMap = new MetaDataType[maxID];  // indicizzato da MetaDataId enum
 
 	for (int i = 0; i < maxID; i++)
-		mGameTypeMap[i] = MD_STRING;
-		
+		mGameTypeMap[i] = MD_STRING; // Inizializza tutto a MD_STRING come fallback (anche se dovrebbe essere sovrascritto)
+
+	mGameIdMap.clear(); // Pulisci la mappa prima di ripopolarla
 	for (auto iter = mMetaDataDecls.cbegin(); iter != mMetaDataDecls.cend(); iter++)
 	{
-		mDefaultGameMap[iter->id] = iter->defaultValue;
-		mGameTypeMap[iter->id] = iter->type;
+		// Verifica che iter->id sia all'interno dei limiti validi per gli array
+		if (iter->id < maxID) { // Controllo di sicurezza
+			mDefaultGameMap[iter->id] = iter->defaultValue;
+			mGameTypeMap[iter->id] = iter->type;
+		} else {
+			LOG(LogError) << "MetaDataId " << iter->id << " for key '" << iter->key << "' is out of bounds (maxID=" << maxID << "). Skipping.";
+		}
 		mGameIdMap[iter->key] = iter->id;
 	}
 }

@@ -22,8 +22,8 @@
  class HttpServerThread
  {
  public:
-  HttpServerThread(Window * window, std::function<void(const std::string&)> setStateCallback);
-  virtual ~HttpServerThread();
+ HttpServerThread(Window * window);
+	virtual ~HttpServerThread();
  
 
   void queueTask(std::function<void()> task);

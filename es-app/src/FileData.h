@@ -81,7 +81,7 @@ public:
 
 	static FileData* GetRunningGame() { return mRunningGame; }
 
-	virtual const std::string& getName();
+	virtual const std::string& getName() const; 
 
 	inline FileType getType() const { return mType; }
 	
@@ -133,7 +133,7 @@ public:
 	virtual std::string getSystemName() const;
 
 	// Returns our best guess at the "real" name for this file (will attempt to perform MAME name translation)
-	virtual std::string& getDisplayName();
+	virtual const std::string& getDisplayName() const;
 
 	// As above, but also remove parenthesis
 	std::string getCleanName();
@@ -194,6 +194,7 @@ private:
 	std::string getKeyboardMappingFilePath();
 	std::string getMessageFromExitCode(int exitCode);
 	MetaDataList mMetadata;
+	
 
 protected:	
 	std::string  findLocalArt(const std::string& type = "", std::vector<std::string> exts = { ".png", ".jpg" });
@@ -204,7 +205,7 @@ protected:
 	std::string mPath;
 	FileType mType;
 	SystemData* mSystem;
-	std::string* mDisplayName;
+	mutable std::string* mDisplayName; // mDisplayName è mutable
 	bool          mIsInstalled;     // Flag per indicare se il gioco è installato localmente
     std::string   mInstallCommand; 
 };
@@ -221,10 +222,12 @@ public:
 
 	virtual std::string getSystemName() const;
 	virtual SystemEnvironmentData* getSystemEnvData() const;
+ // GLI OVERLOAD DI getMetadata SONO GIÀ CORRETTI SE FileData li ha così
+	virtual const MetaDataList& getMetadata() const override { return mSourceFileData->getMetadata(); }
+	virtual MetaDataList& getMetadata() override { return mSourceFileData->getMetadata(); }
 
-	virtual const MetaDataList& getMetadata() const { return mSourceFileData->getMetadata(); }
-	virtual MetaDataList& getMetadata() { return mSourceFileData->getMetadata(); }
-	virtual std::string& getDisplayName() { return mSourceFileData->getDisplayName(); }
+    // CORREZIONE QUI: L'override deve corrispondere al metodo base reso const
+	virtual const std::string& getDisplayName() const override;
 
 private:
 	// needs to be updated when metadata changes
