@@ -302,7 +302,7 @@ set(COMMON_INCLUDE_DIRS
 )
 
 # Assicurati che il percorso a "include" sia corretto per la tua struttura di webview2sdk
-set(WEBVIEW2_INCLUDE_DIR "${CMAKE_SOURCE_DIR}/external/webview2sdk/include")
+set(WEBVIEW2_INCLUDE_DIR "${CMAKE_SOURCE_DIR}/external/webview2sdk/build/native/include")
 
 if(EXISTS "${WEBVIEW2_INCLUDE_DIR}")
     target_include_directories(emulationstation PRIVATE "${WEBVIEW2_INCLUDE_DIR}")
