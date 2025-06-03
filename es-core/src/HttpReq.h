@@ -92,8 +92,7 @@ public:
 
 		REQ_430_TOOMANYSCRAPS = 430,
 		REQ_430_TOOMANYFAILURES = 431,
-		REQ_500_INTERNALSERVERERROR = 500,
-		REQ_SERVER_ERROR
+		REQ_500_INTERNALSERVERERROR = 500
 	};
 
 	Status status(); //process any received data and return the status afterwards
@@ -109,7 +108,6 @@ public:
 
 	int getPercent() { return mPercent; }
 	int64_t getPosition() { return mPosition; }
-	 static std::string statusToString(Status s);
 
 	std::string getUrl() { return mUrl; }
 	std::string getFilePath() { return mFilePath; }	
@@ -117,10 +115,8 @@ public:
 	std::string getResponseHeader(const std::string& header);
 
 	bool wait();
-static bool initializeGlobal(); // Sostituisce HttpReq_global_init
-    static void cleanupGlobal();    // Sostituisce HttpReq_global_cleanup
+
 	static void resetCookies();
-	static CURLM* s_multi_handle;
 
 private:
 	void performRequest(const std::string& url, HttpReqOptions* options);
@@ -128,7 +124,6 @@ private:
 
 	static size_t write_content(void* buff, size_t size, size_t nmemb, void* req_ptr);
 	static size_t header_callback(char *buffer, size_t size, size_t nitems, void *userdata);
-	static int curl_debug_callback(CURL *handle, curl_infotype type, char *data, size_t size, void *userptr);
 
 	//static int update_progress(void* req_ptr, double dlTotal, double dlNow, double ulTotal, double ulNow);
 
@@ -136,6 +131,7 @@ private:
 	//why do I have to handle ALL messages at once
 	static std::map<CURL*, HttpReq*> s_requests;
 
+	static CURLM* s_multi_handle;
 
 	void onError(const char* msg);
 
@@ -150,13 +146,12 @@ private:
 	std::string   mFilePath;
 	std::string   mTempStreamPath;	
 	FILE*		  mFile;	
-    int mHttpStatusCode;
+
 	std::string mErrorMsg;
 	std::string mUrl;
 
 	int mPercent;
 	int64_t mPosition;
-	char mCurlErrorBuffer[CURL_ERROR_SIZE];
 
 	std::map<std::string, std::string> mResponseHeaders;	
 };

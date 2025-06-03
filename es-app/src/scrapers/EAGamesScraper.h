@@ -24,9 +24,11 @@ public:
                           const std::string& gameIdToScrape); // L'ID specifico (OfferID o MasterTitleID) che lo scraper userà
 
     void update() override; // Qui gestirà la logica asincrona
+	
+	~EAGamesScraperRequest() override; // <--- AGGIUNGI QUESTA RIGA
 
 private:
-    const ScraperSearchParams& mSearchParams; // Riferimento ai parametri originali (contiene game, system, etc.)
+    ScraperSearchParams mSearchParams; // Riferimento ai parametri originali (contiene game, system, etc.)
     EAGamesStore* mEaStoreInstance;
     std::string mGameIdForApi; // L'ID (OfferID o MasterTitleID) da usare per la chiamata API
     bool mRequestLaunched;

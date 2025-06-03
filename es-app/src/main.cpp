@@ -546,11 +546,6 @@ int main(int argc, char* argv[])
 
 	Scripting::fireEvent("start");
 
-	// metadata init
-	if (!HttpReq::initializeGlobal()) {
-        LOG(LogError) << "Inizializzazione globale di HttpReq/libcurl FALLITA!";
-        // Considera di terminare se questo fallisce
-    }
 	HttpReq::resetCookies();
 	Genres::init();
 	MetaDataList::initMetadata();

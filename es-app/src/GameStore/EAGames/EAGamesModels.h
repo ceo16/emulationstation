@@ -178,99 +178,126 @@ namespace EAGames
         std::vector<StorePageMetadataOffers> offers;
         bool isGame = false;
 
-        static GameStoreData fromJson(const nlohmann::json& j, const std::string& country = "US", const std::string& language = "en_US") {
-            // ... (mantieni la tua implementazione originale di GameStoreData::fromJson) ...
-            // Questa implementazione è complessa e specifica per gli endpoint di store metadata,
-            // che potrebbero essere diversi da quelli di entitlement.
-            // Per brevità, la ometto qui, ma deve rimanere nel tuo file.
-            // Se usi questa struct per i dati dei giochi dalla lista entitlements,
-            // dovrai adattare GameEntitlement::fromJson per popolare una GameStoreData
-            // o avere una funzione di conversione.
-            // Per ora, ci concentriamo su GameEntitlement e AccountEntitlementsResponse.
-            GameStoreData gsd; // Implementazione placeholder
-             const nlohmann::json* gameDetailsNode = &j;
-             if (j.contains("metadata") && j.is_object() && !j.at("metadata").is_null()) {
-                 gameDetailsNode = &j.at("metadata");
-                 if (j.contains("offers") && j.at("offers").is_array()) {
-                     for (const auto& offerNode : j.at("offers")) {
-                         StorePageMetadataOffers offer;
-                         if (offerNode.contains("offerId") && offerNode.at("offerId").is_string())
-                             offer.offerId = offerNode.at("offerId").get<std::string>();
-                         if (offerNode.contains("offerType") && offerNode.at("offerType").is_string())
-                             offer.offerType = offerNode.at("offerType").get<std::string>();
-                         gsd.offers.push_back(offer);
-                     }
-                 }
-             }
-             if (gameDetailsNode->contains("offerId") && gameDetailsNode->at("offerId").is_string())
-                 gsd.offerId = gameDetailsNode->at("offerId").get<std::string>();
-             if (gameDetailsNode->contains("masterTitleId") && gameDetailsNode->at("masterTitleId").is_string())
-                 gsd.masterTitleId = gameDetailsNode->at("masterTitleId").get<std::string>();
-             if (gameDetailsNode->contains("i18n")) {
-                 const auto& i18n = gameDetailsNode->at("i18n");
-                 if (i18n.contains("displayName") && i18n.at("displayName").is_string())
-                     gsd.title = i18n.at("displayName").get<std::string>();
-                 if (i18n.contains("longDescription") && i18n.at("longDescription").is_string())
-                     gsd.description = i18n.at("longDescription").get<std::string>();
-                 else if (i18n.contains("description") && i18n.at("description").is_string())
-                     gsd.description = i18n.at("description").get<std::string>();
-             }
-             if (gsd.title.empty() && gameDetailsNode->contains("itemName") && gameDetailsNode->at("itemName").is_string())
-                 gsd.title = gameDetailsNode->at("itemName").get<std::string>();
-             if (gameDetailsNode->contains("customAttributes")) {
-                 const auto& ca = gameDetailsNode->at("customAttributes");
-                 if (ca.contains("developerFacetKey") && ca.at("developerFacetKey").is_array() && !ca.at("developerFacetKey").empty())
-                     gsd.developer = ca.at("developerFacetKey")[0].get<std::string>();
-                 if (ca.contains("publisherFacetKey") && ca.at("publisherFacetKey").is_array() && !ca.at("publisherFacetKey").empty())
-                     gsd.publisher = ca.at("publisherFacetKey")[0].get<std::string>();
-                 if (ca.contains("genreFacetKey") && ca.at("genreFacetKey").is_array()) {
-                     for (const auto& genreNode : ca.at("genreFacetKey")) {
-                         if (genreNode.is_string()) gsd.genres.push_back(genreNode.get<std::string>());
-                     }
-                 }
-                 if (ca.contains("imageInfo") && ca.at("imageInfo").is_array()) {
-                     std::string imageServerBase = gameDetailsNode->value("imageServer", "");
-                     if (imageServerBase.empty() && gameDetailsNode->contains("imageServer") && gameDetailsNode->at("imageServer").is_string()) { 
-                         imageServerBase = gameDetailsNode->at("imageServer").get<std::string>();
-                     }
-                     for (const auto& imgInfoNode : ca.at("imageInfo")) {
-                         std::string type = imgInfoNode.value("type", "");
-                         std::string name = imgInfoNode.value("name", "");
-                         if (!name.empty() && !imageServerBase.empty()) {
-                             if ((type == "packart" || type == "boxart") && gsd.imageUrl.empty())
-                                 gsd.imageUrl = imageServerBase + "/" + name;
-                             else if (type == "backgroundImage" && gsd.backgroundImageUrl.empty())
-                                 gsd.backgroundImageUrl = imageServerBase + "/" + name;
-                         }
-                     }
-                 }
-             }
-             if (gameDetailsNode->contains("publishing") && gameDetailsNode->at("publishing").is_object()) {
-                  const auto& pub = gameDetailsNode->at("publishing");
-                  if (pub.contains("softwareList") && pub.at("softwareList").is_object()) {
-                     const auto& sl = pub.at("softwareList");
-                     if (sl.contains("software") && sl.at("software").is_array() && !sl.at("software").empty()) {
-                          const auto& software = sl.at("software")[0];
-                          if (software.contains("releaseDate") && software.at("releaseDate").is_string())
-                               gsd.releaseDate = software.at("releaseDate").get<std::string>();
-                     }
-                  }
-             }
-             std::string productType = gameDetailsNode->value("productType", "");
-             std::string offerType = gameDetailsNode->value("offerType", "");
-             if (productType == "Base Game" || productType == "Project Titan") {
-                 gsd.isGame = true;
-             } else if (!offerType.empty()) {
-                 std::string offerTypeLower = Utils::String::toLower(offerType);
-                 if (offerTypeLower.find("edition") != std::string::npos || offerTypeLower.find("basegame") != std::string::npos || offerTypeLower.find("base_game") != std::string::npos) {
-                     gsd.isGame = true;
-                 }
-             }
-             if (gsd.title.empty() && (!gsd.offerId.empty() || !gsd.masterTitleId.empty())) {
-                 gsd.title = "EA Game (" + (gsd.masterTitleId.empty() ? gsd.offerId : gsd.masterTitleId) + ")";
-             }
-            return gsd;
+static GameStoreData fromJson(const nlohmann::json& j) {
+    GameStoreData gsd;
+    gsd.isGame = false; // Default
+
+    try {
+        if (!j.contains("data") || !j["data"].is_object()) {
+            LOG(LogError) << "EAGamesModels (GameStoreData::fromJson JUNO): 'data' field missing or not an object in JUNO response.";
+            return gsd; // Ritorna oggetto vuoto/invalido
         }
+        const auto& dataNode = j["data"];
+
+        // Estrai da legacyOffers (assumendo che sia un array e prendiamo il primo elemento)
+        if (dataNode.contains("legacyOffers") && dataNode["legacyOffers"].is_array() && !dataNode["legacyOffers"].empty()) {
+            const auto& legacyOffer = dataNode["legacyOffers"][0];
+
+            if (legacyOffer.is_object()) { // Controllo aggiuntivo
+                gsd.offerId = legacyOffer.value("offerId", ""); // Era 'id' nella query, mappato a offerId
+                gsd.title = legacyOffer.value("displayName", "");
+                // gsd.masterTitleId = legacyOffer.value("primaryMasterTitleId", ""); // Potresti volerlo qui
+
+                std::string displayType = legacyOffer.value("displayType", "");
+                if (displayType.find("Game") != std::string::npos || displayType.find("GAME") != std::string::npos) { // Semplice controllo
+                    gsd.isGame = true;
+                }
+
+                // Tentativo di estrarre descrizioni (questi percorsi sono ipotetici per JUNO, da verificare!)
+                if (legacyOffer.contains("metadata") && legacyOffer["metadata"].is_object()) {
+                    const auto& metadata = legacyOffer["metadata"];
+                    gsd.description = metadata.value("longDescription", "");
+                    if (gsd.description.empty()) {
+                        gsd.description = metadata.value("shortDescription", "");
+                    }
+                }
+                
+                // Tentativo di estrarre data, sviluppatore, editore (ipotetico!)
+                if (legacyOffer.contains("publishing") && legacyOffer["publishing"].is_object()) {
+                    const auto& publishing = legacyOffer["publishing"];
+                    gsd.releaseDate = publishing.value("publishingDate", "");
+                     if (publishing.contains("software") && publishing["software"].is_array() && !publishing["software"].empty()) {
+                        const auto& software = publishing["software"][0];
+                        if (software.is_object()) {
+                           gsd.developer = software.value("softwareDeveloper", "");
+                           gsd.publisher = software.value("softwarePublisher", "");
+                        }
+                    }
+                }
+
+                // Tentativo di estrarre immagini e generi (ipotetico!)
+                 if (legacyOffer.contains("localizableProperties") && legacyOffer["localizableProperties"].is_object()) {
+                    const auto& locProps = legacyOffer["localizableProperties"];
+                    if (locProps.contains("packArt") && locProps["packArt"].is_array() && !locProps["packArt"].empty()) {
+                        if (locProps["packArt"][0].is_object() && locProps["packArt"][0].contains("url")) {
+                           gsd.imageUrl = locProps["packArt"][0].value("url", "");
+                        }
+                    }
+                    if (locProps.contains("backgroundImage") && locProps["backgroundImage"].is_array() && !locProps["backgroundImage"].empty()) {
+                         if (locProps["backgroundImage"][0].is_object() && locProps["backgroundImage"][0].contains("url")) {
+                           gsd.backgroundImageUrl = locProps["backgroundImage"][0].value("url", "");
+                        }
+                    }
+                    if (locProps.contains("genres") && locProps["genres"].is_array()) {
+                        for (const auto& genreNode : locProps["genres"]) {
+                            if (genreNode.is_object() && genreNode.contains("string") && genreNode["string"].is_string()) {
+                                gsd.genres.push_back(genreNode["string"].get<std::string>());
+                            } else if (genreNode.is_string()) { // Se fosse direttamente un array di stringhe
+                                gsd.genres.push_back(genreNode.get<std::string>());
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Estrai da gameProducts (assumendo array e primo elemento)
+        if (dataNode.contains("gameProducts") && dataNode["gameProducts"].is_object() &&
+            dataNode["gameProducts"].contains("items") && dataNode["gameProducts"]["items"].is_array() &&
+            !dataNode["gameProducts"]["items"].empty()) {
+
+            const auto& productItem = dataNode["gameProducts"]["items"][0];
+            if (productItem.is_object()) { // Controllo aggiuntivo
+                // Sovrascrivi/popola il titolo se quello da gameProducts è migliore o mancante
+                if (gsd.title.empty() && productItem.contains("name")) {
+                    gsd.title = productItem.value("name", "");
+                }
+                // Popola masterTitleId dal productId di gameProducts
+                gsd.masterTitleId = productItem.value("id", "");
+
+                // Popola offerId se non già da legacyOffers o se diverso/più specifico
+                if (gsd.offerId.empty() && productItem.contains("originOfferId")) {
+                     gsd.offerId = productItem.value("originOfferId", "");
+                }
+                // Potresti voler prendere gameSlug e baseItem.title se hai campi in GameStoreData
+                // std::string gameSlug = productItem.value("gameSlug", "");
+            }
+        }
+
+        // Log di riepilogo dei dati parsati per debug
+        LOG(LogDebug) << "GameStoreData::fromJson JUNO - Parsed: title='" << gsd.title
+                      << "', offerId='" << gsd.offerId
+                      << "', masterTitleId='" << gsd.masterTitleId
+                      << "', isGame=" << gsd.isGame
+                      << "', dev='" << gsd.developer
+                      << "', pub='" << gsd.publisher
+                      << "', releaseDate='" << gsd.releaseDate
+                      << "', genres=" << Utils::String::vectorToCommaString(gsd.genres)
+                      << "', imageURL='" << gsd.imageUrl
+                      << "', bgImageURL='" << gsd.backgroundImageUrl
+                      << "', desc_len=" << gsd.description.length();
+
+
+    } catch (const nlohmann::json::exception& e) {
+        LOG(LogError) << "EAGamesModels (GameStoreData::fromJson JUNO): Errore durante il parsing del JSON JUNO: " << e.what()
+                      << " - JSON problematico (o parte): " << j.dump(2).substr(0, 1000);
+        // Restituisce gsd parzialmente popolato o vuoto come indicatore di errore
+    } catch (const std::exception& e) {
+        LOG(LogError) << "EAGamesModels (GameStoreData::fromJson JUNO): Eccezione generica: " << e.what();
+    }
+
+    return gsd;
+}
     };
 
     struct InstalledGameInfo { // Mantieni come nel tuo file originale

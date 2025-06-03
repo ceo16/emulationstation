@@ -3,7 +3,7 @@
 #include "Log.h"
 #include "MetaData.h"
 #include "SystemData.h"
-#include "FileData.h"     // Per FileData e FileType::GAME
+#include "FileData.h"      // Per FileData e FileType::GAME
 #include "Settings.h"
 #include "GameStore/GameStoreManager.h"
 #include "GameStore/EAGames/EAGamesStore.h"
@@ -14,16 +14,28 @@
 // --- Implementazione di EAGamesScraperRequest ---
 EAGamesScraperRequest::EAGamesScraperRequest(
     std::vector<ScraperSearchResult>& resultsWrite,
-    const ScraperSearchParams& params,
+    const ScraperSearchParams& params, // Continua a prendere const reference come input per la copia
     EAGamesStore* eaStore,
     const std::string& gameIdToScrape)
     : ScraperRequest(resultsWrite),
-      mSearchParams(params),
+      mSearchParams(params), // <--- QUESTA LINEA ORA ESEGUE UNA COPIA DI PARAMS
       mEaStoreInstance(eaStore),
       mGameIdForApi(gameIdToScrape),
       mRequestLaunched(false)
 {
-    LOG(LogDebug) << "EAGamesScraperRequest created for EA ID: " << mGameIdForApi << " (Game: " << params.game->getName() << ")";
+    LOG(LogDebug) << "EAGamesScraperRequest created for EA ID: " << mGameIdForApi << " (Game: " << mSearchParams.game->getName() << ")"; // Ora mSearchParams.game è sicuro
+    // Incrementa il contatore di scrape attivi all'inizio della richiesta
+    if (mEaStoreInstance) {
+        mEaStoreInstance->incrementActiveScrape();
+    }
+}
+
+// Implementazione del distruttore
+EAGamesScraperRequest::~EAGamesScraperRequest() {
+    // Decrementa il contatore di scrape attivi alla fine della richiesta
+    if (mEaStoreInstance) {
+        mEaStoreInstance->decrementActiveScrape();
+    }
 }
 
 void EAGamesScraperRequest::update()
@@ -39,12 +51,13 @@ void EAGamesScraperRequest::update()
 
         if (!mEaStoreInstance) {
             LOG(LogError) << "EAGamesScraperRequest::update - EAGamesStore instance is null.";
-            setError(_("Istanza EA Store non trovata.")); // CORRETTO
+            setError(_("Istanza EA Store non trovata."));
             return;
         }
+        // Il controllo seguente è ancora utile per verificare la validità del puntatore interno
         if (!mSearchParams.game) {
              LOG(LogError) << "EAGamesScraperRequest::update - mSearchParams.game is null.";
-             setError(_("Dati del gioco non validi per lo scraping.")); // CORRETTO
+             setError(_("Dati del gioco non validi per lo scraping."));
              return;
         }
 
@@ -73,7 +86,7 @@ void EAGamesScraperRequest::update()
                     }
                 }
 
-                // Preserva gli ID esistenti dal FileData originale
+                // Preserva gli ID esistenti dal FileData originale, che ora è sicuro
                 sr.mdl.set(MetaDataId::EaOfferId, mSearchParams.game->getMetadata().get(MetaDataId::EaOfferId));
                 sr.mdl.set(MetaDataId::EaMasterTitleId, mSearchParams.game->getMetadata().get(MetaDataId::EaMasterTitleId));
 
@@ -89,7 +102,7 @@ void EAGamesScraperRequest::update()
                     ScraperSearchItem itemFanart;
                     itemFanart.url = eaData.backgroundUrl;
                     itemFanart.format = Utils::String::toLower(Utils::FileSystem::getExtension(eaData.backgroundUrl));
-                     if (itemFanart.format.empty() || itemFanart.format == ".") itemFanart.format = ".jpg";
+                    if (itemFanart.format.empty() || itemFanart.format == ".") itemFanart.format = ".jpg";
                     sr.urls[MetaDataId::FanArt] = itemFanart;
                     LOG(LogDebug) << "  Set FanArt URL: " << eaData.backgroundUrl;
                 }
@@ -100,7 +113,7 @@ void EAGamesScraperRequest::update()
 
             } else {
                 LOG(LogError) << "EAGamesScraperRequest: Failed to get metadata for EA ID: " << mGameIdForApi;
-                setError(_("Recupero metadati EA fallito.")); // CORRETTO
+                setError(_("Recupero metadati EA fallito."));
             }
         };
         mEaStoreInstance->GetGameMetadata(mSearchParams.game, apiCallback);
@@ -121,7 +134,7 @@ EAGamesStore* EAGamesScraper::getEaStore() {
          LOG(LogError) << "EAGamesScraper::getEaStore - GameStoreManager instance is null.";
          return nullptr;
     }
-    GameStore* store = gsm->getStore("EA Games");
+    GameStore* store = gsm->getStore(EAGamesStore::STORE_ID);
     if (store) {
         return dynamic_cast<EAGamesStore*>(store);
     }
@@ -130,9 +143,9 @@ EAGamesStore* EAGamesScraper::getEaStore() {
 }
 
 bool EAGamesScraper::isSupportedPlatform(SystemData* system) {
-    if (!system) return false;
-    std::string systemName = system->getName();
-    return systemName == "eagames" || systemName == "eapc" || systemName == "origin" || systemName == "originpc";
+  if (!system) return false;
+  std::string systemName = system->getName();
+  return systemName == "eagames" || systemName == "eapc" || systemName == "origin" || systemName == "originpc" || systemName == "EAGamesStore"; // AGGIUNTO "EAGamesStore"
 }
 
 const std::set<Scraper::ScraperMediaSource>& EAGamesScraper::getSupportedMedias() {

@@ -10,16 +10,18 @@
 #include "SystemData.h"
 #include "MetaData.h"
 #include "utils/StringUtil.h"
-#include "utils/Platform.h" 
-#include "utils/FileSystemUtil.h" 
+#include "utils/Platform.h"
+#include "utils/FileSystemUtil.h"
 #include "LocaleES.h"
 #include "Paths.h"
-#include "views/ViewController.h" 
-#include "GameStore/EAGames/EAGamesUI.h" 
+#include "views/ViewController.h"
+#include "GameStore/EAGames/EAGamesUI.h"
+#include "scrapers/Scraper.h"
 
 #include <algorithm>
 #include <map>
 #include <thread>
+#include <memory> // Per std::make_shared
 
 const std::string EAGamesStore::STORE_ID = "EAGamesStore";
 
@@ -29,7 +31,8 @@ EAGamesStore::EAGamesStore(Window* window)
       mApi(std::make_unique<EAGames::EAGamesAPI>(mAuth.get())),
       mScanner(std::make_unique<EAGames::EAGamesScanner>()),
       mGamesCacheDirty(true),
-      mFetchingGamesInProgress(false)
+      mFetchingGamesInProgress(false),
+      mActiveScrapeCounter(0)
 {
     LOG(LogInfo) << "EAGamesStore: Constructor completed.";
 }
@@ -45,43 +48,40 @@ bool EAGamesStore::init(Window* /*window_param*/) {
         mAuth->RefreshTokens([this](bool success, const std::string& message){
             if(success) {
                 LOG(LogInfo) << "EAGamesStore: Auto token refresh successful on init.";
-                this->mGamesCacheDirty = true; 
+                this->mGamesCacheDirty = true;
             } else {
                 LOG(LogWarning) << "EAGamesStore: Auto token refresh failed on init. Message: " << message;
             }
         });
     }
-    this->_initialized = true; 
+    this->_initialized = true;
     return true;
 }
 
 void EAGamesStore::showStoreUI(Window* window) {
-    // Il tuo codice esistente per showStoreUI va bene
-    LOG(LogError) << "EAGamesStore::showStoreUI - INIZIO"; 
+    LOG(LogError) << "EAGamesStore::showStoreUI - INIZIO";
     if (!window) {
         LOG(LogError) << "EAGamesStore::showStoreUI - ERRORE: window è nullptr!";
         return;
     }
-    LOG(LogError) << "EAGamesStore::showStoreUI - Sto per fare new EAGamesUI(window)"; 
-    
-    EAGamesUI* ui = new EAGamesUI(window); 
-    
-    LOG(LogError) << "EAGamesStore::showStoreUI - new EAGamesUI(window) ESEGUITO, ui pointer: " << ui; 
+    LOG(LogError) << "EAGamesStore::showStoreUI - Sto per fare new EAGamesUI(window)";
+
+    EAGamesUI* ui = new EAGamesUI(window);
+
+    LOG(LogError) << "EAGamesStore::showStoreUI - new EAGamesUI(window) ESEGUITO, ui pointer: " << ui;
     if (!ui) {
          LOG(LogError) << "EAGamesStore::showStoreUI - ERRORE: new EAGamesUI(window) ha restituito nullptr!";
          return;
     }
     window->pushGui(ui);
-    LOG(LogError) << "EAGamesStore::showStoreUI - window->pushGui(ui) ESEGUITO - FINE"; 
+    LOG(LogError) << "EAGamesStore::showStoreUI - window->pushGui(ui) ESEGUITO - FINE";
 }
 
 std::string EAGamesStore::getStoreName() const {
-    return "EA Games"; 
+    return "EA Games";
 }
 
 bool EAGamesStore::launchGame(const std::string& gameId) {
-    // Il tuo codice esistente per launchGame va bene
-    // Nota: gameId qui è probabilmente l'OfferID o un ID che il client EA capisce
     LOG(LogInfo) << "EAGamesStore: Attempting to launch game with ID: " << gameId;
     #ifndef _WIN32
         LOG(LogError) << "EAGamesStore: Game launching currently only supported on Windows.";
@@ -93,13 +93,10 @@ bool EAGamesStore::launchGame(const std::string& gameId) {
         LOG(LogError) << "EAGamesStore: Game ID for URI launch is empty.";
         return false;
     }
-    // L'URI scheme "origin://" potrebbe essere obsoleto. "ea://", "eadt://", o "electron://" sono usati da EA App.
-    // Dovrai determinare l'URI corretto per lanciare giochi con EA App.
-    // Esempio (ipotetico, da verificare): "eadt://launch?offerid=" + gameId + "&pid=" + mAuth->getPidId();
-    std::string uri = "origin://launchgame/" + gameId; // <<< POTREBBE ESSERE DA CAMBIARE PER EA APP
+    std::string uri = "origin://launchgame/" + gameId;
     LOG(LogInfo) << "EAGamesStore: Launching game via URI: " << uri;
     std::string command = "explorer.exe \"" + uri + "\"";
-   if (Utils::Platform::ProcessStartInfo(command).run() == 0) { 
+   if (Utils::Platform::ProcessStartInfo(command).run() == 0) {
         if (mWindow && Settings::getInstance()->getBool("StorePopups")) mWindow->displayNotificationMessage(_("Avvio gioco EA...") + " (" + gameId + ")");
         return true;
     }
@@ -114,7 +111,6 @@ void EAGamesStore::shutdown() {
 }
 
 std::vector<FileData*> EAGamesStore::getGamesList() {
-    // Il tuo codice esistente per getGamesList va bene
     LOG(LogDebug) << "EAGamesStore::getGamesList called. Cache dirty: " << mGamesCacheDirty << ", Fetching: " << mFetchingGamesInProgress;
     if (IsUserLoggedIn()) {
         if (mGamesCacheDirty && !mFetchingGamesInProgress) {
@@ -124,20 +120,20 @@ std::vector<FileData*> EAGamesStore::getGamesList() {
                 if (this->mWindow && Settings::getInstance()->getBool("StorePopups")) {
                     this->mWindow->displayNotificationMessage(success ? _("Sincronizzazione EA Games completata.") : _("Errore sincronizzazione EA Games."));
                 }
-                if (success && this->mWindow && ViewController::get()) { 
-                    ViewController::get()->reloadAll(mWindow); 
+                if (success && this->mWindow && ViewController::get()) {
+                    ViewController::get()->reloadAll(mWindow);
                 }
             });
         }
     } else {
         LOG(LogWarning) << "EAGamesStore::getGamesList - User not logged in.";
-        if (!mCachedGameFileDatas.empty()) { 
+        if (!mCachedGameFileDatas.empty()) {
            mCachedGameFileDatas.clear();
            rebuildReturnableGameList();
-           if (mWindow && ViewController::get()) ViewController::get()->reloadAll(mWindow); 
+           if (mWindow && ViewController::get()) ViewController::get()->reloadAll(mWindow);
         }
     }
-    
+
     if (mReturnableGameList.empty() && !mCachedGameFileDatas.empty()) {
         rebuildReturnableGameList();
     }
@@ -145,13 +141,12 @@ std::vector<FileData*> EAGamesStore::getGamesList() {
 }
 
 bool EAGamesStore::installGame(const std::string& gameId) {
-    // Il tuo codice esistente per installGame va bene (ma vedi nota su URI scheme per launchGame)
     LOG(LogInfo) << "EAGamesStore: Attempting to install game with ID: " << gameId;
     #ifndef _WIN32
         LOG(LogError) << "EAGamesStore: Installazione supportata solo su Windows."; return false;
     #endif
     if (gameId.empty()) return false;
-    std::string uri = "origin://downloadgame/" + gameId; // <<< POTREBBE ESSERE DA CAMBIARE PER EA APP
+    std::string uri = "origin://downloadgame/" + gameId;
     std::string command = "explorer.exe \"" + uri + "\"";
     if (Utils::Platform::ProcessStartInfo(command).run() == 0) {
         if (mWindow && Settings::getInstance()->getBool("StorePopups")) mWindow->displayNotificationMessage(_("Apertura client EA per installare ") + "(" + gameId + ")");
@@ -161,13 +156,12 @@ bool EAGamesStore::installGame(const std::string& gameId) {
 }
 
 bool EAGamesStore::uninstallGame(const std::string& gameId) {
-    // Il tuo codice esistente per uninstallGame va bene (ma vedi nota su URI scheme per launchGame)
     LOG(LogInfo) << "EAGamesStore: Attempting to uninstall game with ID: " << gameId;
     #ifndef _WIN32
         LOG(LogError) << "EAGamesStore: Disinstallazione supportata solo su Windows."; return false;
     #endif
     if (gameId.empty()) return false;
-    std::string uri = "origin://uninstall/" + gameId; // <<< POTREBBE ESSERE DA CAMBIARE PER EA APP
+    std::string uri = "origin://uninstall/" + gameId;
     std::string command = "explorer.exe \"" + uri + "\"";
      if (Utils::Platform::ProcessStartInfo(command).run() == 0) {
         if (mWindow && Settings::getInstance()->getBool("StorePopups")) mWindow->displayNotificationMessage(_("Apertura client EA per disinstallare ") + "(" + gameId + ")");
@@ -178,10 +172,9 @@ bool EAGamesStore::uninstallGame(const std::string& gameId) {
 }
 
 bool EAGamesStore::updateGame(const std::string& gameId) {
-    // Il tuo codice esistente per updateGame va bene
     LOG(LogWarning) << "EAGamesStore: updateGame for ID " << gameId << " - Client gestisce aggiornamenti.";
     if (mWindow && Settings::getInstance()->getBool("StorePopups")) mWindow->displayNotificationMessage(_("EA Games: Aggiornamenti gestiti dal client EA."));
-    return launchGame(gameId); // Prova a lanciare il gioco, il client EA dovrebbe gestire l'aggiornamento se necessario
+    return launchGame(gameId);
 }
 
 bool EAGamesStore::IsUserLoggedIn() {
@@ -189,25 +182,22 @@ bool EAGamesStore::IsUserLoggedIn() {
 }
 
 void EAGamesStore::Login(std::function<void(bool success, const std::string& message)> callback) {
-    // Il tuo codice esistente per Login va bene
     if (mAuth) {
-        mAuth->StartLoginFlow([this, callback](bool flowSuccess, const std::string& flowMessage) { 
+        mAuth->StartLoginFlow([this, callback](bool flowSuccess, const std::string& flowMessage) {
             if (flowSuccess) this->mGamesCacheDirty = true;
-            if (callback) { // Invia sempre al thread UI
+            if (callback) {
                 if (this->mWindow) this->mWindow->postToUiThread([callback, flowSuccess, flowMessage] { callback(flowSuccess, flowMessage); });
-                else callback(flowSuccess, flowMessage); // Fallback
+                else callback(flowSuccess, flowMessage);
             }
         });
     } else if (callback) {
-        // Assicurati che anche questo callback venga eseguito sul thread UI se necessario
         std::string errorMsg = _("Modulo Auth EA non inizializzato.");
         if (this->mWindow) this->mWindow->postToUiThread([callback, errorMsg] { callback(false, errorMsg); });
-        else callback(false, errorMsg); // Fallback
+        else callback(false, errorMsg);
     }
 }
 
 void EAGamesStore::Logout() {
-    // Il tuo codice esistente per Logout va bene
     if (mAuth) mAuth->logout();
     mCachedGameFileDatas.clear();
     rebuildReturnableGameList();
@@ -217,36 +207,48 @@ void EAGamesStore::Logout() {
 }
 
 void EAGamesStore::GetUsername(std::function<void(const std::string& username)> callback) {
-    // Il tuo codice esistente per GetUsername va bene
     if (IsUserLoggedIn() && mAuth) {
-        // Usa mAuth->getUserName() se l'hai popolato in EAGamesAuth::fetchUserIdentity
-        // std::string displayName = mAuth->getUserName();
-        // if (callback) callback(!displayName.empty() ? displayName : _("Utente EA"));
-        // Oppure continua a usare PID se preferisci per ora:
         std::string pid = mAuth->getPidId();
         if (callback) {
             std::string usernameToShow = !pid.empty() ? (mAuth->getUserName().empty() ? "EA User (PID: " + pid + ")" : mAuth->getUserName()) : _("Utente EA");
             if (this->mWindow) this->mWindow->postToUiThread([callback, usernameToShow] { callback(usernameToShow); });
-            else callback(usernameToShow); // Fallback
+            else callback(usernameToShow);
         }
     } else if (callback) {
         if (this->mWindow) this->mWindow->postToUiThread([callback] { callback(""); });
-        else callback(""); // Fallback
+        else callback("");
     }
 }
 
+void EAGamesStore::incrementActiveScrape() {
+    mActiveScrapeCounter++;
+    LOG(LogDebug) << "EAGamesStore: Scrape counter incremented to " << mActiveScrapeCounter;
+}
+
+void EAGamesStore::decrementActiveScrape() {
+    mActiveScrapeCounter--;
+    LOG(LogDebug) << "EAGamesStore: Scrape counter decremented to " << mActiveScrapeCounter;
+}
+
 void EAGamesStore::SyncGames(std::function<void(bool success)> callback) {
-    // Il tuo codice esistente per SyncGames (la logica del thread) va bene.
-    // Le modifiche al parsing avvengono in EAGamesAPI e EAGamesModels.
     if (mFetchingGamesInProgress) {
         LOG(LogInfo) << "EAGamesStore: SyncGames - Fetch già in corso.";
-        if (callback) callback(false); // Considera postToUiThread se il callback aggiorna la UI
+        if (callback) callback(false);
         return;
     }
+    if (mActiveScrapeCounter > 0) {
+        LOG(LogWarning) << "EAGamesStore: SyncGames - Sincronizzazione bloccata, scraping attivo (" << mActiveScrapeCounter << " in corso). Riprovare più tardi.";
+        if (mWindow && Settings::getInstance()->getBool("StorePopups")) {
+            mWindow->displayNotificationMessage(_("EA Games: Sincronizzazione bloccata da scraping attivo. Riprova."));
+        }
+        if (callback) callback(false);
+        return;
+    }
+
     if (!IsUserLoggedIn()) {
-        LOG(LogWarning) << "EAGamesStore: SyncGames - Utente non loggato.";
+        LOG(LogWarning) << "EAGamesStore::SyncGames - Utente non loggato.";
         if (mWindow && Settings::getInstance()->getBool("StorePopups")) mWindow->displayNotificationMessage(_("EA Games: Effettua il login per sincronizzare."));
-        if (callback) callback(false); // Considera postToUiThread
+        if (callback) callback(false);
         return;
     }
     LOG(LogInfo) << "EAGamesStore: SyncGames - Avvio fetch...";
@@ -264,27 +266,23 @@ void EAGamesStore::SyncGames(std::function<void(bool success)> callback) {
                 if (!successApi) {
                     LOG(LogError) << "EAGamesStore: SyncGames - Fallimento fetch giochi online.";
                     if (mWindow && Settings::getInstance()->getBool("StorePopups")) mWindow->displayNotificationMessage(_("EA Games: Errore libreria online."));
-                    // Callback deve essere eseguito sul thread UI se aggiorna la UI
                     if (callback) {
                         if (this->mWindow) this->mWindow->postToUiThread([callback]{ callback(false); });
                         else callback(false);
                     }
                     return;
                 }
-                processAndCacheGames(onlineGames, installedGames); // Questa ora usa i campi corretti (sotto)
-                
-                // Il callback finale di SyncGames
+                processAndCacheGames(onlineGames, installedGames);
+
                 if (callback) {
                      if (this->mWindow) this->mWindow->postToUiThread([callback]{ callback(true); });
                      else callback(true);
                 }
-                // L'aggiornamento della UI è già in getGamesList, ma se SyncGames è chiamato da altre parti, potrebbe servire qui.
-                // if (mWindow && ViewController::get()) ViewController::get()->reloadAll(mWindow); // Già fatto da getGamesList
             });
         } else {
             LOG(LogError) << "EAGamesStore::SyncGames - mApi è null!";
             mFetchingGamesInProgress = false;
-            if (callback) { // Callback deve essere eseguito sul thread UI
+            if (callback) {
                 if (this->mWindow) this->mWindow->postToUiThread([callback]{ callback(false); });
                 else callback(false);
             }
@@ -293,21 +291,20 @@ void EAGamesStore::SyncGames(std::function<void(bool success)> callback) {
 }
 
 void EAGamesStore::StartLoginFlow(std::function<void(bool success, const std::string& message)> onFlowFinished) {
-    // Il tuo codice esistente per StartLoginFlow va bene
     if (mAuth) {
         mAuth->StartLoginFlow([this, onFlowFinished](bool success, const std::string& msg) {
             if (success) {
                  this->mGamesCacheDirty = true;
             }
-            if (onFlowFinished) { // Invia sempre al thread UI
+            if (onFlowFinished) {
                 if (this->mWindow) this->mWindow->postToUiThread([onFlowFinished, success, msg] { onFlowFinished(success, msg); });
-                else onFlowFinished(success, msg); // Fallback
+                else onFlowFinished(success, msg);
             }
         });
     } else if (onFlowFinished) {
         std::string errorMsg = _("Modulo Auth EA non inizializzato.");
         if (this->mWindow) this->mWindow->postToUiThread([onFlowFinished, errorMsg] { onFlowFinished(false, errorMsg); });
-        else onFlowFinished(false, errorMsg); // Fallback
+        else onFlowFinished(false, errorMsg);
     }
 }
 
@@ -315,7 +312,6 @@ unsigned short EAGamesStore::GetLocalRedirectPort() {
     return EAGames::EAGamesAuth::GetLocalRedirectPort();
 }
 
-// === VERSIONE MODIFICATA DI processAndCacheGames ===
 void EAGamesStore::processAndCacheGames(
     const std::vector<EAGames::GameEntitlement>& onlineGames,
     const std::vector<EAGames::InstalledGameInfo>& installedScannedGames)
@@ -324,15 +320,12 @@ void EAGamesStore::processAndCacheGames(
     mCachedGameFileDatas.clear();
     std::map<std::string, std::unique_ptr<FileData>> gameDataMap;
 
-    SystemData* eaSystem = SystemData::getSystem(EAGamesStore::STORE_ID); // Utilizza STORE_ID definito in EAGamesStore.h
+    SystemData* eaSystem = SystemData::getSystem(EAGamesStore::STORE_ID);
 
     if (!eaSystem) {
-        // Fallback a nomi comuni se l'ID specifico non viene trovato.
-        // Questo è una misura di sicurezza; il sistema dovrebbe essere presente se creato dinamicamente correttamente.
         LOG(LogWarning) << "EA Store: System with STORE_ID '" << EAGamesStore::STORE_ID << "' not found directly. Trying common names for EA system.";
-        // Assicurati che l'elenco di fallback includa la versione minuscola del tuo STORE_ID
-        std::vector<std::string> eaSystemCommonNames = {"eagames", "eapc", "origin", "eaapp", Utils::String::toLower(EAGamesStore::STORE_ID)};
-        for (SystemData* sys : SystemData::sSystemVector) { // Itera su sSystemVector definito in SystemData.cpp
+        std::vector<std::string> eaSystemCommonNames = {"eagames", "eapc", "eao", "eaapp", Utils::String::toLower(EAGamesStore::STORE_ID)};
+        for (SystemData* sys : SystemData::sSystemVector) {
             const std::string& sysNameLower = Utils::String::toLower(sys->getName());
             if (std::find(eaSystemCommonNames.begin(), eaSystemCommonNames.end(), sysNameLower) != eaSystemCommonNames.end()) {
                 eaSystem = sys;
@@ -343,88 +336,66 @@ void EAGamesStore::processAndCacheGames(
     }
 
     if (!eaSystem) {
-        LOG(LogError) << "EA Store: System for EA Games (ID: " << EAGamesStore::STORE_ID << " or common names) not found in SystemData vector! Cannot create FileData."; //
-        mGamesCacheDirty = false; 
-        rebuildReturnableGameList(); 
+        LOG(LogError) << "EA Store: System for EA Games (ID: " << EAGamesStore::STORE_ID << " or common names) not found in SystemData vector! Cannot create FileData.";
+        mGamesCacheDirty = false;
+        rebuildReturnableGameList();
         if (mWindow) mWindow->displayNotificationMessage(_("Sistema EA non configurato o non trovato in EmulationStation! Impossibile mostrare i giochi."));
         return;
     }
 
-    // Processa giochi installati (come prima)
     for (const auto& installedInfo : installedScannedGames) {
-        if (installedInfo.id.empty()) { // L'ID dello scanner è probabilmente l'OfferID o MasterTitleID
+        if (installedInfo.id.empty()) {
             LOG(LogWarning) << "EA Store: Installed game found with empty ID. Skipping. Name: " << installedInfo.name;
             continue;
         }
         std::string fdPath = installedInfo.executablePath;
         if (fdPath.empty() || !Utils::FileSystem::exists(fdPath)) {
             fdPath = installedInfo.installPath;
-            if (fdPath.empty() || !Utils::FileSystem::isAbsolute(fdPath)) { // Assicurati che il percorso sia assoluto se non è un eseguibile
+            if (fdPath.empty() || !Utils::FileSystem::isAbsolute(fdPath)) {
                  LOG(LogWarning) << "EA Store: Installed game '" << installedInfo.name << "' has invalid or non-existent path. Skipping. Path: " << fdPath;
                  continue;
             }
         }
-        // Usa installedInfo.id (che dovrebbe essere l'Offer ID o un ID consistente) come chiave
-        std::string uniqueGameKey = installedInfo.id; 
+        std::string uniqueGameKey = installedInfo.id;
         auto fd = std::make_unique<FileData>(FileType::GAME, fdPath, eaSystem);
         fd->getMetadata().set(MetaDataId::Name, installedInfo.name.empty() ? ("EA Game " + uniqueGameKey) : installedInfo.name);
         fd->getMetadata().set(MetaDataId::Installed, "true");
-        fd->getMetadata().set(MetaDataId::IsOwned, "false"); // Sarà true se trovato online
-        
-        // Aggiungi gli ID specifici di EA se disponibili dallo scanner
-        fd->getMetadata().set(MetaDataId::EaOfferId, installedInfo.id); // Assumendo che installedInfo.id sia l'OfferID
-        // Se lo scanner fornisce anche un MasterTitleID o ProductID, impostalo
-        // fd->getMetadata().set(MetaDataId::EaMasterTitleId, installedInfo.masterTitleId_o_productId); 
+        fd->getMetadata().set(MetaDataId::IsOwned, "false");
+
+        fd->getMetadata().set(MetaDataId::EaOfferId, installedInfo.id);
         if (!installedInfo.multiplayerId.empty())
              fd->getMetadata().set(MetaDataId::EaMultiplayerId, installedInfo.multiplayerId);
         fd->getMetadata().set(MetaDataId::InstallDir, installedInfo.installPath);
-        
+
         gameDataMap[uniqueGameKey] = std::move(fd);
     }
 
-    // Processa giochi online (da GraphQL)
     for (const auto& entitlement : onlineGames) {
-        // Dalla struct GameEntitlement aggiornata (in EAGamesModels.h):
-        // - entitlement.originOfferId (era offerId)
-        // - entitlement.title (era product.name)
-        // - entitlement.productId (era product.id)
-        // - entitlement.gameSlug (era product.gameSlug)
-        // - entitlement.gameType (era product.baseItem.gameType)
-        // - masterTitleId e offerPath NON sono più direttamente popolati in GameEntitlement dal parser GraphQL
-
-        std::string uniqueGameKey = entitlement.originOfferId; // Usa originOfferId come chiave primaria
+        std::string uniqueGameKey = entitlement.originOfferId;
         if (uniqueGameKey.empty()) {
-             // Potresti usare entitlement.productId come fallback se originOfferId fosse vuoto,
-             // ma originOfferId dovrebbe essere l'identificatore principale per la licenza.
             LOG(LogWarning) << "EA Store: Online entitlement found with empty originOfferId. Title: " << entitlement.title << ". Skipping.";
             continue;
         }
 
-        if (gameDataMap.count(uniqueGameKey)) { // Gioco trovato anche tra quelli installati
+        if (gameDataMap.count(uniqueGameKey)) {
             FileData* fd_ptr = gameDataMap[uniqueGameKey].get();
-            fd_ptr->getMetadata().set(MetaDataId::IsOwned, "true"); // Ora sappiamo che è posseduto
-            
-            // Aggiorna il nome se quello online è più completo e quello attuale è un placeholder
+            fd_ptr->getMetadata().set(MetaDataId::IsOwned, "true");
+
             std::string currentName = fd_ptr->getMetadata().get(MetaDataId::Name);
             if (!entitlement.title.empty() && (currentName.empty() || Utils::String::startsWith(currentName, "EA Game "))) {
                 fd_ptr->getMetadata().set(MetaDataId::Name, entitlement.title);
             }
-            // Aggiorna gli ID specifici di EA
             fd_ptr->getMetadata().set(MetaDataId::EaOfferId, entitlement.originOfferId);
-            if (!entitlement.productId.empty()) { // Se abbiamo un Product ID dal parser GraphQL
-                 fd_ptr->getMetadata().set(MetaDataId::EaMasterTitleId, entitlement.productId); // Usiamo productId come master/product ID
+            if (!entitlement.productId.empty()) {
+                 fd_ptr->getMetadata().set(MetaDataId::EaMasterTitleId, entitlement.productId);
             }
-            // gameSlug e gameType sono ora in entitlement, potresti salvarli se hai campi metadati adatti
-            // fd_ptr->getMetadata().set(MetaDataId::EaGameSlug, entitlement.gameSlug);
-            // fd_ptr->getMetadata().set(MetaDataId::GameType, entitlement.gameType);
-
-        } else { // Gioco posseduto online ma non trovato tra quelli installati
-            std::string virtualPath = "ea://game/" + uniqueGameKey; // Percorso virtuale per giochi non installati
+        } else {
+            std::string virtualPath = "ea://game/" + uniqueGameKey;
             auto fd = std::make_unique<FileData>(FileType::GAME, virtualPath, eaSystem);
-            
+
             std::string gameName = entitlement.title;
-            if (gameName.empty()) gameName = "EA Game (" + uniqueGameKey + ")"; // Fallback name
-            
+            if (gameName.empty()) gameName = "EA Game (" + uniqueGameKey + ")";
+
             fd->getMetadata().set(MetaDataId::Name, gameName);
             fd->getMetadata().set(MetaDataId::Installed, "false");
             fd->getMetadata().set(MetaDataId::IsOwned, "true");
@@ -432,31 +403,25 @@ void EAGamesStore::processAndCacheGames(
             if (!entitlement.productId.empty()) {
                  fd->getMetadata().set(MetaDataId::EaMasterTitleId, entitlement.productId);
             }
-            // fd->getMetadata().set(MetaDataId::EaGameSlug, entitlement.gameSlug);
-            // fd->getMetadata().set(MetaDataId::GameType, entitlement.gameType);
-
             gameDataMap[uniqueGameKey] = std::move(fd);
         }
     }
 
-    // Popola la cache finale
     for (auto& pair : gameDataMap) {
         mCachedGameFileDatas.push_back(std::move(pair.second));
     }
 
-    // Ordina la lista
     std::sort(mCachedGameFileDatas.begin(), mCachedGameFileDatas.end(),
         [](const std::unique_ptr<FileData>& a, const std::unique_ptr<FileData>& b) {
         return Utils::String::toLower(a->getName()) < Utils::String::toLower(b->getName());
     });
 
-    mGamesCacheDirty = false; // La cache è ora aggiornata
-    rebuildReturnableGameList(); // Aggiorna la lista che verrà effettivamente mostrata
+    mGamesCacheDirty = false;
+    rebuildReturnableGameList();
     LOG(LogInfo) << "EA Store: Cached " << mCachedGameFileDatas.size() << " EA games processed.";
 }
 
 void EAGamesStore::rebuildReturnableGameList() {
-    // Il tuo codice esistente per rebuildReturnableGameList va bene
     mReturnableGameList.clear();
     mReturnableGameList.reserve(mCachedGameFileDatas.size());
     for (const auto& fd_ptr : mCachedGameFileDatas) {
@@ -465,111 +430,242 @@ void EAGamesStore::rebuildReturnableGameList() {
 }
 
 void EAGamesStore::GetGameArtwork(const FileData* game, const std::string& artworkType, ArtworkFetchedCallbackStore callback) {
-    // Il tuo codice esistente per GetGameArtwork va bene
-    // Assicurati che MetaDataId::EaOfferId e MetaDataId::EaMasterTitleId usati qui
-    // corrispondano a come li stai impostando in processAndCacheGames
-    if (!game) { if (callback) callback("", false); return; }
-    std::string offerId = game->getMetadata().get(MetaDataId::EaOfferId); // Questo dovrebbe essere originOfferId
-    std::string masterId = game->getMetadata().get(MetaDataId::EaMasterTitleId); // Questo dovrebbe essere productId
-    
-    // Usa l'OfferID (originOfferId) come primario per l'artwork se disponibile
-    std::string idToUseForApi = !offerId.empty() ? offerId : masterId; 
-    std::string gameNameForLog = game->getName(); 
+    LOG(LogDebug) << "EAGamesStore::GetGameArtwork - Richiesta artwork di tipo '" << artworkType << "' per il gioco: " << (game ? game->getName() : "GIOCO_NULLO");
 
-    if (idToUseForApi.empty() || !mApi) {
-        LOG(LogWarning) << "EAGamesStore::GetGameArtwork - No ID or API for game: " << gameNameForLog;
-        if (callback) callback("", false); return;
+    if (!game) {
+        LOG(LogError) << "EAGamesStore::GetGameArtwork - Puntatore al gioco (game) è nullo.";
+        if (callback) callback("", false);
+        return;
     }
-    // ... (resto del tuo codice per GetGameArtwork, assicurati che mApi->getOfferStoreData/getMasterTitleStoreData
-    // usino endpoint che funzionano, altrimenti non troveranno artwork)
-    // Per ora lascio il resto invariato, ma quegli endpoint API sono probabilmente deprecati.
-    std::string country = Settings::getInstance()->getString("ThemeRegion");
-    if (country.empty() || country.length() != 2) country = "US";
-    std::string langLocale = Settings::getInstance()->getString("Language");
-	std::string apiLocale = langLocale;
-	if (apiLocale.length() == 2) apiLocale = Utils::String::toLower(apiLocale) + "_" + Utils::String::toUpper(country);
-	else if (apiLocale.empty()) apiLocale = "en_US";
 
-    auto apiCallback = [artworkType, callback, gameNameCapture = gameNameForLog](EAGames::GameStoreData metadata, bool success) mutable {
+    std::string gameNameForLog = game->getName();
+    std::string offerId = game->getMetadata().get(MetaDataId::EaOfferId);
+    std::string masterId = game->getMetadata().get(MetaDataId::EaMasterTitleId);
+    std::string idToUseForApi = !offerId.empty() ? offerId : masterId;
+
+    LOG(LogDebug) << "EAGamesStore::GetGameArtwork - Info gioco: Nome='" << gameNameForLog << "', OfferID='" << offerId << "', MasterID='" << masterId << "', ID da usare='" << idToUseForApi << "'";
+
+    if (!mApi) {
+        LOG(LogError) << "EAGamesStore::GetGameArtwork - mApi (unique_ptr) è nullo per il gioco: " << gameNameForLog;
+        if (callback) callback("", false);
+        return;
+    }
+    LOG(LogDebug) << "EAGamesStore::GetGameArtwork - mApi unique_ptr è valido. Procedo con Settings.";
+
+    if (idToUseForApi.empty()) {
+        LOG(LogWarning) << "EAGamesStore::GetGameArtwork - Nessun ID API (OfferID/MasterID) disponibile per il gioco: " << gameNameForLog;
+        if (callback) callback("", false);
+        return;
+    }
+
+    Settings* settings = Settings::getInstance();
+    if (!settings) {
+        LOG(LogError) << "EAGamesStore::GetGameArtwork - FATALE: Settings::getInstance() ha restituito null!";
+        if (callback) callback("", false);
+        return;
+    }
+    LOG(LogDebug) << "EAGamesStore::GetGameArtwork - Istanza Settings ottenuta. Acquisisco country/locale.";
+
+    std::string country;
+    try {
+        country = settings->getString("ThemeRegion");
+    } catch (const std::exception& e) {
+        LOG(LogWarning) << "EAGamesStore::GetGameArtwork - Eccezione leggendo ThemeRegion: " << e.what() << ". Uso fallback 'US'.";
+        country = "US";
+    } catch (...) {
+        LOG(LogWarning) << "EAGamesStore::GetGameArtwork - Eccezione sconosciuta leggendo ThemeRegion. Uso fallback 'US'.";
+        country = "US";
+    }
+    if (country.empty() || country.length() != 2) country = "US";
+
+    std::string langLocale;
+    try {
+        langLocale = settings->getString("Language");
+    } catch (const std::exception& e) {
+        LOG(LogWarning) << "EAGamesStore::GetGameArtwork - Eccezione leggendo Language: " << e.what() << ". Uso fallback 'en_US'.";
+        langLocale = "en_US";
+    } catch (...) {
+        LOG(LogWarning) << "EAGamesStore::GetGameArtwork - Eccezione sconosciuta leggendo Language. Uso fallback 'en_US'.";
+        langLocale = "en_US";
+    }
+    std::string apiLocale = langLocale;
+    if (apiLocale.length() == 2) apiLocale = Utils::String::toLower(apiLocale) + "_" + Utils::String::toUpper(country);
+    else if (apiLocale.empty()) apiLocale = "en_US";
+
+    LOG(LogDebug) << "EAGamesStore::GetGameArtwork - Paese finale: " << country << ", Locale API finale: " << apiLocale;
+
+    auto apiCallbackAdapter = [artworkType, callback, gameNameCapture = gameNameForLog](EAGames::GameStoreData metadata, bool success) mutable {
         if (success && (!metadata.title.empty() || !metadata.imageUrl.empty() || !metadata.backgroundImageUrl.empty())) {
             std::string url;
             if (artworkType == "boxart" || artworkType == "image") url = metadata.imageUrl;
             else if (artworkType == "background" || artworkType == "fanart") url = metadata.backgroundImageUrl;
+
             if (!url.empty()) {
-                LOG(LogDebug) << "EAGamesStore::GetGameArtwork - Found " << artworkType << " for " << gameNameCapture << ": " << url;
+                LOG(LogInfo) << "EAGamesStore::GetGameArtwork - Trovato artwork '" << artworkType << "' per '" << gameNameCapture << "': " << url;
                 if (callback) callback(url, true);
             } else {
-                LOG(LogDebug) << "EAGamesStore::GetGameArtwork - Artwork type " << artworkType << " not found in metadata for " << gameNameCapture;
+                LOG(LogDebug) << "EAGamesStore::GetGameArtwork - Tipo artwork '" << artworkType << "' non trovato nei metadati per '" << gameNameCapture << "'.";
                 if (callback) callback("", false);
             }
         } else {
-            LOG(LogError) << "EAGamesStore::GetGameArtwork - API call failed or no useful data for " << gameNameCapture;
+            LOG(LogError) << "EAGamesStore::GetGameArtwork - Chiamata API fallita o nessun dato utile per '" << gameNameCapture << "'. Successo API: " << success;
             if (callback) callback("", false);
         }
     };
-    // Le seguenti chiamate a getOfferStoreData/getMasterTitleStoreData useranno gli endpoint di Origin deprecati
-    // e probabilmente falliranno. Dovrai trovare endpoint EA App equivalenti per i metadati dei giochi.
-    if (!offerId.empty()) { // Qui offerId è l'originOfferId
-        LOG(LogDebug) << "EAGamesStore::GetGameArtwork - Using OfferID " << offerId << " for game " << gameNameForLog;
-        mApi->getOfferStoreData(offerId, country, apiLocale, apiCallback);
-    } else if (!masterId.empty()) { // Qui masterId è il productId
-        LOG(LogDebug) << "EAGamesStore::GetGameArtwork - OfferID empty, using MasterTitleID " << masterId << " for game " << gameNameForLog;
-        mApi->getMasterTitleStoreData(masterId, country, apiLocale, apiCallback);
-    } else {
-         LOG(LogWarning) << "EAGamesStore::GetGameArtwork - Both OfferID and MasterTitleID are empty for " << gameNameForLog;
-         if (callback) callback("", false);
+
+    LOG(LogDebug) << "EAGamesStore::GetGameArtwork - Chiamo API per artwork per ID '" << idToUseForApi << "', gioco '" << gameNameForLog << "'.";
+    if (!offerId.empty()) {
+        mApi->getOfferStoreData(offerId, country, apiLocale, apiCallbackAdapter);
+    } else if (!masterId.empty()) {
+        mApi->getMasterTitleStoreData(masterId, country, apiLocale, apiCallbackAdapter);
     }
+    return;
 }
 
 void EAGamesStore::GetGameMetadata(const FileData* game, MetadataFetchedCallbackStore callback) {
-    // Il tuo codice esistente per GetGameMetadata va bene
-    // Stesse considerazioni di GetGameArtwork per gli ID e gli endpoint API
-    if (!game) { if (callback) callback({}, false); return; }
-    std::string offerId = game->getMetadata().get(MetaDataId::EaOfferId);
-    std::string masterId = game->getMetadata().get(MetaDataId::EaMasterTitleId);
-    std::string idToUseForApi = !offerId.empty() ? offerId : masterId;
-    std::string gameNameForLog = game->getName();
+    LOG(LogError) << "!!!! EAGamesStore::GetGameMetadata - INIZIO FUNZIONE !!!!";
 
-    if (idToUseForApi.empty() || !mApi) {
-        LOG(LogWarning) << "EAGamesStore::GetGameMetadata - No ID or API for game: " << gameNameForLog;
-        if (callback) callback({}, false); return;
+    if (game == nullptr) {
+        LOG(LogError) << "EAGamesStore::GetGameMetadata - ERRORE CRITICO: 'game' è nullptr.";
+        if (callback) callback({}, false);
+        return;
     }
-    // ... (resto del tuo codice, soggetto agli stessi problemi di endpoint deprecati per i metadati) ...
-    std::string country = Settings::getInstance()->getString("ThemeRegion");
-	if (country.empty() || country.length() != 2) country = "US";
-    std::string langLocale = Settings::getInstance()->getString("Language");
-	std::string apiLocale = langLocale;
-	if (apiLocale.length() == 2) apiLocale = Utils::String::toLower(apiLocale) + "_" + Utils::String::toUpper(country);
-	else if (apiLocale.empty()) apiLocale = "en_US";
 
-    auto apiCallback = [callback, gameNameCapture = gameNameForLog](EAGames::GameStoreData storeApiData, bool success) mutable {
-        EAGameData resultData; // Assicurati che EAGameData sia definita da qualche parte
+    LOG(LogDebug) << "EAGamesStore::GetGameMetadata - Puntatore 'game' NON è nullptr. Indirizzo: " << static_cast<const void*>(game);
+
+    std::string gameNameStr;
+    std::string offerIdStr;
+    std::string masterIdStr;
+
+    try {
+        LOG(LogDebug) << "EAGamesStore::GetGameMetadata - Tentativo di accedere a game->getName()...";
+        gameNameStr = game->getName();
+        LOG(LogDebug) << "EAGamesStore::GetGameMetadata - game->getName() OK. Nome: " << gameNameStr;
+
+        LOG(LogDebug) << "EAGamesStore::GetGameMetadata - Tentativo di accedere a game->getMetadata()...";
+        const auto& metadata = game->getMetadata();
+        LOG(LogDebug) << "EAGamesStore::GetGameMetadata - metadata.get(EaOfferId) OK. OfferID: " << offerIdStr;
+        LOG(LogDebug) << "EAGamesStore::GetGameMetadata - Tentativo di get EaMasterTitleId...";
+        masterIdStr = metadata.get(MetaDataId::EaMasterTitleId);
+        LOG(LogDebug) << "EAGamesStore::GetGameMetadata - metadata.get(EaMasterTitleId) OK. MasterID: " << masterIdStr;
+    } catch (const std::exception& e) {
+        LOG(LogError) << "EAGamesStore::GetGameMetadata - ECCEZIONE durante l'accesso ai metadati iniziali: " << e.what();
+        if (callback) callback({}, false);
+        return;
+    } catch (...) {
+        LOG(LogError) << "EAGamesStore::GetGameMetadata - ECCEZIONE SCONOSCIUTA durante l'accesso ai metadati iniziali!";
+        if (callback) callback({}, false);
+        return;
+    }
+
+    std::string gameNameForLog = gameNameStr;
+    std::string initialOfferId = offerIdStr;
+    std::string initialMasterId = masterIdStr;
+    std::string idToUseForApi = !initialOfferId.empty() ? initialOfferId : initialMasterId;
+
+    LOG(LogDebug) << "EAGamesStore::GetGameMetadata - Info gioco post-controlli: Nome='" << gameNameForLog << "', OfferID='" << initialOfferId << "', MasterID='" << initialMasterId << "', ID da usare='" << idToUseForApi << "'";
+
+    if (!mApi) {
+        LOG(LogError) << "EAGamesStore::GetGameMetadata - mApi (unique_ptr) è nullo per il gioco: " << gameNameForLog;
+        if (callback) callback({}, false);
+        return;
+    }
+    LOG(LogDebug) << "EAGamesStore::GetGameMetadata - mApi unique_ptr è valido. Procedo con Settings.";
+
+    if (idToUseForApi.empty()) {
+        LOG(LogWarning) << "EAGamesStore::GetGameMetadata - Nessun ID API (OfferID/MasterTitleId) disponibile per il gioco: " << gameNameForLog;
+        if (callback) callback({}, false);
+        return;
+    }
+
+    Settings* settings = Settings::getInstance();
+    if (!settings) {
+        LOG(LogError) << "EAGamesStore::GetGameMetadata - FATALE: Settings::getInstance() ha restituito null!";
+        if (callback) callback({}, false);
+        return;
+    }
+    LOG(LogDebug) << "EAGamesStore::GetGameMetadata - Istanza Settings ottenuta. Acquisisco country/locale.";
+
+    std::string country;
+    try {
+        country = settings->getString("ThemeRegion");
+    } catch (const std::exception& e) {
+        LOG(LogWarning) << "EAGamesStore::GetGameMetadata - Eccezione leggendo ThemeRegion: " << e.what() << ". Uso fallback 'US'.";
+        country = "US";
+    } catch (...) {
+        LOG(LogWarning) << "EAGamesStore::GetGameMetadata - Eccezione sconosciuta leggendo ThemeRegion. Uso fallback 'US'.";
+        country = "US";
+    }
+    if (country.empty() || country.length() != 2) country = "US";
+
+    std::string langLocale;
+    try {
+        langLocale = settings->getString("Language");
+    } catch (const std::exception& e) {
+        LOG(LogWarning) << "EAGamesStore::GetGameMetadata - Eccezione leggendo Language: " << e.what() << ". Uso fallback 'en_US'.";
+        langLocale = "en_US";
+    } catch (...) {
+        LOG(LogWarning) << "EAGamesStore::GetGameMetadata - Eccezione sconosciuta leggendo Language. Uso fallback 'en_US'.";
+        langLocale = "en_US";
+    }
+    std::string apiLocale = langLocale;
+    if (apiLocale.length() == 2) apiLocale = Utils::String::toLower(apiLocale) + "_" + Utils::String::toUpper(country);
+    else if (apiLocale.empty()) apiLocale = "en_US";
+
+    LOG(LogDebug) << "EAGamesStore::GetGameMetadata - Paese finale: " << country << ", Locale API finale: " << apiLocale;
+
+    // Usiamo un shared_ptr per gestire lo stato tra le chiamate asincrone
+    struct MetadataFetchState {
+        EAGamesStore::EAGameData resultData;
+        std::string initialGameName;
+        MetadataFetchedCallbackStore finalCallback;
+        std::string country;
+        std::string locale;
+    };
+    auto state = std::make_shared<MetadataFetchState>();
+    state->initialGameName = gameNameForLog;
+    state->finalCallback = callback;
+    state->country = country;
+    state->locale = apiLocale;
+    state->resultData.id = idToUseForApi;
+    state->resultData.name = gameNameForLog;
+    state->resultData.offerId = initialOfferId;
+    state->resultData.masterTitleId = initialMasterId;
+
+
+    // Callback per la prima e unica chiamata API
+    auto primaryApiCallback = [this, state](EAGames::GameStoreData storeApiData, bool success) {
         if (success && (!storeApiData.title.empty() || !storeApiData.masterTitleId.empty() || !storeApiData.offerId.empty())) {
-            resultData.id = !storeApiData.masterTitleId.empty() ? storeApiData.masterTitleId : storeApiData.offerId;
-            resultData.name = storeApiData.title;
-            resultData.description = storeApiData.description;
-            resultData.developer = storeApiData.developer;
-            resultData.publisher = storeApiData.publisher;
-            resultData.releaseDate = storeApiData.releaseDate;
-            if (!storeApiData.genres.empty()) resultData.genre = Utils::String::vectorToCommaString(storeApiData.genres);
-            resultData.imageUrl = storeApiData.imageUrl;
-            resultData.backgroundUrl = storeApiData.backgroundImageUrl;
-            LOG(LogDebug) << "EAGamesStore::GetGameMetadata - Successfully fetched metadata for " << gameNameCapture;
-            if (callback) callback(resultData, true);
+            state->resultData.offerId = storeApiData.offerId;
+            state->resultData.masterTitleId = storeApiData.masterTitleId;
+            state->resultData.name = storeApiData.title;
+
+            // Questi campi rimarranno vuoti poiché non sono forniti dalla query attuale
+            state->resultData.description = "";
+            state->resultData.developer = "";
+            state->resultData.publisher = "";
+            state->resultData.releaseDate = "";
+            state->resultData.genre = "";
+            state->resultData.imageUrl = "";
+            state->resultData.backgroundUrl = "";
+
+            LOG(LogInfo) << "EAGamesStore::GetGameMetadata (PrimaryAPIAdapter) - Metadati recuperati con successo per '" << state->initialGameName << "'. Titolo: " << state->resultData.name;
+            if (state->finalCallback) state->finalCallback(state->resultData, true);
         } else {
-            LOG(LogError) << "EAGamesStore::GetGameMetadata - API call failed or no useful data for " << gameNameCapture;
-            if (callback) callback(resultData, false); // Restituisci resultData vuoto ma indica fallimento
+            LOG(LogError) << "EAGamesStore::GetGameMetadata (PrimaryAPIAdapter) - Chiamata API fallita o nessun dato utile per '" << state->initialGameName << "'. Successo API: " << success;
+            if (state->finalCallback) state->finalCallback(state->resultData, false);
         }
     };
-     // Le seguenti chiamate a getOfferStoreData/getMasterTitleStoreData useranno gli endpoint di Origin deprecati
-    if (!offerId.empty()) {
-        LOG(LogDebug) << "EAGamesStore::GetGameMetadata - Using OfferID " << offerId << " for game " << gameNameForLog;
-        mApi->getOfferStoreData(offerId, country, apiLocale, apiCallback);
-    } else if (!masterId.empty()) {
-        LOG(LogDebug) << "EAGamesStore::GetGameMetadata - OfferID empty, using MasterTitleID " << masterId << " for game " << gameNameForLog;
-        mApi->getMasterTitleStoreData(masterId, country, apiLocale, apiCallback);
+
+    // Esegui la prima e unica chiamata API
+    if (!initialOfferId.empty()) {
+        mApi->getOfferStoreData(initialOfferId, country, apiLocale, primaryApiCallback);
+    } else if (!initialMasterId.empty()) {
+        // Se disponibile solo MasterID, usa getMasterTitleStoreData, ma sappi che fornisce solo dati base ora
+        LOG(LogWarning) << "EAGamesStore::GetGameMetadata: OfferID vuoto, usando MasterID per la chiamata: " << initialMasterId;
+        mApi->getMasterTitleStoreData(initialMasterId, country, apiLocale, primaryApiCallback);
     } else {
-        LOG(LogWarning) << "EAGamesStore::GetGameMetadata - Both OfferID and MasterTitleID are empty for " << gameNameForLog;
+        LOG(LogError) << "EAGamesStore::GetGameMetadata: Impossibile avviare lo scraping, OfferID e MasterID sono entrambi vuoti.";
         if (callback) callback({}, false);
     }
 }

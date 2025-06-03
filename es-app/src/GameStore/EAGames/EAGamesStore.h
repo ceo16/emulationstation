@@ -4,7 +4,7 @@
 // Assumendo che GameStore.h sia una directory sopra, o che il percorso di include sia configurato
 #include "GameStore/GameStore.h" // Per la classe base 'GameStore' (globale)
 #include "Window.h"
-#include "HttpReq.h"      // Per la classe 'HttpReq' (globale)
+#include "HttpReq.h"     // Per la classe 'HttpReq' (globale)
 #include <memory>
 #include <vector>
 #include <functional>
@@ -17,7 +17,7 @@ namespace EAGames {
     class EAGamesScanner;
     struct GameEntitlement;
     struct InstalledGameInfo;
-    struct GameStoreData;
+    struct GameStoreData; // Necessaria per la definizione della struct EAGameData, se usata lì
 }
 
 class FileData;
@@ -40,6 +40,8 @@ public:
     bool uninstallGame(const std::string& gameId) override;
     bool updateGame(const std::string& gameId) override;
 	static const std::string STORE_ID;
+	void incrementActiveScrape();
+    void decrementActiveScrape();
 
     // --- Metodi Pubblici Specifici di EAGamesStore ---
     bool IsUserLoggedIn();
@@ -53,9 +55,17 @@ public:
     static unsigned short GetLocalRedirectPort(); // Definito nel .cpp
 
     struct EAGameData {
-        std::string id; std::string name; std::string description;
-        std::string developer; std::string publisher; std::string releaseDate;
-        std::string genre; std::string imageUrl; std::string backgroundUrl;
+        std::string id; // Può essere offerId o masterTitleId, a seconda del contesto che preferisci come ID primario
+        std::string name;
+        std::string description;
+        std::string developer;
+        std::string publisher;
+        std::string releaseDate;
+        std::string genre;
+        std::string imageUrl;
+        std::string backgroundUrl;
+        std::string offerId;        // <--- AGGIUNGI QUESTA RIGA
+        std::string masterTitleId;  // <--- AGGIUNGI QUESTA RIGA
     };
     using ArtworkFetchedCallbackStore = std::function<void(const std::string& url, bool success)>;
     using MetadataFetchedCallbackStore = std::function<void(const EAGameData& metadata, bool success)>;
@@ -80,5 +90,6 @@ private:
 
     bool mGamesCacheDirty;
     bool mFetchingGamesInProgress;
-	bool _initialized; // <<< MEMBRO DICHIARATO ORA
+	bool _initialized;
+	int mActiveScrapeCounter;
 };
