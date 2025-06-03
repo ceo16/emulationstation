@@ -301,6 +301,16 @@ set(COMMON_INCLUDE_DIRS
     ${CMAKE_CURRENT_SOURCE_DIR}/es-core/src
 )
 
+# Assicurati che il percorso a "include" sia corretto per la tua struttura di webview2sdk
+set(WEBVIEW2_INCLUDE_DIR "${CMAKE_SOURCE_DIR}/external/webview2sdk/include")
+
+if(EXISTS "${WEBVIEW2_INCLUDE_DIR}")
+    target_include_directories(emulationstation PRIVATE "${WEBVIEW2_INCLUDE_DIR}")
+    message(STATUS "Directory degli header WebView2 aggiunta: ${WEBVIEW2_INCLUDE_DIR}")
+else()
+    message(WARNING "Directory degli header WebView2 non trovata in ${WEBVIEW2_INCLUDE_DIR}. Potrebbero verificarsi errori di compilazione.")
+endif()
+
 if(ENABLE_PULSE)
  LIST(APPEND COMMON_INCLUDE_DIRS
     ${PULSEAUDIO_INCLUDE_DIR}
