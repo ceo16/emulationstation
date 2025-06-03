@@ -305,7 +305,15 @@ target_include_directories(emulationstation PRIVATE
     ${CMAKE_SOURCE_DIR}/external/webview2sdk/build/native/include # Header WebView2, già presente e corretto
     # RIGA RIMOSSA CORRETTAMENTE: "${CMAKE_SOURCE_DIR}/third_party/cppwinrt"
 )
+# Assicurati che il percorso a "include" sia corretto per la tua struttura di webview2sdk
+set(WEBVIEW2_INCLUDE_DIR "${CMAKE_SOURCE_DIR}/external/webview2sdk/build/native/include")
 
+if(EXISTS "${WEBVIEW2_INCLUDE_DIR}")
+    target_include_directories(emulationstation PRIVATE "${WEBVIEW2_INCLUDE_DIR}")
+    message(STATUS "Directory degli header WebView2 aggiunta: ${WEBVIEW2_INCLUDE_DIR}")
+else()
+    message(WARNING "Directory degli header WebView2 non trovata in ${WEBVIEW2_INCLUDE_DIR}. Potrebbero verificarsi errori di compilazione.")
+endif()
 # --------------- WebView2 Integration STARTS ---------------
 # Determina il percorso della libreria WebView2 in base all'architettura
 set(WEBVIEW2_ARCH_DIR "")
