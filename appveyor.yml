@@ -25,7 +25,6 @@ build_script:
  - cd c:\src\EmulationStation
   - echo "Contenuto del file .gitmodules:"
   - if exist .gitmodules (type .gitmodules) else (echo ".gitmodules NON ESISTE o non e' in questa directory") # Verifica .gitmodules
-  - echo "Eseguo git submodule update..."
   - git submodule update --init --recursive --force # Usiamo --force per sicurezza
   - echo "Comando git submodule update completato. Codice di uscita: %errorlevel%" # Mostra il codice di uscita di git submodule
   - echo "Verifico lo stato dei sottomoduli:"
