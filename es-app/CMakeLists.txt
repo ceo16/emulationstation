@@ -347,19 +347,7 @@ endif()
 # Collega la libreria WebView2LoaderStatic.lib
 target_link_libraries(emulationstation PRIVATE "${WEBVIEW2_LIB_PATH}")
 
-# Comando Post-Build per copiare la WebView2Loader.dll
-set(WEBVIEW2_DLL_PATH "${CMAKE_SOURCE_DIR}/external/webview2sdk/build/native/${WEBVIEW2_ARCH_DIR}/WebView2Loader.dll")
 
-if(EXISTS "${WEBVIEW2_DLL_PATH}")
-    add_custom_command(TARGET emulationstation POST_BUILD
-                       COMMAND ${CMAKE_COMMAND} -E copy_if_different
-                       "${WEBVIEW2_DLL_PATH}"
-                       $<TARGET_FILE_DIR:emulationstation>
-                       COMMENT "Copia di WebView2Loader.dll nella directory di output")
-    message(STATUS "WebView2Loader.dll sarà copiata da: ${WEBVIEW2_DLL_PATH}")
-else()
-    message(WARNING "WebView2Loader.dll non trovata in ${WEBVIEW2_DLL_PATH}. Potrebbero verificarsi problemi durante l'esecuzione se il runtime WebView2 non è già installato globalmente.")
-endif()
 # --------------- WebView2 Integration ENDS ---------------
 
 # RIMOSSA: link_directories(${CMAKE_SOURCE_DIR}/external/webview2sdk/build/native/x86)
