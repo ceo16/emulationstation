@@ -7,4 +7,4 @@ if (NOT USE_SYSTEM_PUGIXML)
 endif()
 add_subdirectory("id3v2lib")
 add_subdirectory("libcheevos")
-add_subdirectory("webview2sdk")
+
