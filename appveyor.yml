@@ -22,7 +22,7 @@ environment:
   _LINK_: /FORCE:MULTIPLE
 
 build_script:
-   - cd c:\src\EmulationStation
+  - cd c:\src\EmulationStation
   - git submodule update --init --recursive
   - mkdir build
   - cd build
