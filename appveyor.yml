@@ -49,12 +49,12 @@ build_script:
   - 7z a EmulationStation-Win32-no-deps.zip C:\src\EmulationStation\version.info
 
 artifacts:
-- path: C:\src\EmulationStation\EmulationStation-Win32.zip
-- path: C:\src\EmulationStation\EmulationStation-Win32-no-deps.zip
-- path: C:\src\EmulationStation\version.info
+  - path: EmulationStation-Win32.zip
+  - path: EmulationStation-Win32-no-deps.zip
+  - path: version.info
 
 deploy:
-- provider: GitHub
+  - provider: GitHub
   tag: continuous
   release: continuous
   auth_token:
