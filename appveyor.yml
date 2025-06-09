@@ -29,31 +29,37 @@ build_script:
   - cmake -G "Visual Studio 17 2022" -T v143 -DCMAKE_SYSTEM_VERSION=10.0.22000.0 .. -DCMAKE_GENERATOR_PLATFORM=Win32 -DRETROBAT=1 -DSCREENSCRAPER_DEV_LOGIN="devid=ceo16&devpassword=jS2TYbBqkYU" -DGAMESDB_APIKEY="7da2165a59d0df87d0bc611454215184ca6dcf0b24895691a158f9caaf29119c" -DCHEEVOS_DEV_LOGIN="z=ceo16&y=4pxVzi8i41XCSgfrmm3NnxjWF6bmEqs0" -DHFS_DEV_LOGIN="Retrobat:nJuHagHR8NkEz96"
   - '"C:\Program Files\Microsoft Visual Studio\2022\Community\MSBuild\Current\Bin\MSBuild.exe" emulationstation-all.sln /p:Configuration=Release /p:Platform="Win32"'
   - IF EXIST locale\lang ( xcopy locale\lang resources\locale /S /Y /I )
-  - ps: |
-      $version = [System.Diagnostics.FileVersionInfo]::GetVersionInfo("C:\src\EmulationStation\bin\win32\Release\emulationstation.exe").FileVersion -replace ',','.';
-      $timestamp = Get-Date -Format "yyyymmddHHmm"
-      Update-AppveyorBuild -Version "$version-$timestamp"  
-      "$version-$timestamp" | Out-File c:\src\EmulationStation\version.info -Encoding ASCII
-  - 7z a EmulationStation-Win32.zip C:\src\EmulationStation\bin\win32\Release\*.exe C:\src\EmulationStation\bin\win32\Release\*.exp
-  - 7z a EmulationStation-Win32.zip C:\src\EmulationStation\win32-libs\libvlc\x86\libvlc.dll C:\src\EmulationStation\win32-libs\libvlc\x86\libvlccore.dll C:\src\EmulationStation\win32-libs\libvlc\x86\plugins
-  - 7z a EmulationStation-Win32.zip C:\src\EmulationStation\win32-libs\SDL2_mixer\x86\*.dll C:\src\EmulationStation\win32-libs\SDL2_mixer\x86\optional\*.dll
-  - 7z a EmulationStation-Win32.zip C:\src\EmulationStation\win32-libs\SDL2\x86\SDL2.dll
-  - 7z a EmulationStation-Win32.zip C:\src\EmulationStation\win32-libs\curl\x86\bin\libcurl.dll
-  - 7z a EmulationStation-Win32.zip C:\src\EmulationStation\win32-libs\FreeImage\x86\FreeImage.dll
-  - 7z a EmulationStation-Win32.zip C:\src\EmulationStation\external\webview2sdk\build\x86\WebView2Loader.dll
-  - 7z a EmulationStation-Win32.zip C:\src\EmulationStation\resources
-  - 7z a EmulationStation-Win32.zip C:\src\EmulationStation\version.info
+   - cmd: |
+      echo "Torno alla cartella principale per creare gli archivi..."
+      cd C:\src\EmulationStation
 
-  - 7z a EmulationStation-Win32-no-deps.zip C:\src\EmulationStation\bin\win32\Release\*.exe C:\src\EmulationStation\bin\win32\Release\*.exp
-  - 7z a EmulationStation-Win32-no-deps.zip C:\src\EmulationStation\resources
-  - 7z a EmulationStation-Win32-no-deps.zip C:\src\EmulationStation\version.info
+      echo "Copio i file di lingua..."
+      IF EXIST locale\lang ( xcopy locale\lang resources\locale /S /Y /I )
 
+      echo "Creo il file version.info usando PowerShell..."
+      powershell -Command "$version = [System.Diagnostics.FileVersionInfo]::GetVersionInfo('C:\src\EmulationStation\bin\win32\Release\emulationstation.exe').FileVersion -replace ',','.'; $timestamp = Get-Date -Format 'yyyyMMddHHmm'; Update-AppveyorBuild -Version \"$version-$timestamp\"; \"$version-$timestamp\" | Out-File 'c:\src\EmulationStation\version.info' -Encoding ASCII"
+
+      echo "Creo l'archivio EmulationStation-Win32.zip..."
+      7z a EmulationStation-Win32.zip C:\src\EmulationStation\bin\win32\Release\*.exe C:\src\EmulationStation\bin\win32\Release\*.exp
+      7z a EmulationStation-Win32.zip C:\src\EmulationStation\win32-libs\libvlc\x86\*
+      7z a EmulationStation-Win32.zip C:\src\EmulationStation\win32-libs\SDL2_mixer\x86\*
+      7z a EmulationStation-Win32.zip C:\src\EmulationStation\win32-libs\SDL2\x86\SDL2.dll
+      7z a EmulationStation-Win32.zip C:\src\EmulationStation\win32-libs\curl\x86\bin\libcurl.dll
+      7z a EmulationStation-Win32.zip C:\src\EmulationStation\win32-libs\FreeImage\x86\FreeImage.dll
+      7z a EmulationStation-Win32.zip C:\src\EmulationStation\external\webview2sdk\build\x86\WebView2Loader.dll
+      7z a EmulationStation-Win32.zip C:\src\EmulationStation\resources
+      7z a EmulationStation-Win32.zip C:\src\EmulationStation\version.info
+
+      echo "Creo l'archivio EmulationStation-Win32-no-deps.zip..."
+      7z a EmulationStation-Win32-no-deps.zip C:\src\EmulationStation\bin\win32\Release\*.exe C:\src\EmulationStation\bin\win32\Release\*.exp
+      7z a EmulationStation-Win32-no-deps.zip C:\src\EmulationStation\resources
+      7z a EmulationStation-Win32-no-deps.zip C:\src\EmulationStation\version.info
+
+# La sezione artifacts ora funzionerà perché i file ZIP vengono creati nel posto giusto
 artifacts:
-- path: '*.zip'
-  name: GitHub
-- path: version.info
-  name: GitHub
-
+  - path: EmulationStation-Win32.zip
+  - path: EmulationStation-Win32-no-deps.zip
+  - path: version.info
 deploy:
 
  - provider: GitHub
