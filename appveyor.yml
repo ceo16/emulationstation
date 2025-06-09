@@ -54,8 +54,9 @@ artifacts:
   - path: version.info
 
 deploy:
-  - provider: GitHub
-  tag: continuous
-  release: continuous
-  auth_token:
-    secure: j2wYgDHRlxXaLB8MjsM3l2T+KlBA441m1r9g5cdo6nNh36f7w+iRlUv6eDtNB332
+
+ - provider: GitHub
+   tag: continuous
+   release: continuous
+   auth_token:
+     secure: j2wYgDHRlxXaLB8MjsM3l2T+KlBA441m1r9g5cdo6nNh36f7w+iRlUv6eDtNB332
