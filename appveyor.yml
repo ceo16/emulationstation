@@ -26,7 +26,7 @@ build_script:
   - git submodule update --init --recursive
   - mkdir build
   - cd build
-  - cmake -G "Visual Studio 16 2019" -T v142 -DCMAKE_SYSTEM_VERSION=10.0.19041.0 .. -DCMAKE_GENERATOR_PLATFORM=Win32 -DRETROBAT=1 -DSCREENSCRAPER_DEV_LOGIN="devid=ceo16&devpassword=jS2TYbBqkYU" -DGAMESDB_APIKEY="7da2165a59d0df87d0bc611454215184ca6dcf0b24895691a158f9caaf29119c" -DCHEEVOS_DEV_LOGIN="z=ceo
+  - cmake -G "Visual Studio 16 2019" -T v142 -DCMAKE_SYSTEM_VERSION=10.0.19041.0 .. -DCMAKE_GENERATOR_PLATFORM=Win32 -DRETROBAT=1 -DSCREENSCRAPER_DEV_LOGIN="devid=ceo16&devpassword=jS2TYbBqkYU" -DGAMESDB_APIKEY="7da2165a59d0df87d0bc611454215184ca6dcf0b24895691a158f9caaf29119c" -DCHEEVOS_DEV_LOGIN="z=ceo -DCMAKE_POLICY_VERSION_MINIMUM="3.5"
   - IF EXIST locale\lang ( xcopy locale\lang resources\locale /S /Y /I )
   - ps: |
       $version = [System.Diagnostics.FileVersionInfo]::GetVersionInfo("C:\src\EmulationStation\bin\win32\Release\emulationstation.exe").FileVersion -replace ',','.';
