@@ -103,7 +103,9 @@ enum MetaDataId
 	EaOfferId = 60,      // Stringa: Es. "OFB-EAST:12345" (Specifico per EA)
 	EaMasterTitleId = 61,// Stringa: Es. "190619" (Specifico per EA, usato per lancio e libreria)
     EaMultiplayerId = 62,
-    MAX_METADATA_TYPES = 63,
+	MD_SCREENSHOT_URL = 63, // Assegna un valore univoco successivo all'ultimo
+    MD_VIDEO_URL = 64,  
+    MAX_METADATA_TYPES = 65,
 Count
     // Assicurati che gli ID siano sequenziali e univoci
 };

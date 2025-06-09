@@ -52,7 +52,9 @@ set(ES_HEADERS
     ${CMAKE_CURRENT_SOURCE_DIR}/src/GameStore/EAGames/EAGamesScanner.h
     ${CMAKE_CURRENT_SOURCE_DIR}/src/GameStore/EAGames/EAGamesStore.h
     ${CMAKE_CURRENT_SOURCE_DIR}/src/GameStore/EAGames/EAGamesUI.h
-
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/GameStore/IGDB/IGDBAPI.h
+	${CMAKE_CURRENT_SOURCE_DIR}/src/GameStore/IGDB/IGDBModels.h
+	
     # GuiComponents
     ${CMAKE_CURRENT_SOURCE_DIR}/src/components/ScraperSearchComponent.h
 
@@ -116,6 +118,7 @@ set(ES_HEADERS
     ${CMAKE_CURRENT_SOURCE_DIR}/src/scrapers/SteamScraper.h
     ${CMAKE_CURRENT_SOURCE_DIR}/src/scrapers/XboxScraper.h
     ${CMAKE_CURRENT_SOURCE_DIR}/src/scrapers/EAGamesScraper.h
+	${CMAKE_CURRENT_SOURCE_DIR}/src/scrapers/IGDBScraper.h
 
     # Views
     ${CMAKE_CURRENT_SOURCE_DIR}/src/views/gamelist/BasicGameListView.h
@@ -191,6 +194,8 @@ set(ES_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/src/GameStore/EAGames/EAGamesScanner.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/GameStore/EAGames/EAGamesStore.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/GameStore/EAGames/EAGamesUI.cpp
+	    ${CMAKE_CURRENT_SOURCE_DIR}/src/GameStore/IGDB/IGDBAPI.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/src/GameStore/IGDB/IGDBModels.cpp
 
     # GuiComponents
     ${CMAKE_CURRENT_SOURCE_DIR}/src/components/ScraperSearchComponent.cpp
@@ -249,6 +254,7 @@ set(ES_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/src/scrapers/SteamScraper.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/scrapers/XboxScraper.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/scrapers/EAGamesScraper.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/src/scrapers/IGDBScraper.cpp
 
     # Views
     ${CMAKE_CURRENT_SOURCE_DIR}/src/views/gamelist/BasicGameListView.cpp

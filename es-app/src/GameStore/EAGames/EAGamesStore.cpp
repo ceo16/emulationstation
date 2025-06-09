@@ -366,6 +366,7 @@ void EAGamesStore::processAndCacheGames(
         if (!installedInfo.multiplayerId.empty())
              fd->getMetadata().set(MetaDataId::EaMultiplayerId, installedInfo.multiplayerId);
         fd->getMetadata().set(MetaDataId::InstallDir, installedInfo.installPath);
+		fd->getMetadata().set(MetaDataId::StoreProvider, "EAGAMESSTORE"); 
 
         gameDataMap[uniqueGameKey] = std::move(fd);
     }
@@ -388,6 +389,7 @@ void EAGamesStore::processAndCacheGames(
             fd_ptr->getMetadata().set(MetaDataId::EaOfferId, entitlement.originOfferId);
             if (!entitlement.productId.empty()) {
                  fd_ptr->getMetadata().set(MetaDataId::EaMasterTitleId, entitlement.productId);
+				 fd_ptr->getMetadata().set(MetaDataId::StoreProvider, "EAGAMESSTORE"); // <--- AGGIUNGI QUESTA RIGA
             }
         } else {
             std::string virtualPath = "ea://game/" + uniqueGameKey;
@@ -403,6 +405,7 @@ void EAGamesStore::processAndCacheGames(
             if (!entitlement.productId.empty()) {
                  fd->getMetadata().set(MetaDataId::EaMasterTitleId, entitlement.productId);
             }
+			fd->getMetadata().set(MetaDataId::StoreProvider, "EAGAMESSTORE"); // <--- AGGIUNGI QUESTA RIGA
             gameDataMap[uniqueGameKey] = std::move(fd);
         }
     }

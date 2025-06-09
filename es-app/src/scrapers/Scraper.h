@@ -141,9 +141,11 @@ public:
 	std::string getImageFileName() { return mSavePath; }
 
 private:
+    std::string mUrl;
 	HttpReq* mRequest;
 
 	int	mRetryCount;
+	HttpReqOptions mOptions;
 	int mOverQuotaPendingTime;
 	int mOverQuotaRetryDelay;
 	int mOverQuotaRetryCount;
