@@ -49,9 +49,10 @@ build_script:
   - 7z a EmulationStation-Win32-no-deps.zip C:\src\EmulationStation\version.info
 
 artifacts:
-  - path: EmulationStation-Win32.zip
-  - path: EmulationStation-Win32-no-deps.zip
-  - path: version.info
+- path: '*.zip'
+  name: GitHub
+- path: version.info
+  name: GitHub
 
 deploy:
 
