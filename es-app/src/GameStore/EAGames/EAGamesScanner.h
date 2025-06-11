@@ -1,11 +1,15 @@
-// emulationstation-master/es-app/src/GameStore/EAGames/EAGamesScanner.h
 #pragma once
+#ifndef ES_APP_GAME_STORE_EA_GAMES_SCANNER_H
+#define ES_APP_GAME_STORE_EA_GAMES_SCANNER_H
 
+#include "GameStore/EAGames/EAGamesModels.h" // Usa la tua struttura dati esistente
+#include <optional>
 #include <string>
 #include <vector>
-#include "EAGamesModels.h"
 
-namespace pugi { class xml_document; } // Forward declaration
+#ifdef _WIN32
+#include <Windows.h>
+#endif
 
 namespace EAGames
 {
@@ -13,19 +17,15 @@ namespace EAGames
     {
     public:
         EAGamesScanner();
-
         std::vector<InstalledGameInfo> scanForInstalledGames();
-        EADesktopSettings getEADesktopClientSettings();
 
     private:
-        void findGamesFromManifests(const std::string& manifestDir, std::vector<InstalledGameInfo>& foundGames, std::vector<std::string>& processedManifestIds);
-        InstalledGameInfo parseOriginManifest(const std::string& filePath, pugi::xml_document& doc); // Pass doc per efficienza
-
-        // Percorsi per EA Desktop client settings (EAC.cs)
-        const std::string EA_DESKTOP_SETTINGS_PATH_LEGACY = "%PROGRAMDATA%\\Electronic Arts\\EA Desktop\\Settings\\user_%PID%.setting";
-        const std::string EA_DESKTOP_SETTINGS_PATH = "%LOCALAPPDATA%\\Electronic Arts\\EA Desktop\\Settings\\user_%PID%.setting";
-
-        std::string resolveKnownFolderPath(const std::string& knownFolder);
+#ifdef _WIN32
+        void scanUninstallKey(HKEY rootKey, const WCHAR* keyPath, REGSAM accessFlags, std::vector<InstalledGameInfo>& games);
+        bool isPublisherEA(HKEY hGameKey);
+        std::optional<InstalledGameInfo> getGameInfoFromRegistry(HKEY hGameKey);
+#endif
     };
+}
 
-} // namespace EAGames
+#endif // ES_APP_GAME_STORE_EA_GAMES_SCANNER_H

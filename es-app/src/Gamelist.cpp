@@ -30,7 +30,9 @@ static bool isPathActuallyVirtual(const std::string& path) {
            Utils::String::startsWith(path, "xbox_online_prodid:/") ||
            Utils::String::startsWith(path, "xbox_online_pfn:/") ||
            Utils::String::startsWith(path, "xbox:/pfn/") || // Se usi anche questo formato generale
-		   Utils::String::startsWith(path, "ea:/");      // <<< ADD THIS LINE
+		   Utils::String::startsWith(path, "ea_virtual:/") ||   // Aggiunto per i giochi virtuali EA
+           Utils::String::startsWith(path, "ea_installed:/");  // Aggiunto per i giochi installati EA
+		   
 }
 
 FileData* findOrCreateFile(SystemData* system, const std::string& path, FileType type, std::unordered_map<std::string, FileData*>& fileMap)
@@ -43,7 +45,8 @@ FileData* findOrCreateFile(SystemData* system, const std::string& path, FileType
         Utils::String::startsWith(path, "xbox_online_prodid:/") ||  // CORRETTO DAL LOG
         Utils::String::startsWith(path, "xbox_online_pfn:/") ||    // CORRETTO DAL LOG (presumendo stesso formato)
         Utils::String::startsWith(path, "xbox:/pfn/")  ||    // Altro formato virtuale Xbox, se usato
-		Utils::String::startsWith(path, "ea:/"))   // <<< ADD THIS LINE (adjust prefix if different)
+		Utils::String::startsWith(path, "ea_virtual:/") ||   // Aggiunto per i giochi virtuali EA
+        Utils::String::startsWith(path, "ea_installed:/"))  // Aggiunto per i giochi installati EA
     {
         LOG(LogDebug) << "findOrCreateFile: Handling VIRTUAL path for system '" << system->getName() << "': " << path;
         FolderData* rootCheck = system->getRootFolder();
@@ -148,6 +151,18 @@ FileData* findOrCreateFile(SystemData* system, const std::string& path, FileType
                 LOG(LogWarning) << "findOrCreateFile: External path for Xbox system that is not an AUMID and not a known virtual prefix: " << path << ". This should have been caught by virtual path checks if it was a virtual URI. Ignoring.";
                 return nullptr;
             }
+			// --- INIZIO BLOCCO AGGIUNTO PER EA GAMES ---
+} else if (system->getName() == "EAGamesStore") {
+    // Se il percorso inizia con i nostri prefissi personalizzati, lo accettiamo come valido.
+    if (Utils::String::startsWith(path, "ea_installed:/") || Utils::String::startsWith(path, "ea_virtual:/")) {
+        LOG(LogInfo) << "findOrCreateFile: Handling EA Games path from gamelist: " << path;
+        createItem = true; // Imposta a true per creare il FileData
+    } else {
+        LOG(LogWarning) << "File path \"" << path << "\" for EA Games system is not a valid EA path. Ignoring.";
+        return nullptr;
+    }
+// --- FINE BLOCCO AGGIUNTO PER EA GAMES ---
+			
         } else {
             LOG(LogWarning) << "File path \"" << path << "\" is outside system start path and not handled (not Epic, not Xbox AUMID). System: " << system->getName() << ". Ignoring.";
             return nullptr;

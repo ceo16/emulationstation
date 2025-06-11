@@ -505,144 +505,115 @@ void MetaDataList::resetChangedFlag()
 
 void MetaDataList::importScrappedMetadata(const MetaDataList& source)
 {
-	int type = MetaDataImportType::Types::ALL; //
+	int type = MetaDataImportType::Types::ALL; 
 
-	// Il tuo blocco di filtri per ScreenScraper (lasciato come nel tuo codice originale)
-	if (Settings::getInstance()->getString("Scraper") == "ScreenScraper") //
+	if (Settings::getInstance()->getString("Scraper") == "ScreenScraper") 
 	{
-		if (Settings::getInstance()->getString("ScrapperImageSrc").empty()) //
-			type &= ~MetaDataImportType::Types::IMAGE; //
-		if (Settings::getInstance()->getString("ScrapperThumbSrc").empty()) //
-			type &= ~MetaDataImportType::Types::THUMB; //
-		if (Settings::getInstance()->getString("ScrapperLogoSrc").empty()) //
-			type &= ~MetaDataImportType::Types::MARQUEE; //
-		if (!Settings::getInstance()->getBool("ScrapeVideos")) //
-			type &= ~MetaDataImportType::Types::VIDEO; //
-		if (!Settings::getInstance()->getBool("ScrapeFanart")) //
-			type &= ~MetaDataImportType::Types::FANART; //
-		if (!Settings::getInstance()->getBool("ScrapeBoxBack")) //
-			type &= ~MetaDataImportType::Types::BOXBACK; //
-		if (!Settings::getInstance()->getBool("ScrapeTitleShot")) //
-			type &= ~MetaDataImportType::Types::TITLESHOT; //
-		if (!Settings::getInstance()->getBool("ScrapeMap")) //
-			type &= ~MetaDataImportType::Types::MAP; //
-		if (!Settings::getInstance()->getBool("ScrapeManual")) //
-			type &= ~MetaDataImportType::Types::MANUAL; //
-		if (!Settings::getInstance()->getBool("ScrapeCartridge")) //
-			type &= ~MetaDataImportType::Types::CARTRIDGE; //
+		if (Settings::getInstance()->getString("ScrapperImageSrc").empty()) type &= ~MetaDataImportType::Types::IMAGE;
+		if (Settings::getInstance()->getString("ScrapperThumbSrc").empty()) type &= ~MetaDataImportType::Types::THUMB;
+		if (Settings::getInstance()->getString("ScrapperLogoSrc").empty()) type &= ~MetaDataImportType::Types::MARQUEE;
+		if (!Settings::getInstance()->getBool("ScrapeVideos")) type &= ~MetaDataImportType::Types::VIDEO;
+		if (!Settings::getInstance()->getBool("ScrapeFanart")) type &= ~MetaDataImportType::Types::FANART;
+		if (!Settings::getInstance()->getBool("ScrapeBoxBack")) type &= ~MetaDataImportType::Types::BOXBACK;
+		if (!Settings::getInstance()->getBool("ScrapeTitleShot")) type &= ~MetaDataImportType::Types::TITLESHOT;
+		if (!Settings::getInstance()->getBool("ScrapeMap")) type &= ~MetaDataImportType::Types::MAP;
+		if (!Settings::getInstance()->getBool("ScrapeManual")) type &= ~MetaDataImportType::Types::MANUAL;
+		if (!Settings::getInstance()->getBool("ScrapeCartridge")) type &= ~MetaDataImportType::Types::CARTRIDGE;
 	}
 
-	bool scapeNames = Settings::getInstance()->getBool("ScrapeNames"); //
-	bool scrapeDescription = Settings::getInstance()->getBool("ScrapeDescription"); //
+	bool scapeNames = Settings::getInstance()->getBool("ScrapeNames");
+	bool scrapeDescription = Settings::getInstance()->getBool("ScrapeDescription");
 
-	for (auto mdd : getMDD()) //
+	for (auto mdd : getMDD())
 	{
-		// Blocco di filtri (lasciato come nel tuo codice originale)
-		if (mdd.isStatistic && mdd.id != MetaDataId::ScraperId) //
+		// Se il metadato è uno di quelli che vogliamo preservare, saltalo.
+		if (mdd.isStatistic && mdd.id != MetaDataId::ScraperId) continue;
+		if (mdd.id == MetaDataId::KidGame) continue;
+		if (mdd.id == MetaDataId::Region || mdd.id == MetaDataId::Language) continue;
+
+        // *** INIZIO DELLA CORREZIONE FONDAMENTALE ***
+        // Aggiungiamo tutti i nostri tag custom e di stato a questa lista di eccezioni.
+        // Lo scraper non deve MAI sovrascrivere questi valori.
+		if (mdd.id == MetaDataId::Favorite || 
+            mdd.id == MetaDataId::Hidden || 
+            mdd.id == MetaDataId::Emulator || 
+            mdd.id == MetaDataId::Core ||
+            mdd.id == MetaDataId::Installed || // Preserva il flag 'installato'
+            mdd.id == MetaDataId::Virtual ||   // Preserva il flag 'virtuale'
+			mdd.id == MetaDataId::LaunchCommand ||   // Preserva il flag 'virtuale'
+            mdd.id == MetaDataId::IsOwned ||   // Preserva il flag 'posseduto'
+            mdd.key == "storeprovider" ||      // Preserva il nome dello store
+            mdd.key == "ea_offerid" ||         // Preserva tutti i tag custom
+            mdd.key == "ea_mastertitleid" ||
+            mdd.key == "ea_multiplayerid" ||
+            mdd.key == "steam_appid" ||
+            mdd.key == "epic_id" ||
+            mdd.key == "epic_ns" ||
+            mdd.key == "epic_catalog_id" ||
+            mdd.key == "xbox_pfn" ||
+            mdd.key == "xbox_titleid" ||
+            mdd.key == "xbox_productid" ||
+            mdd.key == "xbox_aumid")
+        {
 			continue;
-		if (mdd.id == MetaDataId::KidGame) //
-			continue;
-		if (mdd.id == MetaDataId::Name && !scapeNames) { //
-			if (!get(mdd.id).empty()) continue; //
+        }
+        // *** FINE DELLA CORREZIONE FONDAMENTALE ***
+
+		if (mdd.id == MetaDataId::Name && !scapeNames) {
+			if (!get(mdd.id).empty()) continue;
 		}
-		if (mdd.id == MetaDataId::Desc && !scrapeDescription) { //
-			if (!get(mdd.id).empty()) continue; //
+		if (mdd.id == MetaDataId::Desc && !scrapeDescription) {
+			if (!get(mdd.id).empty()) continue;
 		}
-		if (mdd.id == MetaDataId::Region || mdd.id == MetaDataId::Language) //
-			continue;
-		if (mdd.id == MetaDataId::Favorite || mdd.id == MetaDataId::Hidden || mdd.id == MetaDataId::Emulator || mdd.id == MetaDataId::Core) //
-			continue;
 		
-		if (mdd.id == MetaDataId::Image && (source.get(mdd.id).empty() || (type & MetaDataImportType::Types::IMAGE) != MetaDataImportType::Types::IMAGE)) //
-			continue;
-		if (mdd.id == MetaDataId::Thumbnail && (source.get(mdd.id).empty() || (type & MetaDataImportType::Types::THUMB) != MetaDataImportType::Types::THUMB)) //
-			continue;
-		if (mdd.id == MetaDataId::Marquee && (source.get(mdd.id).empty() || (type & MetaDataImportType::Types::MARQUEE) != MetaDataImportType::Types::MARQUEE)) //
-			continue;
-		if (mdd.id == MetaDataId::Video) { //
-			const std::string& videoValue = source.get(mdd.id); //
+		if (mdd.id == MetaDataId::Image && (source.get(mdd.id).empty() || (type & MetaDataImportType::Types::IMAGE) != MetaDataImportType::Types::IMAGE)) continue;
+		if (mdd.id == MetaDataId::Thumbnail && (source.get(mdd.id).empty() || (type & MetaDataImportType::Types::THUMB) != MetaDataImportType::Types::THUMB)) continue;
+		if (mdd.id == MetaDataId::Marquee && (source.get(mdd.id).empty() || (type & MetaDataImportType::Types::MARQUEE) != MetaDataImportType::Types::MARQUEE)) continue;
+		if (mdd.id == MetaDataId::Video) {
+			const std::string& videoValue = source.get(mdd.id);
 			bool isHttpUrl = Utils::String::startsWith(videoValue, "http://") || Utils::String::startsWith(videoValue, "https://");
-			if (((type & MetaDataImportType::Types::VIDEO) != MetaDataImportType::Types::VIDEO) && !isHttpUrl) { //
+			if (((type & MetaDataImportType::Types::VIDEO) != MetaDataImportType::Types::VIDEO) && !isHttpUrl) {
                 if (videoValue.empty()) continue;
             } else if (videoValue.empty() && !isHttpUrl) {
-                 continue;
+                continue;
             }
 		}
-		if (mdd.id == MetaDataId::TitleShot && (source.get(mdd.id).empty() || (type & MetaDataImportType::Types::TITLESHOT) != MetaDataImportType::Types::TITLESHOT)) //
-			continue;
-		if (mdd.id == MetaDataId::FanArt && (source.get(mdd.id).empty() || (type & MetaDataImportType::Types::FANART) != MetaDataImportType::Types::FANART)) //
-			continue;
-		if (mdd.id == MetaDataId::BoxBack && (source.get(mdd.id).empty() || (type & MetaDataImportType::Types::BOXBACK) != MetaDataImportType::Types::BOXBACK)) //
-			continue;
-		if (mdd.id == MetaDataId::Map && (source.get(mdd.id).empty() || (type & MetaDataImportType::Types::MAP) != MetaDataImportType::Types::MAP)) //
-			continue;
-		if (mdd.id == MetaDataId::Manual && (source.get(mdd.id).empty() || (type & MetaDataImportType::Types::MANUAL) != MetaDataImportType::Types::MANUAL)) //
-			continue;
-		if (mdd.id == MetaDataId::Cartridge && (source.get(mdd.id).empty() || (type & MetaDataImportType::Types::CARTRIDGE) != MetaDataImportType::Types::CARTRIDGE)) //
-			continue;
-		if (mdd.id == MetaDataId::Rating && source.getFloat(mdd.id) < 0) //
-			continue;
+		if (mdd.id == MetaDataId::TitleShot && (source.get(mdd.id).empty() || (type & MetaDataImportType::Types::TITLESHOT) != MetaDataImportType::Types::TITLESHOT)) continue;
+		if (mdd.id == MetaDataId::FanArt && (source.get(mdd.id).empty() || (type & MetaDataImportType::Types::FANART) != MetaDataImportType::Types::FANART)) continue;
+		if (mdd.id == MetaDataId::BoxBack && (source.get(mdd.id).empty() || (type & MetaDataImportType::Types::BOXBACK) != MetaDataImportType::Types::BOXBACK)) continue;
+		if (mdd.id == MetaDataId::Map && (source.get(mdd.id).empty() || (type & MetaDataImportType::Types::MAP) != MetaDataImportType::Types::MAP)) continue;
+		if (mdd.id == MetaDataId::Manual && (source.get(mdd.id).empty() || (type & MetaDataImportType::Types::MANUAL) != MetaDataImportType::Types::MANUAL)) continue;
+		if (mdd.id == MetaDataId::Cartridge && (source.get(mdd.id).empty() || (type & MetaDataImportType::Types::CARTRIDGE) != MetaDataImportType::Types::CARTRIDGE)) continue;
+		if (mdd.id == MetaDataId::Rating && source.getFloat(mdd.id) < 0) continue;
 
-		// Imposta il valore del metadato
-		set(mdd.id, source.get(mdd.id)); //
+		// Se siamo arrivati qui, il metadato può essere importato.
+		set(mdd.id, source.get(mdd.id));
 
-		// Processa solo se è di tipo MD_PATH
-		if (mdd.type == MetaDataType::MD_PATH) //
+		if (mdd.type == MetaDataType::MD_PATH)
 		{
-			const std::string& pathOrUrlValue = get(mdd.id); // Prendi il valore appena impostato
-
-			// Se è il metadato Video ED è un URL HTTP, NON fare nulla con ImageIO.
-			if (mdd.id == MetaDataId::Video && 
-			    (Utils::String::startsWith(pathOrUrlValue, "http://") || Utils::String::startsWith(pathOrUrlValue, "https://")))
+			const std::string& pathOrUrlValue = get(mdd.id);
+			if (mdd.id == MetaDataId::Video && (Utils::String::startsWith(pathOrUrlValue, "http://") || Utils::String::startsWith(pathOrUrlValue, "https://")))
 			{
-				LOG(LogDebug) << "MetaDataList::importScrappedMetadata: Rilevato URL per MetaDataId::Video (" << pathOrUrlValue << "). Saltando ImageIO.";
+				LOG(LogDebug) << "MetaDataList::importScrappedMetadata: Video URL detected (" << pathOrUrlValue << "). Skipping ImageIO.";
 			}
-			// Altrimenti (è un percorso locale o un altro tipo di MD_PATH che è un'immagine)
 			else if (!pathOrUrlValue.empty()) 
 			{
-                // Per tutti gli altri MD_PATH (presumibilmente percorsi locali a immagini dopo MDResolveHandle)
-                // o per MetaDataId::Video se fosse un percorso locale.
-
-                // Controlla se è un URL HTTP inaspettato per un metadato immagine
-                // (questo non dovrebbe accadere se MDResolveHandle ha funzionato e scaricato l'immagine)
-                if (mdd.id != MetaDataId::Video && (Utils::String::startsWith(pathOrUrlValue, "http://") || Utils::String::startsWith(pathOrUrlValue, "https://")))
-                {
-                     LOG(LogWarning) << "MetaDataList::importScrappedMetadata: Trovato URL HTTP inatteso per metadato immagine (ID: " 
-                                    << static_cast<int>(mdd.id) << "): " << pathOrUrlValue 
-                                    << ". Il download potrebbe essere fallito o non tentato. Saltando ImageIO.";
-                                    // Errore C3861 riga 624 era qui: MetaDataIdToString(mdd.id)
-                }
-                else // È un percorso locale, procedi con ImageIO solo per i tipi di immagine riconosciuti
-                {
-                    ImageIO::removeImageCache(pathOrUrlValue); //
-                    unsigned int x = 0, y = 0; // Inizializza a 0
-                    
-                    // CHIAMARE ImageIO::loadImageSize SOLO PER TIPI DI MEDIA CHE SONO SICURAMENTE IMMAGINI LOCALI
-                    if (mdd.id == MetaDataId::Image || mdd.id == MetaDataId::Thumbnail ||
-                        mdd.id == MetaDataId::Marquee || mdd.id == MetaDataId::FanArt ||
-                        mdd.id == MetaDataId::BoxArt || mdd.id == MetaDataId::BoxBack ||
-                        mdd.id == MetaDataId::Cartridge || mdd.id == MetaDataId::TitleShot ||
-                        mdd.id == MetaDataId::MD_SCREENSHOT_URL) // Assumendo che MD_SCREENSHOT_URL sia per path locali post-download
+                ImageIO::removeImageCache(pathOrUrlValue);
+                unsigned int x = 0, y = 0;
+                if (mdd.id != MetaDataId::Video && mdd.id != MetaDataId::Manual && mdd.id != MetaDataId::Magazine) {
+                    if (!ImageIO::loadImageSize(pathOrUrlValue.c_str(), &x, &y))
                     {
-                        if (!ImageIO::loadImageSize(pathOrUrlValue.c_str(), &x, &y)) //
-                        {
-                            LOG(LogWarning) << "MetaDataList::importScrappedMetadata: Impossibile caricare dimensioni per l'immagine: " 
-                                            << pathOrUrlValue << " per il metadato con ID: " << static_cast<int>(mdd.id) // Sostituito MetaDataIdToString
-                                            << ". Il file potrebbe non esistere, essere corrotto o non essere un'immagine supportata.";
-                                            // Errore C3861 riga 641 era qui: MetaDataIdToString(mdd.id)
-                            // Considera se svuotare il metadato se l'immagine è invalida:
-                            // set(mdd.id, ""); 
-                        }
-                        // else { /* Se vuoi salvare le dimensioni x, y da qualche parte */ }
+                        LOG(LogWarning) << "MetaDataList::importScrappedMetadata: Could not load image size for: " << pathOrUrlValue;
                     }
                 }
 			}
 		}
 	}
 
-	if (Utils::String::startsWith(source.getName(), "ZZZ(notgame)")) //
-		set(MetaDataId::Hidden, "true"); //
+	if (Utils::String::startsWith(source.getName(), "ZZZ(notgame)"))
+		set(MetaDataId::Hidden, "true");
 }
+
 
 std::string MetaDataList::getRelativeRootPath()
 {

@@ -45,6 +45,8 @@
 #include "GameStore/Xbox/XboxStore.h"
 #include "GameStore/GameStoreManager.h"
 #include "GameStore/EAGames/EAGamesStore.h"
+#include "GameStore/EAGames/EAGamesModels.h"
+#include "GameStore/EAGames/EAGamesScanner.h"
 
 #if WIN32
 #include "Win32ApiSystem.h"
@@ -86,6 +88,21 @@ static std::map<std::string, std::function<BindableProperty(SystemData*)>> prope
 
 VectorEx<SystemData*> SystemData::sSystemVector;
 bool SystemData::IsManufacturerSupported = false;
+
+std::string normalizeGameNameForEA(const std::string& name) {
+    std::string lowerName = Utils::String::toLower(name);
+    std::string result = "";
+    for (char c : lowerName) {
+        if (isalnum(static_cast<unsigned char>(c))) {
+            result += c;
+        }
+    }
+    // Gestiamo il caso specifico di Plants vs Zombies che ha nomi diversi
+    if (result.find("piantecontrozombi") != std::string::npos || result.find("plantsvszombies") != std::string::npos) {
+        return "plantsvszombies"; // Riconduciamo entrambi i nomi a un'unica chiave standard
+    }
+    return result;
+}
 
 SystemData::SystemData(const SystemMetadata& meta, SystemEnvironmentData* envData, std::vector<EmulatorData>* pEmulators, bool CollectionSystem, bool groupedSystem, bool withTheme, bool loadThemeOnlyIfElements, bool isItAStoreSystem)  :
 	mMetadata(meta), mEnvData(envData), mIsCollectionSystem(CollectionSystem), mIsGameSystem(true), mIsStoreSystem(isItAStoreSystem) 
@@ -2010,195 +2027,138 @@ if (metadataWasActuallyChanged) {
 }
 // --- FINE BLOCCO XBOX ---
 
-// --- EA GAMES SYSTEM CREATION/POPULATION ---
+// --- BLOCCO EA GAMES PER SystemData::loadConfig ---
 LOG(LogInfo) << "[EADynamic] Checking/Creating/Populating EA Games system...";
-
-SystemData* eaSystem = SystemData::getSystem("EAGamesStore"); // Usa l'ID corretto per EA Games
+SystemData* eaSystem = SystemData::getSystem("EAGamesStore");
 bool eaSystemWasNewlyCreated = false;
 
-// Verifica se il sistema deve essere creato E se è abilitato nei settings
-if (eaSystem == nullptr && Settings::getInstance()->getBool("EnableEAGamesStore")) { // <<< CONTROLLO SETTING QUI
+if (eaSystem == nullptr && Settings::getInstance()->getBool("EnableEAGamesStore")) {
     LOG(LogInfo) << "[EADynamic] EA Games system not found and is enabled, creating dynamically...";
-    
     SystemMetadata md_ea;
-    md_ea.name = "EAGamesStore"; // ID univoco del sistema (DEVE corrispondere a EAGamesStore::STORE_ID)
+    md_ea.name = "EAGamesStore";
     md_ea.fullName = _("EA Games"); 
     md_ea.themeFolder = "EAGamesStore"; 
     md_ea.manufacturer = "Electronic Arts";
     md_ea.hardwareType = "pc";
-
     SystemEnvironmentData* envData_ea = new SystemEnvironmentData();
     std::string exePath_ea = Paths::getExePath();
     std::string exeDir_ea = Utils::FileSystem::getParent(exePath_ea);
     std::string eaGamelistDir = Utils::FileSystem::getGenericPath(exeDir_ea + "/roms/EAGamesStore"); 
-    
     if (!Utils::FileSystem::exists(eaGamelistDir)) {
         Utils::FileSystem::createDirectory(eaGamelistDir);
-        LOG(LogInfo) << "[EADynamic] Created roms/EAGamesStore directory: " << eaGamelistDir;
     }
     envData_ea->mStartPath = eaGamelistDir;
     envData_ea->mPlatformIds = {PlatformIds::PC}; 
-    envData_ea->mLaunchCommand = ""; // Specifico per gioco
-
+    envData_ea->mLaunchCommand = "";
     std::vector<EmulatorData> eaEmulators_empty; 
-    // Gli ultimi due bool potrebbero essere isDynamic e isStore, da verificare nella tua definizione di SystemData
     eaSystem = new SystemData(md_ea, envData_ea, &eaEmulators_empty, false, false, true, true); 
-
     if (!eaSystem) {
         delete envData_ea;
-        LOG(LogError) << "[EADynamic] FATAL: Failed to dynamically create 'eagames' SystemData object!";
     } else {
         eaSystemWasNewlyCreated = true;
-        LOG(LogInfo) << "[EADynamic] Dynamically created 'eagames' system object successfully.";
-        // Aggiungi al vettore dei sistemi
         bool nameCollisionEA = false;
-        for (const auto& sys : SystemData::sSystemVector) { // Assumendo sSystemVector sia accessibile
+        for (const auto& sys : SystemData::sSystemVector) {
             if (sys && sys->getName() == eaSystem->getName()) { nameCollisionEA = true; break; }
         }
         if (!nameCollisionEA) {
-            SystemData::sSystemVector.push_back(eaSystem); // Metodo statico se esiste
-            LOG(LogInfo) << "[EADynamic] Added newly created EA Games system to sSystemVector.";
+            SystemData::sSystemVector.push_back(eaSystem);
         } else {
-            LOG(LogWarning) << "[EADynamic] EA Games system name collision. Discarding new instance.";
             delete eaSystem; 
-            eaSystem = SystemData::getSystem("EAGamesStore"); // Ottieni quello esistente
+            eaSystem = SystemData::getSystem("EAGamesStore");
         }
     }
 } else if (eaSystem != nullptr && !Settings::getInstance()->getBool("EnableEAGamesStore")) {
-    LOG(LogInfo) << "[EADynamic] EA Games system exists but is now disabled in settings. It might be removed if not persistent.";
-    // Qui potresti voler aggiungere logica per rimuovere/nascondere il sistema se viene disabilitato
-    // Ma per ora, se esiste ma è disabilitato, non lo popoleremo.
-    eaSystem = nullptr; // Non procedere con il popolamento se disabilitato
+    eaSystem = nullptr;
 } else if (eaSystem != nullptr) {
-    LOG(LogInfo) << "[EADynamic] EA Games system already exists. Clearing game list for repopulation if it's a store system.";
-    if (eaSystem->isStoreSystem()) { // Assumi che SystemData abbia un metodo isStoreSystem() o simile
-        if (eaSystem->getRootFolder()) eaSystem->getRootFolder()->clear();
-        FileFilterIndex* existingIndexEA = eaSystem->getIndex(false);
-        if (existingIndexEA != nullptr) {
-            delete existingIndexEA;
-            eaSystem->mFilterIndex = nullptr;
-        }
+    if (eaSystem->isStoreSystem() && eaSystem->getRootFolder()) {
+        eaSystem->getRootFolder()->clear();
     }
 }
 
-// Procedi con il popolamento solo se eaSystem è valido (creato o esistente E abilitato)
-if (eaSystem != nullptr) {
-    LOG(LogInfo) << "[EADynamic] Populating (gamelist & API data) for eagames system [" << eaSystem->getName() << "]";
-    try {
-        // Assicura che rootFolder esista
-        if (!eaSystem->getRootFolder()) {
-            if (!eaSystem->getStartPath().empty()) {
-                LOG(LogWarning) << "[EADynamic] EA Games RootFolder was null. Creating from StartPath: " << eaSystem->getStartPath();
-                if (!Utils::FileSystem::exists(eaSystem->getStartPath())) {
-                    Utils::FileSystem::createDirectory(eaSystem->getStartPath());
+if (eaSystem != nullptr) 
+{
+    LOG(LogInfo) << "[EADynamic] Populating EA Games system...";
+    
+    try 
+    {
+        FolderData* root = eaSystem->getRootFolder();
+        if (!root) throw std::runtime_error("EA Games RootFolder is null.");
+
+        // --- PASSO 1: CARICA DA GAMELIST.XML ---
+        std::string gamelistPath = eaSystem->getGamelistPath(false);
+        if (Utils::FileSystem::exists(gamelistPath)) {
+            LOG(LogInfo) << "[EADynamic] Found gamelist.xml, parsing...";
+
+            // --- CORREZIONE ALLA CHIAMATA PARSEGAMELIST ---
+            // Creiamo la mappa richiesta dalla funzione
+            std::unordered_map<std::string, FileData*> fileMap;
+            root->createChildrenByFilenameMap(fileMap); // Popoliamo la mappa con i figli esistenti
+            parseGamelist(eaSystem, fileMap); // Chiamiamo la funzione con i parametri corretti
+            
+            LOG(LogInfo) << "[EADynamic] Finished parsing gamelist.xml. Found " << root->getChildren().size() << " cached entries.";
+        }
+
+        // --- PASSO 2: ESEGUI SCANSIONE LOCALE ---
+        EAGames::EAGamesScanner scanner;
+        std::vector<EAGames::InstalledGameInfo> installedGamesOnDisk = scanner.scanForInstalledGames();
+        LOG(LogInfo) << "[EADynamic] Scanner found " << installedGamesOnDisk.size() << " installed games on disk.";
+
+        std::map<std::string, EAGames::InstalledGameInfo> diskMap;
+        for (const auto& game : installedGamesOnDisk) {
+            diskMap[normalizeGameNameForEA(game.name)] = game;
+        }
+
+        // --- PASSO 3: AGGIORNA I GIOCHI ESISTENTI ---
+        for (auto* existingGame : root->getChildren()) {
+            if (existingGame->getType() != GAME) continue;
+
+            std::string normalizedName = normalizeGameNameForEA(existingGame->getName());
+            auto it = diskMap.find(normalizedName);
+            MetaDataList& mdl = existingGame->getMetadata();
+
+            if (it != diskMap.end()) {
+                const auto& diskInfo = it->second;
+                mdl.set(MetaDataId::Installed, "true");
+                mdl.set(MetaDataId::Virtual, "false");
+                if (!diskInfo.executablePath.empty()) {
+                    mdl.set(MetaDataId::LaunchCommand, "\"" + diskInfo.executablePath + "\" " + diskInfo.launchParameters);
                 }
-                eaSystem->mRootFolder = new FolderData(eaSystem->getStartPath(), eaSystem); // Assumendo che mRootFolder sia public o ci sia un setter
-                if (eaSystem->mRootFolder && eaSystem->mRootFolder->getName() == Utils::FileSystem::getFileName(eaSystem->getStartPath())) {
-                    eaSystem->mRootFolder->getMetadata().set(MetaDataId::Name, eaSystem->getFullName());
+                diskMap.erase(it);
+            } else {
+                std::string offerId = mdl.get("ea_offerid");
+                mdl.set(MetaDataId::Installed, "false");
+                mdl.set(MetaDataId::Virtual, "true");
+                if (!offerId.empty()) {
+                    mdl.set(MetaDataId::LaunchCommand, "origin2://game/launch?offerIds=" + offerId);
                 }
             }
-            if (!eaSystem->getRootFolder()) {
-                LOG(LogError) << "[EADynamic] CRITICAL: EA Games RootFolder is still null. Population aborted for EA.";
-                throw std::runtime_error("EA Games RootFolder could not be established for population.");
+        }
+
+        // --- PASSO 4: AGGIUNGI NUOVI GIOCHI TROVATI DALLO SCANNER ---
+        for (const auto& pair : diskMap) {
+            const auto& game = pair.second;
+            LOG(LogInfo) << "[EADynamic] Adding new game not in gamelist: " << game.name;
+            std::string path = "ea_installed:/" + (game.id.empty() ? normalizeGameNameForEA(game.name) : game.id);
+            FileData* fd = new FileData(FileType::GAME, path, eaSystem);
+            MetaDataList& mdl = fd->getMetadata();
+            mdl.set(MetaDataId::Name, game.name);
+            mdl.set(MetaDataId::Installed, "true");
+            mdl.set(MetaDataId::Virtual, "false");
+            if (!game.id.empty()) mdl.set("ea_offerid", game.id);
+            if (!game.executablePath.empty()) {
+                mdl.set(MetaDataId::LaunchCommand, "\"" + game.executablePath + "\" " + game.launchParameters);
             }
+            root->addChild(fd, true);
         }
-        FolderData* currentEARootFolder = eaSystem->getRootFolder();
-
-        // 1. Leggi gamelist.xml per EA Games (se esiste)
-        std::string gamelistPathEA = eaSystem->getGamelistPath(true);
-        LOG(LogInfo) << "[EADynamic] Attempting to parse EA Games gamelist (if exists): " << gamelistPathEA;
-        if (Utils::FileSystem::exists(gamelistPathEA)) {
-            std::unordered_map<std::string, FileData*> fileMapEA_local;
-            if (currentEARootFolder) { // Popola la mappa come richiesto da parseGamelist
-                 fileMapEA_local[currentEARootFolder->getPath()] = currentEARootFolder;
-                 // Potrebbe essere necessario aggiungere anche i figli esistenti se parseGamelist aggiorna
-            }
-            parseGamelist(eaSystem, fileMapEA_local); 
-            LOG(LogInfo) << "[EADynamic] Parsed EA Games gamelist. Root folder child count: " << (currentEARootFolder ? currentEARootFolder->getChildren().size() : 0);
-        } else {
-            LOG(LogWarning) << "[EADynamic] Gamelist file not found for EA Games: " << gamelistPathEA;
-        }
-
-        // 2. Sincronizza con i giochi da EAGamesStore API
-        GameStoreManager* gsm = GameStoreManager::getInstance(nullptr); // Ottieni istanza del manager
-        EAGamesStore* eaGamesStoreConcrete = nullptr;
-        if (gsm) {
-            // USARE EAGamesStore::STORE_ID per coerenza!
-       GameStore* storeBaseRaw = gsm->getStore(EAGamesStore::STORE_ID); 
-if (storeBaseRaw) {
-    eaGamesStoreConcrete = dynamic_cast<EAGamesStore*>(storeBaseRaw);
-}
-        }
-
-        if (eaGamesStoreConcrete) {
-            LOG(LogInfo) << "[EADynamic] Fetching games from EAGamesStore API...";
-            // Qui implementerai la logica per ottenere i giochi da eaGamesStoreConcrete
-            // e aggiungerli/aggiornarli in currentEARootFolder.
-            // Esempio concettuale:
-            // std::vector<std::shared_ptr<FileData>> gamesFromApi = eaGamesStoreConcrete->getGames(); // Metodo da implementare in EAGamesStore
-            // for (const auto& gameApiData : gamesFromApi) {
-            //     if (!gameApiData) continue;
-            //     FileData* existingGame = currentEARootFolder->FindByPath(gameApiData->getPath());
-            //     if (!existingGame) {
-            //         LOG(LogDebug) << "[EADynamic] Adding NEW EA game from API: " << gameApiData->getName();
-            //         currentEARootFolder->addChild(gameApiData.get()); // Attenzione alla ownership se gameApiData è gestito altrove
-            //         // gameApiData->getMetadata().set(MetaDataId::Installed, "false"); // o true, a seconda
-            //         // gameApiData->getMetadata().set(MetaDataId::Virtual, "true"); // o false
-            //         // gameApiData->getMetadata().set(MetaDataId::LaunchCommand, ...);
-            //         gameApiData->getMetadata().setDirty();
-            //     } else {
-            //         // Logica per aggiornare i metadati di existingGame con gameApiData
-            //         LOG(LogDebug) << "[EADynamic] Updating existing EA game from API: " << gameApiData->getName();
-            //         // ...
-            //         // existingGame->getMetadata().setDirty();
-            //     }
-            // }
-            LOG(LogWarning) << "[EADynamic] Actual game fetching & population logic from EAGamesStore API needs to be implemented here.";
-
-        } else {
-            LOG(LogWarning) << "[EADynamic] EAGamesStore instance not available from GameStoreManager. Cannot populate from API for EA Games.";
-        }
-
-        // Carica tema e aggiorna conteggio
-        if (eaSystemWasNewlyCreated) { // Solo se appena creato e aggiunto
-            eaSystem->loadTheme(); 
-            auto defaultView = Settings::getInstance()->getString(eaSystem->getName() + ".defaultView");
-            auto gridSizeOverride = Vector2f::parseString(Settings::getInstance()->getString(eaSystem->getName() + ".gridSize"));
-            eaSystem->setSystemViewMode(defaultView, gridSizeOverride, false);
-        } else if (eaSystem && !eaSystem->getTheme()) { // Esistente ma tema non caricato (improbabile se aggiunto correttamente)
-            eaSystem->loadTheme();
-        }
-        
-        if (eaSystem) {
-            eaSystem->updateDisplayedGameCount();
-            LOG(LogInfo) << "[EADynamic] Finished all processing for 'eagames'. Final displayed game count: "
-                         << (eaSystem->getGameCountInfo() ? eaSystem->getGameCountInfo()->visibleGames : -1);
-        }
-
-    } catch (const std::exception& e) {
-        LOG(LogError) << "[EADynamic] Exception during dynamic population of eagames: " << e.what();
-        if (eaSystemWasNewlyCreated && eaSystem) { // Rimuovi se la creazione è fallita
-            auto& vec = SystemData::sSystemVector; // Riferimento per brevità
-vec.erase(std::remove(vec.begin(), vec.end(), eaSystem), vec.end());
-delete eaSystem; // Non dimenticare di deallocare la memoria se il sistema era stato creato con new
-eaSystem = nullptr; // Invalida il puntatore // Metodo statico se esiste
-             eaSystem = nullptr;
-        }
-    } catch (...) {
-        LOG(LogError) << "[EADynamic] Unknown exception during dynamic population of eagames.";
-        if (eaSystemWasNewlyCreated && eaSystem) { // Rimuovi se la creazione è fallita
-            auto& vec = SystemData::sSystemVector; // Riferimento per brevità
-vec.erase(std::remove(vec.begin(), vec.end(), eaSystem), vec.end());
-delete eaSystem; // Non dimenticare di deallocare la memoria se il sistema era stato creato con new
-eaSystem = nullptr; // Invalida il puntatore
-            eaSystem = nullptr;
-        }
+            
+        eaSystem->updateDisplayedGameCount();
     }
-} else if (eaSystem == nullptr && Settings::getInstance()->getBool("EnableEAGamesStore")) {
-    // Questo caso indica che getSystem("eagames") era null, il setting era true, ma la creazione è fallita
-    LOG(LogError) << "[EADynamic] EA Games store is enabled, but SystemData object for 'eagames' is null even after creation attempt.";
+    catch (const std::exception& e)
+    {
+        LOG(LogError) << "[EADynamic] Exception during EA Games population: " << e.what();
+    }
 }
-// --- FINE BLOCCO EA GAMES --- 
+// --- FINE BLOCCO EA GAMES ---
 
   if (SystemData::sSystemVector.size() > 0) {
   createGroupedSystems();

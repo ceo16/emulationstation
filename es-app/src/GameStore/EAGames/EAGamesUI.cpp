@@ -16,7 +16,8 @@
 #include "Log.h" 
 #include "ApiSystem.h"
 #include "views/ViewController.h" 
-#include "SystemData.h"     
+#include "SystemData.h"   
+#include "Gamelist.h"  
 
 // Assicurati che EAGamesStore::STORE_ID sia definito in EAGamesStore.cpp come:
 // const std::string EAGamesStore::STORE_ID = "EAGamesStore"; 
@@ -189,72 +190,38 @@ void EAGamesUI::onImportGamesFinished(bool success, const std::string& message)
 
     if (success) {
         SystemData* eaSystem = SystemData::getSystem(EAGamesStore::STORE_ID);
-        // mStore è un membro di EAGamesUI e dovrebbe essere valido qui 
-        // se processImportGames è stato chiamato e SyncGames ha avuto successo.
         if (eaSystem && mStore) { 
             FolderData* root = eaSystem->getRootFolder();
             if (root) {
                 LOG(LogInfo) << "EAGamesUI: Clearing and repopulating EA system's root folder with synced games.";
 
-                // 1. Pulisci i vecchi giochi EA dal root folder e resetta l'indice dei filtri.
-                //    Itera sui figli e rimuovi solo quelli specifici di EA per sicurezza.
-                //    La gestione della memoria è cruciale qui.
-                auto currentChildren = root->getChildren(); // Copia per iterazione sicura
-                std::vector<FileData*> childrenToRemove;
-                for (FileData* child : currentChildren) {
-                    // Identifica i giochi EA (es. tramite path o un metadato)
-                    // Assumiamo che i giochi EA abbiano un path che inizia con "ea://" come definito in processAndCacheGames.
-                    if (Utils::String::startsWith(child->getPath(), "ea://")) { 
-                        childrenToRemove.push_back(child);
-                    }
-                }
-                for (FileData* childToRemove : childrenToRemove) {
-                    root->removeChild(childToRemove); 
-                    // NON chiamare 'delete childToRemove' qui, perché EAGamesStore 
-                    // gestisce la memoria di questi FileData* tramite mCachedGameFileDatas (unique_ptr).
-                }
+                // 1. Pulisce la vecchia lista dalla vista
+                root->clear();
                 
-                // Correzione per Errore 1: Usa il metodo pubblico per resettare l'indice
-                eaSystem->deleteIndex(); 
-
-                // 2. Ottieni la lista aggiornata dei giochi da EAGamesStore
+                // 2. Ottiene la NUOVA lista (già processata e pulita) dallo Store
                 std::vector<FileData*> gamesFromStore = mStore->getGamesList(); 
                 LOG(LogInfo) << "EAGamesUI: Adding " << gamesFromStore.size() << " games from EAGamesStore to EA system's root folder.";
 
-                // 3. Aggiungi i nuovi FileData* al root folder.
+                // 3. Aggiunge i nuovi giochi alla vista
                 for (FileData* game : gamesFromStore) {
-                    // game->getSystem() dovrebbe già essere 'eaSystem'.
-                    // Il 'false' in addChild indica a FolderData di NON prendere la proprietà
-                    // della memoria, dato che EAGamesStore (unique_ptr) la gestisce.
-                    if (game->getParent() == nullptr || game->getParent() == root) { // Evita di aggiungere se ha già un altro parent
-                        root->addChild(game, false); 
-                    } else {
-                        LOG(LogWarning) << "EAGamesUI: Game " << game->getName() << " (" << game->getPath() << ") already has a different parent. Not adding to EA root.";
-                    }
+                    root->addChild(game, false); 
                 }
                 
-                // 4. Aggiorna il conteggio dei giochi visualizzati per il sistema.
+                // 4. Aggiorna il conteggio e salva il gamelist.xml corretto
                 eaSystem->updateDisplayedGameCount(); 
-            } else {
-                LOG(LogError) << "EAGamesUI: Root folder for EA system is null.";
-            }
+                updateGamelist(eaSystem);
+            } 
             
             LOG(LogInfo) << "EAGamesUI: Reloading and navigating to EA game list view.";
-            // Correzione per Errore 2: Usa la chiamata a un argomento se quella a due dà problemi.
-            ViewController::get()->reloadGameListView(eaSystem); 
-            ViewController::get()->goToGameList(eaSystem);       
-
+            ViewController::get()->reloadGameListView(eaSystem);
+            ViewController::get()->goToGameList(eaSystem);
         } else {
-            if (!eaSystem) {
-                LOG(LogWarning) << "EAGamesUI: System '" << EAGamesStore::STORE_ID << "' not found after sync. Cannot update view specifically. Reloading all views.";
-            }
-            if (!mStore) { // Questo controllo è più per scrupolo, mStore dovrebbe essere valido.
-                 LOG(LogError) << "EAGamesUI: mStore (EAGamesStore instance) is null in onImportGamesFinished. Cannot get game list.";
-            }
             ViewController::get()->reloadAll(this->mWindow); 
         }
     }
 }
+
+
 bool EAGamesUI::input(InputConfig* config, Input input)
 {
     if (!mStore && mMenu == nullptr) { 

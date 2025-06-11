@@ -805,6 +805,7 @@ bool FileData::launchGame(Window* window, LaunchGameOptions options)
     bool isEgsGame = (system->getName() == "epicgamestore");
     bool isSteamGame = (system->getName() == "steam");
     bool isXboxGame = (system->getName() == "xbox");
+	bool isEaGame = (system->getName() == "EAGamesStore");
     bool hideWindow = Settings::getInstance()->getBool("HideWindow");
 
     // Deinitialize audio/window once before any launch attempt
@@ -828,16 +829,40 @@ bool FileData::launchGame(Window* window, LaunchGameOptions options)
             Utils::Platform::openUrl(launch_command_str);
             overallLaunchSuccess = true; // Assume URL opening is a "successful start"
         }
-    } else if (isSteamGame) {
-        launch_command_str = metadata.get(MetaDataId::LaunchCommand);
-        LOG(LogDebug) << "FileData::launchGame - Steam Game. URL: " << launch_command_str;
-        if (launch_command_str.empty()) {
-            LOG(LogError) << "Steam launch command empty for " << gameToUpdate->getName();
-            overallLaunchSuccess = false;
-        } else {
-            Utils::Platform::openUrl(launch_command_str);
-            overallLaunchSuccess = true;
+ } else if (isEaGame) {
+    // Prima, recuperiamo i metadati e il comando di lancio
+    const auto& metadata = gameToUpdate->getMetadata();
+    launch_command_str = metadata.get(MetaDataId::LaunchCommand);
+
+    if (launch_command_str.empty()) {
+        LOG(LogError) << "EA Games launch command is empty for " << gameToUpdate->getName();
+        overallLaunchSuccess = false;
+    } else {
+        // ORA controlliamo se il gioco è installato (NON virtuale)
+        if (metadata.get(MetaDataId::Virtual) == "false") 
+        {
+            // --- GIOCO INSTALLATO ---
+            // Eseguiamo la nostra sequenza di pre-lancio
+            LOG(LogInfo) << "Pre-launching for INSTALLED EA Game: " << gameToUpdate->getName();
+            
+            std::string eaLauncherPath = "C:\\Program Files\\Electronic Arts\\EA Desktop\\EA Desktop\\EADesktop.exe";
+            Utils::Platform::openUrl(eaLauncherPath);
+
+            LOG(LogInfo) << "Waiting for 7 seconds to allow EA App to load...";
+            #if defined(_WIN32)
+                Sleep(7000);
+            #endif
         }
+        // --- FINE LOGICA PER GIOCHI INSTALLATI ---
+
+        // Questa parte viene eseguita per TUTTI i giochi EA, ma il pre-lancio
+        // è avvenuto solo per quelli installati.
+        LOG(LogInfo) << "Executing EA Game launch command: " << launch_command_str;
+        Utils::Platform::openUrl(launch_command_str);
+        overallLaunchSuccess = true;
+    }
+// --- FINE BLOCCO EA GAMES MODIFICATO -
+    
     } else if (isXboxGame) {
         launch_command_str = metadata.get(MetaDataId::LaunchCommand);
         LOG(LogDebug) << "FileData::launchGame - Xbox Game. LaunchCommand from metadata: " << launch_command_str;

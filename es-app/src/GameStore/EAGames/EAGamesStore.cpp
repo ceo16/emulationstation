@@ -17,6 +17,7 @@
 #include "views/ViewController.h"
 #include "GameStore/EAGames/EAGamesUI.h"
 #include "scrapers/Scraper.h"
+#include "Gamelist.h"
 
 #include <algorithm>
 #include <map>
@@ -26,7 +27,8 @@
 const std::string EAGamesStore::STORE_ID = "EAGamesStore";
 
 EAGamesStore::EAGamesStore(Window* window)
-    : mWindow(window),
+    : GameStore(), // Aggiungi questa chiamata al costruttore base
+      mWindow(window),
       mAuth(std::make_unique<EAGames::EAGamesAuth>(mWindow)),
       mApi(std::make_unique<EAGames::EAGamesAPI>(mAuth.get())),
       mScanner(std::make_unique<EAGames::EAGamesScanner>()),
@@ -39,6 +41,14 @@ EAGamesStore::EAGamesStore(Window* window)
 
 EAGamesStore::~EAGamesStore() {
     LOG(LogInfo) << "EAGamesStore: Destructor";
+}
+
+std::vector<EAGames::InstalledGameInfo> EAGamesStore::getInstalledGames()
+{
+    if (mScanner) 
+        return mScanner->scanForInstalledGames();
+    
+    return {};
 }
 
 bool EAGamesStore::init(Window* /*window_param*/) {
@@ -312,108 +322,91 @@ unsigned short EAGamesStore::GetLocalRedirectPort() {
     return EAGames::EAGamesAuth::GetLocalRedirectPort();
 }
 
+std::string normalizeGameName(const std::string& name) {
+    std::string lowerName = Utils::String::toLower(name);
+    std::string result = "";
+    for (char c : lowerName) {
+        if (isalnum(static_cast<unsigned char>(c))) {
+            result += c;
+        }
+    }
+    // Gestiamo il caso specifico di Plants vs Zombies che ha nomi diversi
+    if (result.find("piantecontrozombi") != std::string::npos || result.find("plantsvszombies") != std::string::npos) {
+        // Riconduciamo entrambi i nomi a un'unica chiave standard
+        return "plantsvszombies";
+    }
+    return result;
+}
+
 void EAGamesStore::processAndCacheGames(
     const std::vector<EAGames::GameEntitlement>& onlineGames,
     const std::vector<EAGames::InstalledGameInfo>& installedScannedGames)
 {
-    LOG(LogInfo) << "EA Store: Processing " << installedScannedGames.size() << " installed, " << onlineGames.size() << " online games from API.";
+    LOG(LogInfo) << "[EAGamesStore] Processing " << installedScannedGames.size() << " installed, " << onlineGames.size() << " online games.";
+    
     mCachedGameFileDatas.clear();
     std::map<std::string, std::unique_ptr<FileData>> gameDataMap;
 
     SystemData* eaSystem = SystemData::getSystem(EAGamesStore::STORE_ID);
-
     if (!eaSystem) {
-        LOG(LogWarning) << "EA Store: System with STORE_ID '" << EAGamesStore::STORE_ID << "' not found directly. Trying common names for EA system.";
-        std::vector<std::string> eaSystemCommonNames = {"eagames", "eapc", "eao", "eaapp", Utils::String::toLower(EAGamesStore::STORE_ID)};
-        for (SystemData* sys : SystemData::sSystemVector) {
-            const std::string& sysNameLower = Utils::String::toLower(sys->getName());
-            if (std::find(eaSystemCommonNames.begin(), eaSystemCommonNames.end(), sysNameLower) != eaSystemCommonNames.end()) {
-                eaSystem = sys;
-                LOG(LogInfo) << "EA Store: Found EA system using common name: " << sys->getName();
-                break;
-            }
-        }
-    }
-
-    if (!eaSystem) {
-        LOG(LogError) << "EA Store: System for EA Games (ID: " << EAGamesStore::STORE_ID << " or common names) not found in SystemData vector! Cannot create FileData.";
-        mGamesCacheDirty = false;
-        rebuildReturnableGameList();
-        if (mWindow) mWindow->displayNotificationMessage(_("Sistema EA non configurato o non trovato in EmulationStation! Impossibile mostrare i giochi."));
+        LOG(LogError) << "[EAGamesStore] System 'EAGamesStore' not found.";
         return;
     }
 
+    // 1. Aggiungi prima tutti i giochi trovati dalla scansione locale alla nostra mappa
     for (const auto& installedInfo : installedScannedGames) {
-        if (installedInfo.id.empty()) {
-            LOG(LogWarning) << "EA Store: Installed game found with empty ID. Skipping. Name: " << installedInfo.name;
-            continue;
-        }
-        std::string fdPath = installedInfo.executablePath;
-        if (fdPath.empty() || !Utils::FileSystem::exists(fdPath)) {
-            fdPath = installedInfo.installPath;
-            if (fdPath.empty() || !Utils::FileSystem::isAbsolute(fdPath)) {
-                 LOG(LogWarning) << "EA Store: Installed game '" << installedInfo.name << "' has invalid or non-existent path. Skipping. Path: " << fdPath;
-                 continue;
-            }
-        }
-        std::string uniqueGameKey = installedInfo.id;
-        auto fd = std::make_unique<FileData>(FileType::GAME, fdPath, eaSystem);
-        fd->getMetadata().set(MetaDataId::Name, installedInfo.name.empty() ? ("EA Game " + uniqueGameKey) : installedInfo.name);
-        fd->getMetadata().set(MetaDataId::Installed, "true");
-        fd->getMetadata().set(MetaDataId::IsOwned, "false");
-
-        fd->getMetadata().set(MetaDataId::EaOfferId, installedInfo.id);
-        if (!installedInfo.multiplayerId.empty())
-             fd->getMetadata().set(MetaDataId::EaMultiplayerId, installedInfo.multiplayerId);
-        fd->getMetadata().set(MetaDataId::InstallDir, installedInfo.installPath);
-		fd->getMetadata().set(MetaDataId::StoreProvider, "EAGAMESSTORE"); 
-
-        gameDataMap[uniqueGameKey] = std::move(fd);
+        std::string normalizedName = normalizeGameName(installedInfo.name);
+        auto fd = std::make_unique<FileData>(FileType::GAME, "ea_installed:/" + normalizedName, eaSystem);
+        
+        MetaDataList& mdl = fd->getMetadata();
+        mdl.set(MetaDataId::Name, installedInfo.name); // Mantiene il nome locale (es. italiano)
+        mdl.set(MetaDataId::Installed, "true");
+        mdl.set(MetaDataId::Virtual, "false");
+        mdl.set("ea_offerid", installedInfo.id); // L'ID trovato localmente
+        mdl.set(MetaDataId::LaunchCommand, "\"" + installedInfo.executablePath + "\" " + installedInfo.launchParameters);
+        
+        gameDataMap[normalizedName] = std::move(fd);
     }
 
+    // 2. Ora scorri i giochi della libreria online
     for (const auto& entitlement : onlineGames) {
-        std::string uniqueGameKey = entitlement.originOfferId;
-        if (uniqueGameKey.empty()) {
-            LOG(LogWarning) << "EA Store: Online entitlement found with empty originOfferId. Title: " << entitlement.title << ". Skipping.";
-            continue;
-        }
+        std::string normalizedOnlineName = normalizeGameName(entitlement.title);
+        auto it = gameDataMap.find(normalizedOnlineName);
 
-        if (gameDataMap.count(uniqueGameKey)) {
-            FileData* fd_ptr = gameDataMap[uniqueGameKey].get();
-            fd_ptr->getMetadata().set(MetaDataId::IsOwned, "true");
+        if (it != gameDataMap.end()) {
+            // GIOCO TROVATO! È già nella nostra lista come "installato".
+            // Lo aggiorniamo con i dati online, senza sostituirlo.
+            LOG(LogInfo) << "[EAGamesStore] Matched installed game '" << it->second->getName() << "' with online game '" << entitlement.title << "'";
+            MetaDataList& mdl = it->second->getMetadata();
 
-            std::string currentName = fd_ptr->getMetadata().get(MetaDataId::Name);
-            if (!entitlement.title.empty() && (currentName.empty() || Utils::String::startsWith(currentName, "EA Game "))) {
-                fd_ptr->getMetadata().set(MetaDataId::Name, entitlement.title);
-            }
-            fd_ptr->getMetadata().set(MetaDataId::EaOfferId, entitlement.originOfferId);
-            if (!entitlement.productId.empty()) {
-                 fd_ptr->getMetadata().set(MetaDataId::EaMasterTitleId, entitlement.productId);
-				 fd_ptr->getMetadata().set(MetaDataId::StoreProvider, "EAGAMESSTORE"); // <--- AGGIUNGI QUESTA RIGA
-            }
+            mdl.set(MetaDataId::Name, entitlement.title); // Aggiorna al nome ufficiale online
+            mdl.set(MetaDataId::IsOwned, "true");
+            mdl.set("ea_offerid", entitlement.originOfferId); // Sovrascrive con l'OfferID corretto e completo
+            mdl.set("ea_mastertitleid", entitlement.productId);
+
         } else {
-            std::string virtualPath = "ea://game/" + uniqueGameKey;
-            auto fd = std::make_unique<FileData>(FileType::GAME, virtualPath, eaSystem);
+            // GIOCO NON TROVATO LOCALMENTE. Lo aggiungiamo come nuovo gioco virtuale.
+            auto fd = std::make_unique<FileData>(FileType::GAME, "ea_virtual:/" + entitlement.originOfferId, eaSystem);
+            MetaDataList& mdl = fd->getMetadata();
 
-            std::string gameName = entitlement.title;
-            if (gameName.empty()) gameName = "EA Game (" + uniqueGameKey + ")";
-
-            fd->getMetadata().set(MetaDataId::Name, gameName);
-            fd->getMetadata().set(MetaDataId::Installed, "false");
-            fd->getMetadata().set(MetaDataId::IsOwned, "true");
-            fd->getMetadata().set(MetaDataId::EaOfferId, entitlement.originOfferId);
-            if (!entitlement.productId.empty()) {
-                 fd->getMetadata().set(MetaDataId::EaMasterTitleId, entitlement.productId);
-            }
-			fd->getMetadata().set(MetaDataId::StoreProvider, "EAGAMESSTORE"); // <--- AGGIUNGI QUESTA RIGA
-            gameDataMap[uniqueGameKey] = std::move(fd);
+            mdl.set(MetaDataId::Name, entitlement.title);
+            mdl.set(MetaDataId::Installed, "false");
+            mdl.set(MetaDataId::Virtual, "true");
+            mdl.set(MetaDataId::IsOwned, "true");
+            mdl.set("ea_offerid", entitlement.originOfferId);
+            mdl.set("ea_mastertitleid", entitlement.productId);
+            mdl.set(MetaDataId::LaunchCommand, "origin2://game/launch?offerIds=" + entitlement.originOfferId);
+            
+            gameDataMap[normalizedOnlineName] = std::move(fd);
         }
     }
 
+    // Ricostruisci la cache finale con la lista unificata
     for (auto& pair : gameDataMap) {
         mCachedGameFileDatas.push_back(std::move(pair.second));
     }
 
+    // ... (il resto della funzione con l'ordinamento e l'aggiornamento della cache rimane invariato)
     std::sort(mCachedGameFileDatas.begin(), mCachedGameFileDatas.end(),
         [](const std::unique_ptr<FileData>& a, const std::unique_ptr<FileData>& b) {
         return Utils::String::toLower(a->getName()) < Utils::String::toLower(b->getName());
@@ -421,7 +414,7 @@ void EAGamesStore::processAndCacheGames(
 
     mGamesCacheDirty = false;
     rebuildReturnableGameList();
-    LOG(LogInfo) << "EA Store: Cached " << mCachedGameFileDatas.size() << " EA games processed.";
+    LOG(LogInfo) << "[EAGamesStore] Internal cache updated with " << mCachedGameFileDatas.size() << " final games.";
 }
 
 void EAGamesStore::rebuildReturnableGameList() {

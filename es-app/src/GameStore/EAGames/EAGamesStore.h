@@ -42,6 +42,7 @@ public:
 	static const std::string STORE_ID;
 	void incrementActiveScrape();
     void decrementActiveScrape();
+    std::vector<EAGames::InstalledGameInfo> getInstalledGames();
 
     // --- Metodi Pubblici Specifici di EAGamesStore ---
     bool IsUserLoggedIn();
