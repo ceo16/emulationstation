@@ -7,6 +7,7 @@
 #include "utils/StringUtil.h" 
 #include "utils/base64.h"
 #include "Log.h" // Aggiunto per LOG da dentro i parser
+#include "utils/TimeUtil.h"
 
 namespace EAGames
 {
@@ -315,5 +316,77 @@ static GameStoreData fromJson(const nlohmann::json& j) {
         std::string LastGameInstallPath;
         std::vector<std::string> ContentInstallPath;
     };
+	
+ struct SubscriptionDetails {
+        std::string tier;
+        time_t endTime = 0;
+        bool isActive = false;
+        std::string level;
+
+        static SubscriptionDetails fromJson(const nlohmann::json& subJson) {
+            SubscriptionDetails details;
+            try {
+                std::string status = subJson.value("status", "");
+                if (status == "ACTIVE") {
+                    details.isActive = true;
+                    details.level = subJson.value("level", "");
+                    
+                    if (details.level == "STANDARD") {
+                        details.tier = "standard";
+                    } else if (details.level == "ORIGIN_ACCESS_PREMIER") {
+                        details.tier = "premium";
+                    } else {
+                        details.tier = details.level;
+                    }
+
+                    std::string timeStr = subJson.value("end", "");
+                    if (!timeStr.empty()) {
+                        // Questa riga ora compilerà correttamente
+                        details.endTime = Utils::Time::stringToTime(timeStr, "%Y-%m-%dT%H:%M:%S.000Z");
+                    }
+                }
+            } catch (const std::exception& e) {
+                LOG(LogError) << "EAGamesModels: Eccezione durante il parsing di SubscriptionDetails: " << e.what();
+            }
+            return details;
+        }
+    };
+	
+struct SubscriptionGame {
+    std::string name;
+    std::string offerId;
+    std::string slug;
+
+    static SubscriptionGame fromJson(const nlohmann::json& gameJson) {
+    SubscriptionGame game;
+    try {
+        game.slug = gameJson.value("slug", "");
+
+        if (gameJson.contains("products") && gameJson.at("products").is_object() &&
+            gameJson.at("products").contains("items") && gameJson.at("products").at("items").is_array())
+        {
+            for (const auto& product : gameJson.at("products").at("items"))
+            {
+                std::string offerId = product.value("originOfferId", "");
+                std::string name = product.value("name", "");
+
+                if (!name.empty() && !offerId.empty()) {
+                    game.name = name;
+                    game.offerId = offerId;
+                    // LOG di debug per confermare
+                    LOG(LogDebug) << "SubscriptionGame Parser: Trovato gioco valido -> " << name;
+                    return game;
+                }
+            }
+        }
+        // Se arriva qui, significa che non ha trovato prodotti validi per questo slug
+        LOG(LogWarning) << "SubscriptionGame Parser: Nessun prodotto valido trovato per lo slug: " << game.slug;
+
+    } catch (const nlohmann::json::exception& e) {
+        LOG(LogError) << "SubscriptionGame Parser: Eccezione JSON: " << e.what();
+    }
+    return game; // Restituisce un gioco vuoto se non trova nulla
+}
+};
 
 } // namespace EAGames

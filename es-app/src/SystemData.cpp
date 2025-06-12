@@ -2028,7 +2028,7 @@ if (metadataWasActuallyChanged) {
 // --- FINE BLOCCO XBOX ---
 
 // --- BLOCCO EA GAMES PER SystemData::loadConfig ---
-LOG(LogInfo) << "[EADynamic] Checking/Creating/Populating EA Games system...";
+LOG(LogInfo) << "[EADynamic] Checking/Creating EA Games system...";
 SystemData* eaSystem = SystemData::getSystem("EAGamesStore");
 bool eaSystemWasNewlyCreated = false;
 
@@ -2041,121 +2041,49 @@ if (eaSystem == nullptr && Settings::getInstance()->getBool("EnableEAGamesStore"
     md_ea.manufacturer = "Electronic Arts";
     md_ea.hardwareType = "pc";
     SystemEnvironmentData* envData_ea = new SystemEnvironmentData();
-    std::string exePath_ea = Paths::getExePath();
-    std::string exeDir_ea = Utils::FileSystem::getParent(exePath_ea);
-    std::string eaGamelistDir = Utils::FileSystem::getGenericPath(exeDir_ea + "/roms/EAGamesStore"); 
+    
+    // CORREZIONE ERRORE DI BATTITURA
+    std::string eaGamelistDir = Utils::FileSystem::getGenericPath(Paths::getExePath() + "/roms/EAGamesStore"); 
     if (!Utils::FileSystem::exists(eaGamelistDir)) {
         Utils::FileSystem::createDirectory(eaGamelistDir);
     }
+    
     envData_ea->mStartPath = eaGamelistDir;
     envData_ea->mPlatformIds = {PlatformIds::PC}; 
     envData_ea->mLaunchCommand = "";
     std::vector<EmulatorData> eaEmulators_empty; 
     eaSystem = new SystemData(md_ea, envData_ea, &eaEmulators_empty, false, false, true, true); 
+    
     if (!eaSystem) {
         delete envData_ea;
     } else {
         eaSystemWasNewlyCreated = true;
-        bool nameCollisionEA = false;
-        for (const auto& sys : SystemData::sSystemVector) {
-            if (sys && sys->getName() == eaSystem->getName()) { nameCollisionEA = true; break; }
-        }
-        if (!nameCollisionEA) {
-            SystemData::sSystemVector.push_back(eaSystem);
+        if (SystemData::sSystemVector.end() == std::find(SystemData::sSystemVector.begin(), SystemData::sSystemVector.end(), eaSystem)) {
+             SystemData::sSystemVector.push_back(eaSystem);
         } else {
-            delete eaSystem; 
+            delete eaSystem;
             eaSystem = SystemData::getSystem("EAGamesStore");
         }
-    }
-} else if (eaSystem != nullptr && !Settings::getInstance()->getBool("EnableEAGamesStore")) {
-    eaSystem = nullptr;
-} else if (eaSystem != nullptr) {
-    if (eaSystem->isStoreSystem() && eaSystem->getRootFolder()) {
-        eaSystem->getRootFolder()->clear();
     }
 }
 
 if (eaSystem != nullptr) 
 {
-    LOG(LogInfo) << "[EADynamic] Populating EA Games system...";
-    
-    try 
-    {
-        FolderData* root = eaSystem->getRootFolder();
-        if (!root) throw std::runtime_error("EA Games RootFolder is null.");
-
-        // --- PASSO 1: CARICA DA GAMELIST.XML ---
+    // All'avvio, carichiamo solo la gamelist.
+    if (eaSystem->getRootFolder()->getChildren().empty()) {
         std::string gamelistPath = eaSystem->getGamelistPath(false);
         if (Utils::FileSystem::exists(gamelistPath)) {
-            LOG(LogInfo) << "[EADynamic] Found gamelist.xml, parsing...";
-
-            // --- CORREZIONE ALLA CHIAMATA PARSEGAMELIST ---
-            // Creiamo la mappa richiesta dalla funzione
+            LOG(LogInfo) << "[EADynamic] EA Games system is empty, parsing gamelist from cache...";
+            
+            // CORREZIONE CHIAMATA A PARSEGAMELIST
             std::unordered_map<std::string, FileData*> fileMap;
-            root->createChildrenByFilenameMap(fileMap); // Popoliamo la mappa con i figli esistenti
-            parseGamelist(eaSystem, fileMap); // Chiamiamo la funzione con i parametri corretti
-            
-            LOG(LogInfo) << "[EADynamic] Finished parsing gamelist.xml. Found " << root->getChildren().size() << " cached entries.";
+            eaSystem->getRootFolder()->createChildrenByFilenameMap(fileMap);
+            parseGamelist(eaSystem, fileMap);
         }
-
-        // --- PASSO 2: ESEGUI SCANSIONE LOCALE ---
-        EAGames::EAGamesScanner scanner;
-        std::vector<EAGames::InstalledGameInfo> installedGamesOnDisk = scanner.scanForInstalledGames();
-        LOG(LogInfo) << "[EADynamic] Scanner found " << installedGamesOnDisk.size() << " installed games on disk.";
-
-        std::map<std::string, EAGames::InstalledGameInfo> diskMap;
-        for (const auto& game : installedGamesOnDisk) {
-            diskMap[normalizeGameNameForEA(game.name)] = game;
-        }
-
-        // --- PASSO 3: AGGIORNA I GIOCHI ESISTENTI ---
-        for (auto* existingGame : root->getChildren()) {
-            if (existingGame->getType() != GAME) continue;
-
-            std::string normalizedName = normalizeGameNameForEA(existingGame->getName());
-            auto it = diskMap.find(normalizedName);
-            MetaDataList& mdl = existingGame->getMetadata();
-
-            if (it != diskMap.end()) {
-                const auto& diskInfo = it->second;
-                mdl.set(MetaDataId::Installed, "true");
-                mdl.set(MetaDataId::Virtual, "false");
-                if (!diskInfo.executablePath.empty()) {
-                    mdl.set(MetaDataId::LaunchCommand, "\"" + diskInfo.executablePath + "\" " + diskInfo.launchParameters);
-                }
-                diskMap.erase(it);
-            } else {
-                std::string offerId = mdl.get("ea_offerid");
-                mdl.set(MetaDataId::Installed, "false");
-                mdl.set(MetaDataId::Virtual, "true");
-                if (!offerId.empty()) {
-                    mdl.set(MetaDataId::LaunchCommand, "origin2://game/launch?offerIds=" + offerId);
-                }
-            }
-        }
-
-        // --- PASSO 4: AGGIUNGI NUOVI GIOCHI TROVATI DALLO SCANNER ---
-        for (const auto& pair : diskMap) {
-            const auto& game = pair.second;
-            LOG(LogInfo) << "[EADynamic] Adding new game not in gamelist: " << game.name;
-            std::string path = "ea_installed:/" + (game.id.empty() ? normalizeGameNameForEA(game.name) : game.id);
-            FileData* fd = new FileData(FileType::GAME, path, eaSystem);
-            MetaDataList& mdl = fd->getMetadata();
-            mdl.set(MetaDataId::Name, game.name);
-            mdl.set(MetaDataId::Installed, "true");
-            mdl.set(MetaDataId::Virtual, "false");
-            if (!game.id.empty()) mdl.set("ea_offerid", game.id);
-            if (!game.executablePath.empty()) {
-                mdl.set(MetaDataId::LaunchCommand, "\"" + game.executablePath + "\" " + game.launchParameters);
-            }
-            root->addChild(fd, true);
-        }
-            
-        eaSystem->updateDisplayedGameCount();
     }
-    catch (const std::exception& e)
-    {
-        LOG(LogError) << "[EADynamic] Exception during EA Games population: " << e.what();
+    
+    if (eaSystemWasNewlyCreated) {
+        eaSystem->loadTheme();
     }
 }
 // --- FINE BLOCCO EA GAMES ---

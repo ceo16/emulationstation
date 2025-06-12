@@ -30,7 +30,8 @@ static bool isPathActuallyVirtual(const std::string& path) {
            Utils::String::startsWith(path, "xbox_online_prodid:/") ||
            Utils::String::startsWith(path, "xbox_online_pfn:/") ||
            Utils::String::startsWith(path, "xbox:/pfn/") || // Se usi anche questo formato generale
-		   Utils::String::startsWith(path, "ea_virtual:/") ||   // Aggiunto per i giochi virtuali EA
+		   Utils::String::startsWith(path, "ea_virtual:/") ||		   // Aggiunto per i giochi virtuali EA
+		   Utils::String::startsWith(path, "eaplay:/") ||
            Utils::String::startsWith(path, "ea_installed:/");  // Aggiunto per i giochi installati EA
 		   
 }
@@ -45,8 +46,9 @@ FileData* findOrCreateFile(SystemData* system, const std::string& path, FileType
         Utils::String::startsWith(path, "xbox_online_prodid:/") ||  // CORRETTO DAL LOG
         Utils::String::startsWith(path, "xbox_online_pfn:/") ||    // CORRETTO DAL LOG (presumendo stesso formato)
         Utils::String::startsWith(path, "xbox:/pfn/")  ||    // Altro formato virtuale Xbox, se usato
-		Utils::String::startsWith(path, "ea_virtual:/") ||   // Aggiunto per i giochi virtuali EA
-        Utils::String::startsWith(path, "ea_installed:/"))  // Aggiunto per i giochi installati EA
+		Utils::String::startsWith(path, "ea_virtual:/") || 		// Aggiunto per i giochi virtuali EA
+		Utils::String::startsWith(path, "eaplay:/") ||
+        Utils::String::startsWith(path, "ea_installed:/"))  // Aggiunto per i giochi installati EA 
     {
         LOG(LogDebug) << "findOrCreateFile: Handling VIRTUAL path for system '" << system->getName() << "': " << path;
         FolderData* rootCheck = system->getRootFolder();

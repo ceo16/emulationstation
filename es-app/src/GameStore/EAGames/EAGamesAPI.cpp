@@ -366,4 +366,103 @@ void EAGamesAPI::getMasterTitleStoreData(const std::string& masterTitleId, const
     );
 }
 
-} // namespace EAGames
+ void EAGamesAPI::getSubscriptions(std::function<void(SubscriptionDetails, bool success)> callback) {
+        if (!mAuth || !mAuth->isUserLoggedIn()) {
+            if (callback) mAuth->postToUiThread([callback]{ callback({}, false); });
+            return;
+        }
+
+        std::string query = "query{me{subscriptions{end level status}}}";
+        std::string url = GRAPHQL_API_URL + "?query=" + HttpReq::urlEncode(query);
+        
+        std::vector<std::string> headers;
+        headers.push_back("Authorization: Bearer " + mAuth->getAccessToken());
+        headers.push_back("x-client-id: EAX-JUNO-CLIENT");
+
+        executeRequestThreaded<SubscriptionDetails>(url, "GET", "", headers,
+            [](const std::string& body) -> SubscriptionDetails {
+                auto json = nlohmann::json::parse(body);
+                SubscriptionDetails activeSub;
+                if (json.contains("data") && json["data"]["me"]["subscriptions"].is_array()) {
+                    for (const auto& subJson : json["data"]["me"]["subscriptions"]) {
+                        SubscriptionDetails details = SubscriptionDetails::fromJson(subJson);
+                        if (details.isActive) { activeSub = details; break; }
+                    }
+                }
+				LOG(LogDebug) << "API Parser: Il parser sta per restituire un oggetto SubscriptionDetails con isActive = " << (activeSub.isActive ? "true" : "false");
+                return activeSub;
+            }, callback);
+    }
+
+    void EAGamesAPI::getSubscriptionGameSlugs(const std::string& tier, std::function<void(std::vector<std::string>, bool success)> callback) {
+        if (!mAuth || !mAuth->isUserLoggedIn()) {
+            if (callback) mAuth->postToUiThread([callback]{ callback({}, false); });
+            return;
+        }
+
+        std::string tierGql = (tier == "premium") ? "ORIGIN_ACCESS_PREMIER" : "ORIGIN_ACCESS_BASIC";
+        std::string query = "query{gameSearch(filter:{gameTypes:[BASE_GAME],productLifecycleFilter:{lifecycleTypes:[" + tierGql + "]}},paging:{limit:9999}){items{slug}}}";
+        std::string url = GRAPHQL_API_URL + "?query=" + HttpReq::urlEncode(query);
+        
+        std::vector<std::string> headers;
+        headers.push_back("Authorization: Bearer " + mAuth->getAccessToken());
+        headers.push_back("x-client-id: EAX-JUNO-CLIENT");
+
+        executeRequestThreaded<std::vector<std::string>>(url, "GET", "", headers, 
+            [](const std::string& body) -> std::vector<std::string> {
+                auto json = nlohmann::json::parse(body);
+                std::vector<std::string> slugs;
+                if (json.contains("data") && json["data"]["gameSearch"]["items"].is_array()) {
+                    for (const auto& item : json["data"]["gameSearch"]["items"]) {
+                        slugs.push_back(item.value("slug", ""));
+                    }
+                }
+                return slugs;
+            }, callback);
+    }
+
+    void EAGamesAPI::getGamesDetailsBySlug(const std::vector<std::string>& slugs, std::function<void(std::vector<SubscriptionGame>, bool success)> callback) {
+    if (slugs.empty()) {
+        if (callback) callback({}, true);
+        return;
+    }
+    if (!mAuth || !mAuth->isUserLoggedIn()) {
+        if (callback) mAuth->postToUiThread([callback]{ callback({}, false); });
+        return;
+    }
+
+    std::string slugsJson = "[\"" + Utils::String::join(slugs, "\",\"") + "\"]";
+    std::string query = "query{games(slugs:" + slugsJson + "){items{slug products{items{id name originOfferId}}}}}";
+    std::string url = GRAPHQL_API_URL + "?query=" + HttpReq::urlEncode(query);
+    
+    std::vector<std::string> headers;
+    headers.push_back("Authorization: Bearer " + mAuth->getAccessToken());
+    headers.push_back("x-client-id: EAX-JUNO-CLIENT");
+
+    auto parser = [](const std::string& body) -> std::vector<SubscriptionGame> {
+        std::vector<SubscriptionGame> games;
+        try {
+            auto json = nlohmann::json::parse(body);
+
+            // --- ECCO LA CORREZIONE ---
+            // Il percorso corretto è data -> games -> items (che è l'array)
+            if (json.contains("data") && json.at("data").is_object() &&
+                json.at("data").contains("games") && json.at("data").at("games").is_object() &&
+                json.at("data").at("games").contains("items") && json.at("data").at("games").at("items").is_array())
+            {
+                for (const auto& gameJson : json.at("data").at("games").at("items")) {
+                    SubscriptionGame game = SubscriptionGame::fromJson(gameJson);
+                    if (!game.offerId.empty()) {
+                        games.push_back(game);
+                    }
+                }
+            }
+        } catch (const nlohmann::json::exception& e) {
+            LOG(LogError) << "getGamesDetailsBySlug parser exception: " << e.what();
+        }
+        return games;
+    };
+
+    executeRequestThreaded<std::vector<SubscriptionGame>>(url, "GET", "", headers, parser, callback);
+}
+}

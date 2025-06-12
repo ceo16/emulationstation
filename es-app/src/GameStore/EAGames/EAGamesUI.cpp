@@ -18,6 +18,9 @@
 #include "views/ViewController.h" 
 #include "SystemData.h"   
 #include "Gamelist.h"  
+#include "utils/TimeUtil.h"
+#include "views/SystemView.h" 
+#include "components/SwitchComponent.h"
 
 // Assicurati che EAGamesStore::STORE_ID sia definito in EAGamesStore.cpp come:
 // const std::string EAGamesStore::STORE_ID = "EAGamesStore"; 
@@ -88,6 +91,19 @@ EAGamesUI::EAGamesUI(Window* window) : GuiComponent(window),
     buildMenu();
 }
 
+EAGamesUI::~EAGamesUI()
+{
+    // Questo codice viene eseguito quando la finestra si chiude (es. premendo "BACK")
+    // Se abbiamo creato l'interruttore (cioè se l'utente era loggato)...
+    if (mEaPlaySwitch)
+    {
+        // ...leggi il suo stato finale e salva l'impostazione.
+        LOG(LogDebug) << "Saving EAPlay.Enabled setting state: " << (mEaPlaySwitch->getState() ? "true" : "false");
+        Settings::getInstance()->setBool("EAPlay.Enabled", mEaPlaySwitch->getState());
+        Settings::getInstance()->saveFile();
+    }
+}
+
 // ... (il resto del file EAGamesUI.cpp rimane invariato rispetto alla v10/ultima versione corretta per la compilazione) ...
 
 void EAGamesUI::onSizeChanged()
@@ -98,35 +114,99 @@ void EAGamesUI::onSizeChanged()
 
 void EAGamesUI::buildMenu()
 {
-    if (!mStore) return; 
+    if (!mStore) return;
 
     mMenu->clear();
 
-    if (mStore->IsUserLoggedIn()) 
+    if (mStore->IsUserLoggedIn())
     {
-        mVersionInfo->setText(_("LOGGED IN TO EA ACCOUNT")); 
+        mVersionInfo->setText(_("LOGGED IN TO EA ACCOUNT"));
         mVersionInfo->setColor(0x00C000FF);
 
-        mMenu->addEntry(_("LOGOUT"), true, [this]() {
-            this->processLogout(); 
+        // Mostra lo stato dell'abbonamento
+        auto subscriptionLabel = std::make_shared<TextComponent>(mWindow, _("LOADING..."), Font::get(FONT_SIZE_SMALL), 0xAAAAAAFF, ALIGN_CENTER);
+        mMenu->addWithLabel(_("EA PLAY STATUS"), subscriptionLabel);
+        mStore->getSubscriptionDetails([this, subscriptionLabel](const EAGames::SubscriptionDetails& details) {
+            std::string labelText = _("NO ACTIVE SUBSCRIPTION");
+            unsigned int color = 0xDD2222FF;
+            if (details.isActive) {
+                std::string tierName = (details.tier == "premium") ? "EA Play Pro" : "EA Play";
+                labelText = tierName + " (" + _("ACTIVE") + ")";
+                color = 0x22DD22FF;
+            }
+            subscriptionLabel->setText(labelText);
+            subscriptionLabel->setColor(color);
+            mMenu->onSizeChanged();
         });
 
-        mMenu->addEntry(_("REFRESH EA GAME LIST"), true, [this]() {
-            this->processImportGames(); 
+        mMenu->addEntry(" ");
+
+        // Interruttore per il Catalogo EA Play
+        auto eaPlaySwitch = std::make_shared<SwitchComponent>(mWindow);
+        eaPlaySwitch->setState(Settings::getInstance()->getBool("EAPlay.Enabled"));
+        mMenu->addWithLabel(_("INCLUDE EA PLAY IN GAME LIST"), eaPlaySwitch);
+        
+      
+
+        mMenu->addEntry(" ");
+
+        mMenu->addEntry(_("REFRESH GAME LIST"), true, [this]() {
+            this->processImportGames();
+        });
+        mMenu->addEntry(_("LOGOUT"), true, [this]() {
+            this->processLogout();
         });
     }
     else
     {
         mVersionInfo->setText(_("NOT LOGGED IN"));
         mVersionInfo->setColor(0xC00000FF);
-
         mMenu->addEntry(_("LOGIN TO EA ACCOUNT"), true, [this]() {
-            this->processStartLoginFlow(); 
+            this->processStartLoginFlow();
         });
     }
 
     mMenu->addEntry(_("BACK"), true, [this]() {
-        delete this; 
+        delete this;
+    });
+}
+
+
+void EAGamesUI::addEAPlayEntries()
+{
+    if (!mStore) return;
+
+    auto subscriptionLabel = std::make_shared<TextComponent>(mWindow, _("LOADING SUBSCRIPTION STATUS..."), Font::get(FONT_SIZE_SMALL), 0xAAAAAAFF, ALIGN_CENTER);
+    mMenu->addWithLabel(_("EA PLAY"), subscriptionLabel);
+
+    mStore->getSubscriptionDetails([this, subscriptionLabel](const EAGames::SubscriptionDetails& details) {
+        // --- ECCO LA CORREZIONE ---
+        // Rimuoviamo il mWindow->postToUiThread(...) perché la callback è già sul thread giusto.
+        // Eseguiamo l'aggiornamento della UI direttamente.
+        
+        if (details.isActive) {
+            std::string tierName = (details.tier == "premium") ? "EA Play Pro" : "EA Play";
+            std::string labelText;
+            if (details.endTime < 86400) {
+                labelText = tierName + " (" + _("ACTIVE") + ")";
+            } else {
+                std::string expiry = Utils::Time::timeToString(details.endTime, "%d/%m/%Y");
+                labelText = tierName + " (" + _("EXPIRES ON") + " " + expiry + ")";
+            }
+            
+            subscriptionLabel->setText(labelText);
+            subscriptionLabel->setColor(0x22DD22FF);
+
+            // Questa parte ora verrà eseguita correttamente
+            mMenu->addEntry(_("REFRESH GAME LIST (INC. EA PLAY)"), true, [this]() {
+                this->processImportGames(); 
+            });
+
+        } else {
+            subscriptionLabel->setText(_("NO ACTIVE SUBSCRIPTION"));
+            subscriptionLabel->setColor(0xDD2222FF);
+        }
+        mMenu->onSizeChanged();
     });
 }
 

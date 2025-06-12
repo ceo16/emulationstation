@@ -20,10 +20,18 @@ namespace EAGames {
                                std::function<void(GameStoreData metadata, bool success)> callback);
         void getMasterTitleStoreData(const std::string& masterTitleId, const std::string& country, const std::string& locale,
                                      std::function<void(GameStoreData metadata, bool success)> callback);
+									 
+	  void getSubscriptions(std::function<void(SubscriptionDetails details, bool success)> callback);
+
+        // Ottiene solo gli "slug" dei giochi in un tier di abbonamento
+        void getSubscriptionGameSlugs(const std::string& tier, std::function<void(std::vector<std::string> slugs, bool success)> callback);
+        
+        // Ottiene i dettagli dei giochi (incluso offerId) a partire dai loro slug
+        void getGamesDetailsBySlug(const std::vector<std::string>& slugs, std::function<void(std::vector<SubscriptionGame> games, bool success)> callback); 
     private:
         EAGamesAuth* mAuth;
          const std::string API_EADP_GATEWAY_URL = "https://api_gateway_pct.ea.com";
-        // ... altri endpoint ...
+		const std::string API_JUNO_GRAPHQL_URL = "https://service-aggregation-layer.juno.ea.com/graphql";
 
         template<typename ResultType, typename ParserFunc>
         void executeRequestThreaded(const std::string& url,

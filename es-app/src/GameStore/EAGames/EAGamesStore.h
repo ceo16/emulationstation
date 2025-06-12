@@ -9,6 +9,9 @@
 #include <vector>
 #include <functional>
 #include <string>
+#include <mutex>  // <-- Aggiunto per thread-safety
+#include <set>  
+#include "GameStore/EAGames/EAGamesModels.h" 
 
 // Forward declarations per i componenti interni nel namespace EAGames
 namespace EAGames {
@@ -18,6 +21,8 @@ namespace EAGames {
     struct GameEntitlement;
     struct InstalledGameInfo;
     struct GameStoreData; // Necessaria per la definizione della struct EAGameData, se usata lì
+	struct SubscriptionDetails;
+    struct SubscriptionGame;
 }
 
 class FileData;
@@ -50,6 +55,9 @@ public:
     void Logout();
     void GetUsername(std::function<void(const std::string& username)> callback);
     void SyncGames(std::function<void(bool success)> callback);
+	    // Ottiene i dettagli dell'abbonamento in modo asincrono, usando la cache.
+    void getSubscriptionDetails(std::function<void(const EAGames::SubscriptionDetails& details)> callback);
+
 
     void StartLoginFlow(std::function<void(bool success, const std::string& message)> onFlowFinished);
     void HandleAuthRedirect(const std::string& redirectUrlQuery, std::function<void(bool success, const std::string& message)> onFlowFinished);
@@ -76,9 +84,31 @@ public:
 
 private:
     void processAndCacheGames(const std::vector<EAGames::GameEntitlement>& onlineGames,
-                              const std::vector<EAGames::InstalledGameInfo>& installedGames);
+                              const std::vector<EAGames::InstalledGameInfo>& installedGames,
+							  const std::vector<EAGames::SubscriptionGame>& catalogGames); 
+							  
     FileData* convertEaDataToGameData(const EAGames::GameEntitlement& entitlement, const EAGames::InstalledGameInfo* installedInfo);
     FileData* convertInstalledEaToGameData(const EAGames::InstalledGameInfo& installedInfo);
+	bool mSubscriptionDetailsFetching = false;
+
+
+	
+    bool checkGameInstallation(const std::string& normalizedGameName, const std::map<std::string, EAGames::InstalledGameInfo>& installedGamesMap, EAGames::InstalledGameInfo& foundGame);
+    void rebuildAndSortCache();
+	
+	 // Arricchisce la lista di giochi 'mCachedGameFileDatas' con il flag "eaplay".
+    
+    // Funzione helper asincrona per ottenere il catalogo e metterlo in cache.
+    void getEAPlayCatalog(std::function<void(const std::vector<EAGames::SubscriptionGame>& catalog)> callback);
+
+    std::mutex mCacheMutex;
+
+    EAGames::SubscriptionDetails mSubscriptionDetails;
+    bool mSubscriptionDetailsInitialized = false;
+
+    std::vector<EAGames::SubscriptionGame> mEAPlayCatalog;
+    std::set<std::string> mEAPlayOfferIds;
+    bool mEAPlayCatalogInitialized = false;
 
     Window* mWindow;
     std::unique_ptr<EAGames::EAGamesAuth> mAuth;
