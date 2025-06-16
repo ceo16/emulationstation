@@ -20,6 +20,7 @@
 #include "scrapers/XboxScraper.h"
 #include "scrapers/EAGamesScraper.h"
 #include "scrapers/IGDBScraper.h" // Assicurati che questo sia incluso se usi IGDBScraper
+#include "scrapers/UniversalSteamScraper.h"
 #include "Paths.h"
 
 #define OVERQUOTA_RETRY_DELAY 15000
@@ -41,6 +42,7 @@ std::vector<std::pair<std::string, Scraper*>> Scraper::scrapers
 #endif
 
 	{ "ArcadeDB", new ArcadeDBScraper() },
+	{ "UNIVERSALSTEAM", new UniversalSteamScraper() }, 
 	{ "IGDB", new IGDBScraper() }, // Aggiunta dell'IGDBScraper alla lista
 	{ "EPIC GAMES STORE", new EpicGamesScraper() },
 	{ "STEAM", new SteamScraper() },

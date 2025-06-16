@@ -119,6 +119,7 @@ set(ES_HEADERS
     ${CMAKE_CURRENT_SOURCE_DIR}/src/scrapers/XboxScraper.h
     ${CMAKE_CURRENT_SOURCE_DIR}/src/scrapers/EAGamesScraper.h
 	${CMAKE_CURRENT_SOURCE_DIR}/src/scrapers/IGDBScraper.h
+	${CMAKE_CURRENT_SOURCE_DIR}/src/scrapers/UniversalSteamScraper.h
 
     # Views
     ${CMAKE_CURRENT_SOURCE_DIR}/src/views/gamelist/BasicGameListView.h
@@ -255,6 +256,7 @@ set(ES_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/src/scrapers/XboxScraper.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/scrapers/EAGamesScraper.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/src/scrapers/IGDBScraper.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/src/scrapers/UniversalSteamScraper.cpp
 
     # Views
     ${CMAKE_CURRENT_SOURCE_DIR}/src/views/gamelist/BasicGameListView.cpp
