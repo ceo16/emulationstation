@@ -98,11 +98,13 @@ void IGDBAPI::searchGames(const std::string& gameName,
     headers.push_back("Content-Type: text/plain"); // IGDB aspetta text/plain per query APOCALYPTO
 
     // AGGIUNTO artworks.image_id per la fanart
-    std::string postBody = "fields name, summary, cover.url, cover.image_id, first_release_date, genres.name, "
-                           "involved_companies.company.name, involved_companies.developer, involved_companies.publisher, "
-                           "artworks.image_id, game_modes.name; "
-                           "where category = 0 & name ~ \"" + gameName + "\"; "
-                           "limit 10;";
+    std::string cleanGameName = Utils::String::replace(gameName, "\"", ""); 
+
+std::string postBody = "search \"" + cleanGameName + "\"; " // <-- NUOVA RICERCA
+                       "fields name, summary, cover.url, cover.image_id, first_release_date, genres.name, "
+                       "involved_companies.company.name, involved_companies.developer, involved_companies.publisher, "
+                       "artworks.image_id, game_modes.name; "
+                       "limit 50;"; // Aumenta il limite per avere più chance
 
     LOG(LogInfo) << "IGDBAPI: Searching for game: " << gameName << " (Language: " << language << ")"; //
     LOG(LogDebug) << "IGDBAPI: POST Body: " << postBody; //
@@ -160,7 +162,7 @@ void IGDBAPI::getGameDetails(const std::string& igdbGameId,
         "fields name, summary, storyline, first_release_date, genres.name, "
         "involved_companies.company.name, involved_companies.developer, involved_companies.publisher, "
         "cover.url, cover.image_id, screenshots.url, screenshots.image_id, videos.video_id, aggregated_rating, "
-        "artworks.image_id; game_modes.name; " // Richiedi image_id per artworks
+        "artworks.image_id, game_modes.name; " // Richiedi image_id per artworks
         "where id = %s; limit 1;", 
         igdbGameId.c_str()
     );
@@ -188,6 +190,69 @@ void IGDBAPI::getGameDetails(const std::string& igdbGameId,
             }
             return GameMetadata{}; //
         },
+        callback
+    );
+}
+void IGDBAPI::getGameLogo(const std::string& igdbGameId,
+                          std::function<void(std::string, bool success)> callback,
+                          const std::string& language)
+{
+    // Controllo delle credenziali
+    if (mClientId.empty() || mAccessToken.empty()) {
+        LOG(LogError) << "IGDBAPI: Client ID or Access Token missing for getGameLogo.";
+        if (callback) callback("", false);
+        return;
+    }
+    if (igdbGameId.empty()) {
+        LOG(LogWarning) << "IGDBAPI: IGDB Game ID is empty for getGameLogo.";
+        if (callback) callback("", false);
+        return;
+    }
+
+    // L'endpoint per i loghi è /artworks
+    std::string url = IGDB_API_BASE_URL + "/artworks";
+    
+    // Header standard
+    std::vector<std::string> headers;
+    headers.push_back("Client-ID: " + mClientId);
+    headers.push_back("Authorization: Bearer " + mAccessToken);
+    headers.push_back("Accept: application/json");
+    headers.push_back("Content-Type: text/plain");
+
+    // Query per ottenere i loghi (category = 3) per l'ID del gioco specifico
+     std::string postBody = "fields url, image_id; "
+                           "where game = " + igdbGameId + "; "
+                           "limit 1;";
+
+    LOG(LogInfo) << "IGDBAPI: Getting artwork (logo fallback) for game ID: " << igdbGameId;
+    LOG(LogDebug) << "IGDBAPI: POST Body for getGameLogo (corrected): " << postBody;
+
+
+    // Usa la tua funzione helper per eseguire la richiesta
+    executeRequestThreaded<std::string>(url, "POST", postBody, headers, language,
+        // Funzione di parsing del risultato
+        [](const std::string& responseBody) -> std::string {
+            if (responseBody.empty()) {
+                LOG(LogWarning) << "IGDBAPI (getGameLogo parser): Empty response body.";
+                return "";
+            }
+            try {
+                auto jsonResponse = nlohmann::json::parse(responseBody);
+                if (jsonResponse.is_array() && !jsonResponse.empty()) {
+                    // Trovato almeno un logo
+                    std::string imageId = jsonResponse[0].value("image_id", "");
+                    if (!imageId.empty()) {
+                        // Costruisci l'URL completo per il logo, usando un formato standard
+                        return "https://images.igdb.com/igdb/image/upload/t_logo_med/" + imageId + ".png";
+                    }
+                }
+            } catch (const std::exception& e) {
+                LOG(LogError) << "IGDBAPI (getGameLogo parser): Exception parsing JSON: " << e.what();
+            }
+            // Ritorna una stringa vuota se non trova nulla o in caso di errore
+            return "";
+        },
+        // Callback finale per restituire il risultato
         callback
     );
 }

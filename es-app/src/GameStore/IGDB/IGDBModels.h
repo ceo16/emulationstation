@@ -7,6 +7,7 @@
 
 namespace IGDB {
 
+
 // Struttura per contenere i metadati di un gioco da IGDB
 struct GameMetadata {
     std::string id;
@@ -22,6 +23,7 @@ struct GameMetadata {
     std::string coverImageId;       // ID immagine della copertina
     std::string screenshotImageId;  // ID immagine del primo screenshot
     std::string fanartImageId;      // ID immagine per la fanart (da artworks)
+	std::string logoUrl;
     
     std::string videoUrl;           // URL del video (link YouTube)
     std::string aggregatedRating;

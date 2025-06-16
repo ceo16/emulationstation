@@ -84,180 +84,213 @@ IGDBScraperRequest::~IGDBScraperRequest() { //
 
 void IGDBScraperRequest::update()
 {
-    if (mStatus == ASYNC_DONE || mStatus == ASYNC_ERROR) { //
-        return; 
+    if (mStatus == ASYNC_DONE || mStatus == ASYNC_ERROR) {
+        return;
     }
 
-    if (mState == RequestState::SEARCHING_GAME) { //
-        if (!mSearchLaunched) { 
-            mSearchLaunched = true; 
-            LOG(LogInfo) << "IGDBScraperRequest: Searching for game: " << mGameName; //
+    // --- Stato 1: Ricerca del gioco (invariato) ---
+    if (mState == RequestState::SEARCHING_GAME) {
+        if (!mSearchLaunched) {
+            mSearchLaunched = true;
+            LOG(LogInfo) << "IGDBScraperRequest: Searching for game: " << mGameName;
 
-            mIgdbApi->searchGames(mGameName, //
+            mIgdbApi->searchGames(mGameName,
                 [this](std::vector<IGDB::GameMetadata> results, bool success) {
                     if (success && !results.empty()) {
-                        mSearchResults = results; //
-                        mCurrentSearchResultIndex = 0; //
-                        LOG(LogInfo) << "IGDBScraperRequest: Found " << results.size() << " results for " << mGameName << ". Pronto per recuperare i dettagli."; //
-                        mState = RequestState::FETCHING_DETAILS; //
-                        mSearchLaunched = false; 
+                        mSearchResults = results;
+                        mCurrentSearchResultIndex = 0;
+                        LOG(LogInfo) << "IGDBScraperRequest: Found " << results.size() << " results for " << mGameName << ". Pronto per recuperare i dettagli.";
+                        mState = RequestState::FETCHING_DETAILS;
+                        mSearchLaunched = false;
                     } else {
-                        LOG(LogWarning) << "IGDBScraperRequest: No results found for " << mGameName << " or search failed."; //
-                        setError(_("Nessun risultato trovato o ricerca fallita.")); //
-                        setStatus(ASYNC_ERROR); //
-                        mSearchLaunched = false; 
+                        LOG(LogWarning) << "IGDBScraperRequest: No results found for " << mGameName << " or search failed.";
+                        setError(_("Nessun risultato trovato o ricerca fallita."));
+                        setStatus(ASYNC_ERROR);
+                        mSearchLaunched = false;
                     }
                 },
-                Settings::getInstance()->getString("Language")); //
+                Settings::getInstance()->getString("Language"));
         }
-    } else if (mState == RequestState::FETCHING_DETAILS) { //
-        if (!mSearchLaunched) { 
-            if (mCurrentSearchResultIndex < mSearchResults.size()) { //
-                mSearchLaunched = true; 
-                std::string igdbGameId = mSearchResults[mCurrentSearchResultIndex].id; //
+    }
+    // --- Stato 2: Recupero dei dettagli del gioco (modificato) ---
+    else if (mState == RequestState::FETCHING_DETAILS) {
+        if (!mSearchLaunched) {
+            if (mCurrentSearchResultIndex < mSearchResults.size()) {
+                mSearchLaunched = true;
+                std::string igdbGameId = mSearchResults[mCurrentSearchResultIndex].id;
 
-                if (igdbGameId.empty()) { //
-                    LOG(LogError) << "IGDBScraperRequest: L'ID IGDB è vuoto per l'indice del risultato " << mCurrentSearchResultIndex << ". Salto questo risultato."; //
-                    mSearchLaunched = false; 
-                    mCurrentSearchResultIndex++; //
-                    return; 
+                if (igdbGameId.empty()) {
+                    LOG(LogError) << "IGDBScraperRequest: L'ID IGDB è vuoto per l'indice del risultato " << mCurrentSearchResultIndex << ". Salto questo risultato.";
+                    mSearchLaunched = false;
+                    mCurrentSearchResultIndex++;
+                    return;
                 }
 
-                LOG(LogInfo) << "IGDBScraperRequest: Recupero dettagli per IGDB ID: " << igdbGameId << " (Risultato " << (mCurrentSearchResultIndex + 1) << "/" << mSearchResults.size() << ")"; //
+                LOG(LogInfo) << "IGDBScraperRequest: Recupero dettagli per IGDB ID: " << igdbGameId << " (Risultato " << (mCurrentSearchResultIndex + 1) << "/" << mSearchResults.size() << ")";
 
-                mIgdbApi->getGameDetails(igdbGameId, //
+                mIgdbApi->getGameDetails(igdbGameId,
                     [this, igdbGameId](IGDB::GameMetadata gameDetails, bool success) {
-                        bool processedThisDetailSuccessfully = false;
-                        if (success && !gameDetails.name.empty()) { //
-                            ScraperSearchResult sr(mScraperName); //
+                        if (success && !gameDetails.name.empty()) {
+                            // Usiamo il membro della classe mTempResult invece di una variabile locale
+                            mTempResult = ScraperSearchResult(mScraperName);
 
-                            sr.mdl.set(MetaDataId::Name, gameDetails.name); //
-                            sr.mdl.set(MetaDataId::Desc, gameDetails.summary); //
+                            // Popoliamo mTempResult con tutti i tuoi dati
+                            mTempResult.mdl.set(MetaDataId::Name, gameDetails.name);
+                            mTempResult.mdl.set(MetaDataId::Desc, gameDetails.summary);
+                            mTempResult.mdl.set(MetaDataId::ScraperId, gameDetails.id); // Molto importante per lo step successivo!
 
-                            if (!gameDetails.storyline.empty() && gameDetails.storyline != gameDetails.summary) { //
-                                if (gameDetails.summary.empty()) { //
-                                    sr.mdl.set(MetaDataId::Desc, gameDetails.storyline); //
+                            if (!gameDetails.storyline.empty() && gameDetails.storyline != gameDetails.summary) {
+                                if (gameDetails.summary.empty()) {
+                                    mTempResult.mdl.set(MetaDataId::Desc, gameDetails.storyline);
                                 } else {
-                                    sr.mdl.set(MetaDataId::Desc, gameDetails.summary + "\n\nStoryline: " + gameDetails.storyline); //
+                                    mTempResult.mdl.set(MetaDataId::Desc, gameDetails.summary + "\n\nStoryline: " + gameDetails.storyline);
                                 }
                             }
 
-                            sr.mdl.set(MetaDataId::Developer, Utils::String::vectorToCommaString(gameDetails.developers)); //
-                            sr.mdl.set(MetaDataId::Publisher, Utils::String::vectorToCommaString(gameDetails.publishers)); //
-                            sr.mdl.set(MetaDataId::Genre, Utils::String::vectorToCommaString(gameDetails.genres)); //
+                            mTempResult.mdl.set(MetaDataId::Developer, Utils::String::vectorToCommaString(gameDetails.developers));
+                            mTempResult.mdl.set(MetaDataId::Publisher, Utils::String::vectorToCommaString(gameDetails.publishers));
+                            mTempResult.mdl.set(MetaDataId::Genre, Utils::String::vectorToCommaString(gameDetails.genres));
 
-                            if (!gameDetails.gameModes.empty()) {
-                                std::string players_string;
-                                bool has_single = false;
-                                bool has_multi = false;
+                           if (!gameDetails.gameModes.empty()) {
+    // ---- INIZIO BLOCCO DI DEBUG ----
+    LOG(LogInfo) << "[PLAYERS DEBUG] Trovate " << gameDetails.gameModes.size() << " modalità di gioco.";
+    for (size_t i = 0; i < gameDetails.gameModes.size(); ++i) {
+        LOG(LogInfo) << "[PLAYERS DEBUG] Modalità " << i << ": '" << gameDetails.gameModes[i] << "'";
+    }
 
-                                for (const auto& mode : gameDetails.gameModes) {
-                                    // IGDB usa l'inglese per i nomi delle modalità
-                                    if (mode == "Single player") {
-                                        has_single = true;
-                                    }
-                                    if (mode == "Multiplayer" || mode == "Co-operative" || mode == "Split screen") {
-                                        has_multi = true;
-                                    }
+    std::string players_string;
+    bool has_single = false;
+    bool has_multi = false;
+
+    for (const std::string& mode : gameDetails.gameModes) {
+        if (mode == "Single player") {
+            has_single = true;
+            LOG(LogInfo) << "[PLAYERS DEBUG] Trovato 'Single player'. has_single impostato a true.";
+        }
+        if (mode == "Multiplayer" || mode == "Co-operative" || mode == "Split screen") {
+            has_multi = true;
+            LOG(LogInfo) << "[PLAYERS DEBUG] Trovata una modalità multiplayer: '" << mode << "'. has_multi impostato a true.";
+        }
+    }
+
+    if (has_single && has_multi) {
+        players_string = "1-2+";
+    } else if (has_single) {
+        players_string = "1";
+    } else if (has_multi) {
+        players_string = "2+";
+    }
+    
+    LOG(LogInfo) << "[PLAYERS DEBUG] Stringa finale per i giocatori: '" << players_string << "'";
+
+    if (!players_string.empty()) {
+        LOG(LogInfo) << "[PLAYERS DEBUG] TENTO di impostare MetaDataId::Players a: '" << players_string << "'";
+        mTempResult.mdl.set(MetaDataId::Players, players_string);
+
+        // Aggiungiamo una verifica IMMEDIATA per vedere se il dato è stato salvato in memoria
+        std::string valoreAppenaSalvato = mTempResult.mdl.get(MetaDataId::Players);
+        LOG(LogInfo) << "[PLAYERS DEBUG] VERIFICA: Il valore letto subito dopo il salvataggio è: '" << valoreAppenaSalvato << "'";
+    } else {
+         LOG(LogWarning) << "[PLAYERS DEBUG] La stringa per i giocatori è vuota, non imposto nulla.";
+    }
+    // ---- FINE BLOCCO DI DEBUG ----
+} else {
+    LOG(LogWarning) << "Il campo 'game_modes' da IGDB è vuoto per questo gioco. Numero giocatori non impostato.";
+}
+
+                            if (!gameDetails.releaseDate.empty()) {
+                                time_t release_t = (time_t)std::stoll(gameDetails.releaseDate);
+                                if (release_t != Utils::Time::NOT_A_DATE_TIME) {
+                                    mTempResult.mdl.set(MetaDataId::ReleaseDate, Utils::Time::timeToMetaDataString(release_t));
                                 }
-
-                                if (has_single && has_multi) {
-                                    players_string = "1-2+"; // Gioco sia single che multi
-                                } else if (has_single) {
-                                    players_string = "1";
-                                } else if (has_multi) {
-                                    players_string = "2+"; // Solo multi/coop
-                                }
-                                
-                                if (!players_string.empty()) {
-                                    sr.mdl.set(MetaDataId::Players, players_string);
-                                    LOG(LogDebug) << "IGDBScraperRequest: Aggiunto Players: " << players_string;
+                            }
+                            
+                            if (!gameDetails.aggregatedRating.empty()) {
+                                try {
+                                    float rating = std::stof(gameDetails.aggregatedRating);
+                                    mTempResult.mdl.set(MetaDataId::Rating, std::to_string(rating / 100.0f));
+                                } catch (const std::exception& e) {
+                                    LOG(LogWarning) << "IGDBScraperRequest: Fallimento nel parsing del voto aggregato: " << e.what();
                                 }
                             }
 
-                            if (!gameDetails.releaseDate.empty()) { //
-                                time_t release_t = (time_t)std::stoll(gameDetails.releaseDate); //
-                                if (release_t != Utils::Time::NOT_A_DATE_TIME) { //
-									sr.mdl.set(MetaDataId::ScraperId, gameDetails.id); //
-                                    sr.mdl.set(MetaDataId::ReleaseDate, Utils::Time::timeToMetaDataString(release_t)); //
-                                }
-                            }
-
-                            // Cover
+                            // URL delle immagini e video
                             if (!gameDetails.coverImageId.empty()) {
                                 ScraperSearchItem itemCover;
-                               itemCover.url = "https://images.igdb.com/igdb/image/upload/t_original/" + gameDetails.coverImageId + ".jpg";
-                                itemCover.format = ".jpg"; 
-                                sr.urls[MetaDataId::Image] = itemCover;
-                                LOG(LogDebug) << "IGDBScraperRequest: Aggiunto Cover URL: " << itemCover.url;
+                                itemCover.url = "https://images.igdb.com/igdb/image/upload/t_original/" + gameDetails.coverImageId + ".jpg";
+                                itemCover.format = ".jpg";
+                                mTempResult.urls[MetaDataId::Image] = itemCover;
                             }
-
-                            // Screenshot (usato per TitleShot o MD_SCREENSHOT_URL)
                             if (!gameDetails.screenshotImageId.empty()) {
                                 ScraperSearchItem itemScreenshot;
                                 itemScreenshot.url = "https://images.igdb.com/igdb/image/upload/t_screenshot_huge/" + gameDetails.screenshotImageId + ".jpg";
                                 itemScreenshot.format = ".jpg";
-                                sr.urls[MetaDataId::TitleShot] = itemScreenshot; // O usa MetaDataId::MD_SCREENSHOT_URL se preferisci
-                                LOG(LogDebug) << "IGDBScraperRequest: Aggiunto Screenshot/TitleShot URL: " << itemScreenshot.url;
+                                mTempResult.urls[MetaDataId::TitleShot] = itemScreenshot;
                             }
-                            
-                            // Fanart
                             if (!gameDetails.fanartImageId.empty()) {
                                 ScraperSearchItem itemFanArt;
-                                itemFanArt.url = "https://images.igdb.com/igdb/image/upload/t_1080p/" + gameDetails.fanartImageId + ".jpg"; // o t_original, t_screenshot_huge
+                                itemFanArt.url = "https://images.igdb.com/igdb/image/upload/t_1080p/" + gameDetails.fanartImageId + ".jpg";
                                 itemFanArt.format = ".jpg";
-                                sr.urls[MetaDataId::FanArt] = itemFanArt;
-                                LOG(LogDebug) << "IGDBScraperRequest: Aggiunto FanArt URL: " << itemFanArt.url;
+                                mTempResult.urls[MetaDataId::FanArt] = itemFanArt;
+                            }
+                            if (!gameDetails.videoUrl.empty()) {
+                                mTempResult.mdl.set(MetaDataId::Video, gameDetails.videoUrl);
                             }
 
-                            // Video (salva solo il link, non tenta il download)
-                            if (!gameDetails.videoUrl.empty()) { 
-                                sr.mdl.set(MetaDataId::Video, gameDetails.videoUrl); 
-                                LOG(LogDebug) << "IGDBScraperRequest: Salvato Video URL (link YouTube) [" << gameDetails.videoUrl << "] come metadato testuale (MetaDataId::Video).";
-                            }
+                            mTempResult.mdl.set(MetaDataId::StoreProvider, mScraperName);
 
-                            if (!gameDetails.aggregatedRating.empty()) { //
-                                try {
-                                    float rating = std::stof(gameDetails.aggregatedRating); //
-                                    sr.mdl.set(MetaDataId::Rating, std::to_string(rating / 100.0f)); //
-                                } catch (const std::exception& e) {
-                                    LOG(LogWarning) << "IGDBScraperRequest: Fallimento nel parsing del voto aggregato: " << e.what(); //
-                                }
-                            }
-                            sr.mdl.set(MetaDataId::StoreProvider, mScraperName); //
-                            mResults.push_back(sr); //
-                            LOG(LogInfo) << "IGDBScraperRequest: Dettagli elaborati con successo per " << gameDetails.name; //
-                            processedThisDetailSuccessfully = true;
-                        }
-                        
-                        mSearchLaunched = false; 
+                            // MODIFICA CHIAVE: Passa al prossimo stato invece di finire
+                            LOG(LogInfo) << "IGDBScraperRequest: Dettagli elaborati con successo per " << gameDetails.name << ". Ora recupero il logo.";
+                            mState = RequestState::FETCHING_LOGO;
+                            mSearchLaunched = false;
 
-                        if (processedThisDetailSuccessfully) {
-                            setStatus(ASYNC_DONE);
                         } else {
-                            LOG(LogWarning) << "IGDBScraperRequest: Recupero dettagli fallito per IGDB ID " << igdbGameId << ". Tentativo prossimo risultato se disponibile."; //
-                            mCurrentSearchResultIndex++; //
-                            if (mCurrentSearchResultIndex >= mSearchResults.size()) {
-                                if (mResults.empty()) { 
-                                    setError(_("Nessun dettaglio trovato o fallito per tutti i risultati.")); //
-                                    setStatus(ASYNC_ERROR); //
-                                } else {
-                                    setStatus(ASYNC_DONE);
-                                }
-                            }
+                            LOG(LogWarning) << "IGDBScraperRequest: Recupero dettagli fallito per IGDB ID " << igdbGameId << ". Tentativo prossimo risultato se disponibile.";
+                            mCurrentSearchResultIndex++;
+                            mSearchLaunched = false;
                         }
                     },
-                    Settings::getInstance()->getString("Language")); //
-            } else { 
-                mSearchLaunched = false; 
-                LOG(LogWarning) << "IGDBScraperRequest: Nessun altro risultato di ricerca da elaborare per i dettagli."; //
-                if (mResults.empty()) { 
-                    setError(_("Nessun risultato di ricerca da elaborare per i dettagli.")); //
-                    setStatus(ASYNC_ERROR); //
+                    Settings::getInstance()->getString("Language"));
+            } else {
+                mSearchLaunched = false;
+                LOG(LogWarning) << "IGDBScraperRequest: Nessun altro risultato di ricerca da elaborare per i dettagli.";
+                if (mResults.empty()) {
+                    setError(_("Nessun dettaglio valido trovato per i risultati della ricerca."));
+                    setStatus(ASYNC_ERROR);
                 } else {
                     setStatus(ASYNC_DONE);
                 }
             }
+        }
+    }
+    // --- NUOVO STATO 3: Recupero del logo ---
+    else if (mState == RequestState::FETCHING_LOGO)
+    {
+        if (!mSearchLaunched)
+        {
+            mSearchLaunched = true;
+            std::string igdbGameId = mTempResult.mdl.get(MetaDataId::ScraperId);
+
+            LOG(LogInfo) << "IGDBScraperRequest: Recupero logo per IGDB ID: " << igdbGameId;
+
+            mIgdbApi->getGameLogo(igdbGameId,
+                [this](std::string logoUrl, bool success) {
+                    if (success && !logoUrl.empty()) {
+                        ScraperSearchItem itemLogo;
+                        itemLogo.url = logoUrl;
+                        itemLogo.format = ".png";
+                        mTempResult.urls[MetaDataId::Marquee] = itemLogo;
+                        LOG(LogInfo) << "IGDBScraperRequest: Logo URL aggiunto con successo: " << logoUrl;
+                    } else {
+                        LOG(LogWarning) << "IGDBScraperRequest: Nessun logo trovato per questo gioco.";
+                    }
+
+                    // FASE FINALE: Aggiungi il risultato completo e termina
+                    mResults.push_back(mTempResult);
+                    setStatus(ASYNC_DONE);
+                },
+                Settings::getInstance()->getString("Language")
+            );
         }
     }
 }
@@ -268,6 +301,7 @@ IGDBScraper::IGDBScraper() : mClientId(IGDB_CLIENT_ID), mAccessToken("") { //
     mSupportedMedia.insert(ScraperMediaSource::FanArt); //
     mSupportedMedia.insert(ScraperMediaSource::Screenshot); // Per TitleShot o screenshot generici
     mSupportedMedia.insert(ScraperMediaSource::Video);      // Per il link video
+	mSupportedMedia.insert(Scraper::ScraperMediaSource::Wheel); 
 }
 
 IGDBScraper::~IGDBScraper() { //

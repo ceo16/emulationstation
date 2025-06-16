@@ -21,6 +21,10 @@ public:
     void getGameDetails(const std::string& igdbGameId,
                         std::function<void(GameMetadata, bool success)> callback,
                         const std::string& language = "it"); //
+	
+    void getGameLogo(const std::string& igdbGameId,
+                     std::function<void(std::string, bool success)> callback,
+                     const std::string& language);	
 
 private:
     std::string mClientId; //

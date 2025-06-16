@@ -39,6 +39,7 @@ void VideoGameListView::updateInfoPanel()
 		updateHelpPrompts();
 
 	FileData* file = (mList.size() == 0 || mList.isScrolling()) ? NULL : mList.getSelected();
+	LOG(LogInfo) << "--- 1. VideoGameListView --- Percorso letto da file->getVideoPath(): " << (file ? file->getVideoPath() : "NESSUN FILE");
 	bool isClearing = mList.getObjects().size() == 0 && mList.getCursorIndex() == 0 && mList.getScrollingVelocity() == 0;
 	mDetails.updateControls(file, isClearing, mList.getCursorIndex() - mList.getLastCursor());
 }

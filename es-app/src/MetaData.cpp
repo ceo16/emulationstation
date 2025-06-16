@@ -412,50 +412,66 @@ void MetaDataList::appendToXML(pugi::xml_node& parent, bool ignoreDefaults, cons
 
 void MetaDataList::set(MetaDataId id, const std::string& value)
 {
-	if (id == MetaDataId::Name)
-	{
-		if (mName == value)
-			return;
+    if (id == MetaDataId::Name)
+    {
+        if (mName == value)
+            return;
 
-		mName = value;
-		mWasChanged = true;
-		return;
-	}
+        mName = value;
+        mWasChanged = true;
+        return;
+    }
 
-	// Players -> remove "1-"
-	// if (mType == GAME_METADATA && id == 12 && Utils::String::startsWith(value, "1-")) // "players"
-	// {
-	// 	mMap[id] = Utils::String::replace(value, "1-", "");
-	// 	return;
-	// }
+    auto prev = mMap.find(id);
+    if (prev != mMap.cend() && prev->second == value)
+        return;
 
-	auto prev = mMap.find(id);
-	if (prev != mMap.cend() && prev->second == value)
-		return;
+    if (mGameTypeMap[id] == MD_PATH && mRelativeTo != nullptr)
+    {
+        // Se il valore è un URL (inizia con http), salvalo così com'è. NON TOCCARLO.
+        if (Utils::String::startsWith(value, "http"))
+        {
+            mMap[id] = value;
+        }
+        // ALTRIMENTI, è un file locale e possiamo creare il percorso relativo.
+        else
+        {
+            mMap[id] = Utils::FileSystem::createRelativePath(value, mRelativeTo->getStartPath(), true);
+        }
+    }
+    else
+    {
+        mMap[id] = Utils::String::trim(value);
+    }
 
-	if (mGameTypeMap[id] == MD_PATH && mRelativeTo != nullptr) // if it's a path, resolve relative paths				
-		mMap[id] = Utils::FileSystem::createRelativePath(value, mRelativeTo->getStartPath(), true);
-	else
-		mMap[id] = Utils::String::trim(value);
-
-	mWasChanged = true;
+    mWasChanged = true;
 }
 
 const std::string MetaDataList::get(MetaDataId id, bool resolveRelativePaths) const
 {
-	if (id == MetaDataId::Name)
-		return mName;
+    if (id == MetaDataId::Name)
+        return mName;
 
-	auto it = mMap.find(id);
-	if (it != mMap.end())
-	{
-		if (resolveRelativePaths && mGameTypeMap[id] == MD_PATH && mRelativeTo != nullptr) // if it's a path, resolve relative paths				
-			return Utils::FileSystem::resolveRelativePath(it->second, mRelativeTo->getStartPath(), true);
+    auto it = mMap.find(id);
+    if (it != mMap.end())
+    {
+        const std::string& path = it->second;
 
-		return it->second;
-	}
+        // PRIMO CONTROLLO: Se è un URL, non toccarlo e restituiscilo subito.
+        if (Utils::String::startsWith(path, "http"))
+            return path; // Se è un URL, restituiscilo subito, pulito.
 
-	return mDefaultGameMap[id];
+        // Se non è un URL, allora è un file locale e possiamo procedere
+        // con la vecchia logica per risolvere i percorsi relativi.
+        if (resolveRelativePaths && mGameTypeMap[id] == MD_PATH && mRelativeTo != nullptr)
+            return Utils::FileSystem::resolveRelativePath(path, mRelativeTo->getStartPath(), true);
+
+        // Se nessuna delle condizioni sopra è vera, restituisci il percorso così com'è.
+        return path;
+    }
+
+    // Se non trova nulla, restituisce il valore di default.
+    return mDefaultGameMap[id];
 }
 
 void MetaDataList::set(const std::string& key, const std::string& value)

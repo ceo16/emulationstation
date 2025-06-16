@@ -2043,7 +2043,9 @@ if (eaSystem == nullptr && Settings::getInstance()->getBool("EnableEAGamesStore"
     SystemEnvironmentData* envData_ea = new SystemEnvironmentData();
     
     // CORREZIONE ERRORE DI BATTITURA
-    std::string eaGamelistDir = Utils::FileSystem::getGenericPath(Paths::getExePath() + "/roms/EAGamesStore"); 
+     std::string esPath = Paths::getExePath(); 
+    std::string rootPath = Utils::FileSystem::getParent(esPath);
+    std::string eaGamelistDir = Utils::FileSystem::getGenericPath(rootPath + "/roms/EAGamesStore");
     if (!Utils::FileSystem::exists(eaGamelistDir)) {
         Utils::FileSystem::createDirectory(eaGamelistDir);
     }

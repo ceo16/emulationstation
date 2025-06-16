@@ -37,11 +37,13 @@ private:
     enum class RequestState {
         SEARCHING_GAME,
         FETCHING_DETAILS,
+		FETCHING_LOGO,
         DONE
     } mState;
 
     std::vector<IGDB::GameMetadata> mSearchResults; // Risultati della ricerca iniziale
     size_t mCurrentSearchResultIndex;               // Indice del risultato corrente da processare
+	ScraperSearchResult mTempResult;
 };
 
 

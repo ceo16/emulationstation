@@ -117,20 +117,24 @@ void EAGamesUI::buildMenu()
     if (!mStore) return;
 
     mMenu->clear();
+    mEaPlaySwitch.reset();
 
     if (mStore->IsUserLoggedIn())
     {
+        // ... (Codice per stato utente e abbonamento) ...
         mVersionInfo->setText(_("LOGGED IN TO EA ACCOUNT"));
         mVersionInfo->setColor(0x00C000FF);
-
-        // Mostra lo stato dell'abbonamento
+        
         auto subscriptionLabel = std::make_shared<TextComponent>(mWindow, _("LOADING..."), Font::get(FONT_SIZE_SMALL), 0xAAAAAAFF, ALIGN_CENTER);
         mMenu->addWithLabel(_("EA PLAY STATUS"), subscriptionLabel);
         mStore->getSubscriptionDetails([this, subscriptionLabel](const EAGames::SubscriptionDetails& details) {
+            std::string tierName = (details.tier == "premium") ? "EA Play Pro" : "EA Play";
+            
+            // CORREZIONE per C2110: Inizia con un oggetto std::string
             std::string labelText = _("NO ACTIVE SUBSCRIPTION");
             unsigned int color = 0xDD2222FF;
+            
             if (details.isActive) {
-                std::string tierName = (details.tier == "premium") ? "EA Play Pro" : "EA Play";
                 labelText = tierName + " (" + _("ACTIVE") + ")";
                 color = 0x22DD22FF;
             }
@@ -141,13 +145,13 @@ void EAGamesUI::buildMenu()
 
         mMenu->addEntry(" ");
 
-        // Interruttore per il Catalogo EA Play
-        auto eaPlaySwitch = std::make_shared<SwitchComponent>(mWindow);
-        eaPlaySwitch->setState(Settings::getInstance()->getBool("EAPlay.Enabled"));
-        mMenu->addWithLabel(_("INCLUDE EA PLAY IN GAME LIST"), eaPlaySwitch);
+        // Creiamo e salviamo il puntatore al nostro interruttore
+        mEaPlaySwitch = std::make_shared<SwitchComponent>(mWindow);
+        mEaPlaySwitch->setState(Settings::getInstance()->getBool("EAPlay.Enabled"));
+        mMenu->addWithLabel(_("INCLUDE EA PLAY IN GAME LIST"), mEaPlaySwitch);
         
-      
-
+        // NESSUN onStateChanged. Il salvataggio avverrà nel distruttore.
+        
         mMenu->addEntry(" ");
 
         mMenu->addEntry(_("REFRESH GAME LIST"), true, [this]() {
