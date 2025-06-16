@@ -146,7 +146,8 @@ std::string findSteamAppId(const std::string& gameName)
     HttpReq req(searchUrl, &options);
     req.wait();
     
-    LOG(LogInfo) << "[Debug] Risposta da Steam per \"" << gameName << "\":\n" << req.getContent();
+    // Non logghiamo più l'intero HTML per non intasare i log, ma lo lasciamo in caso di debug futuro
+    // LOG(LogInfo) << "[Debug] Risposta da Steam per \"" << gameName << "\":\n" << req.getContent();
 
     if (req.status() == HttpReq::REQ_SUCCESS) 
     {
@@ -170,6 +171,17 @@ std::string findSteamAppId(const std::string& gameName)
     return "";
 }
 
+// Funzione helper per verificare se una stringa è un probabile ID e non un nome
+bool isLikelyAnId(const std::string& s)
+{
+    // Se la stringa è lunga 32 caratteri e contiene solo cifre esadecimali (tipico di Epic)
+    if (s.length() == 32 && std::all_of(s.begin(), s.end(), ::isxdigit)) {
+        return true;
+    }
+    // Aggiungi altri controlli se necessario (es. per Xbox)
+    return false;
+}
+
 } // fine namespace anonimo
 
 bool UniversalSteamScraper::isSupportedPlatform(SystemData* system) { return true; }
@@ -179,19 +191,28 @@ void UniversalSteamScraper::generateRequests(const ScraperSearchParams& params,
                                        std::queue<std::unique_ptr<ScraperRequest>>& requests,
                                        std::vector<ScraperSearchResult>& results)
 {
-    std::string gameName = params.game->getCleanName();
-    LOG(LogInfo) << "Avvio scraping [UniversalSteam] per: \"" << gameName << "\"";
+    // LOGICA DI RICERCA MIGLIORATA
+    std::string searchName;
 
-    // Se il clean name sembra un ID, proviamo a usare il nome dai metadati
-    if (gameName.find("Origin.OFR.") != std::string::npos || gameName.find("OFB-EAST:") != std::string::npos) {
-        std::string metadataName = params.game->getMetadata().get("name");
-        if (!metadataName.empty()) {
-            LOG(LogInfo) << "Clean name sembra un ID. Uso il nome dai metadati: \"" << metadataName << "\"";
-            gameName = metadataName;
+    // 1. Prova a usare il nome dai metadati, perché è il più affidabile
+    std::string metadataName = params.game->getMetadata().get("name");
+    if (!metadataName.empty() && !isLikelyAnId(metadataName)) {
+        searchName = metadataName;
+        LOG(LogInfo) << "Avvio scraping [UniversalSteam] usando il nome dai metadati: \"" << searchName << "\"";
+    } else {
+        // 2. Altrimenti, usa il "clean name"
+        std::string cleanName = params.game->getCleanName();
+        if (!cleanName.empty() && !isLikelyAnId(cleanName)) {
+            searchName = cleanName;
+            LOG(LogInfo) << "Avvio scraping [UniversalSteam] usando il clean name: \"" << searchName << "\"";
+        } else {
+             // 3. Se anche il clean name è un ID, non possiamo fare nulla
+            LOG(LogWarning) << "Scraping fallito per il gioco, nome non valido trovato: \"" << (metadataName.empty() ? cleanName : metadataName) << "\"";
+            return;
         }
     }
     
-    std::string appId = findSteamAppId(gameName);
+    std::string appId = findSteamAppId(searchName);
     
     if (!appId.empty()) {
         LOG(LogInfo) << "AppID trovato: " << appId << ". Richiesta dettagli...";
@@ -199,6 +220,6 @@ void UniversalSteamScraper::generateRequests(const ScraperSearchParams& params,
         std::string url = "https://store.steampowered.com/api/appdetails?appids=" + appId + "&l=" + lang;
         requests.push(std::unique_ptr<ScraperRequest>(new UniversalSteamDetailsRequest(results, url)));
     } else {
-        LOG(LogWarning) << "Scraping fallito per il gioco \"" << gameName << "\", nessun AppID trovato.";
+        LOG(LogWarning) << "Scraping fallito per il gioco \"" << searchName << "\", nessun AppID trovato.";
     }
 }
