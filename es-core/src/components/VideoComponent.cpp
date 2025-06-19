@@ -136,7 +136,7 @@ bool VideoComponent::setVideo(std::string path, bool checkFileExists)
 	// If the file exists then set the new video
 	if (!fullPath.empty() && (!checkFileExists || ResourceManager::getInstance()->fileExists(fullPath)))
 	{
-		// Return true to show that we are going to attempt to play a video
+		// Return true to show that we are going to attempt to play a vide
 		return true;
 	}
 	// Return false to show that no video will be displayed

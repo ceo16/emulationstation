@@ -305,6 +305,7 @@ namespace EAGames {
         }
         return false;
     }
+	
 
     std::string EAGamesAuth::getAccessToken() const { return mAccessToken; }
     std::string EAGamesAuth::getRefreshToken() const { return mRefreshToken; }
@@ -364,7 +365,7 @@ namespace EAGames {
 
         GuiWebViewAuthLogin* webViewGui = new GuiWebViewAuthLogin(mWindow, authUrl, _("Login EA"), watchPrefixForWebView);
 
-        webViewGui->setOnLoginFinishedCallback(
+       webViewGui->setOnLoginFinishedCallback(
             [this, onFlowFinished, redirectUriForEAServer, watchPrefixForWebView](bool webViewSuccess, const std::string& webViewResultUrl) { // Passa redirectUriForEAServer per exchangeCodeForToken
             LOG(LogDebug) << "EA Games Auth: GuiWebViewAuthLogin finished. Success: " << webViewSuccess << ", Result URL: " << webViewResultUrl;
 
@@ -390,7 +391,7 @@ namespace EAGames {
                 if (this->mWindow) this->mWindow->postToUiThread([onFlowFinished, errorMsgToUser] { onFlowFinished(false, errorMsgToUser); });
                 else if (onFlowFinished) onFlowFinished(false, errorMsgToUser);
                 return;
-            }
+            } 
 
             Utils::Uri uri(webViewResultUrl);
             std::string code = uri.arguments.get("code");

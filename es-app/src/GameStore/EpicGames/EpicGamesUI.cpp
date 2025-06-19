@@ -1,93 +1,109 @@
 #include "GameStore/EpicGames/EpicGamesUI.h"
 #include "GameStore/EpicGames/EpicGamesStore.h"
-#include "components/ButtonComponent.h"        // Includi componenti usati
-#include "components/TextComponent.h"
-#include "components/ComponentList.h"
 #include "guis/GuiSettings.h"
+#include "guis/GuiMsgBox.h"
+#include "guis/GuiTextEditPopup.h"
+#include "guis/GuiBusyInfoPopup.h"
+#include "guis/GuiWebViewAuthLogin.h"
+#include "components/ButtonComponent.h"
+#include "components/TextComponent.h"
 #include "Window.h"
 #include "Log.h"
-#include "FileData.h"
-#include "guis/GuiMsgBox.h"                // Include per MsgBox
-#include "guis/GuiTextEditPopup.h"         // Include per TextEditPopup
-#include "utils/StringUtil.h"              // Include per StringUtil::trim
-#include <string>
-#include <functional>
-#include <cstring>                         // Per strlen
-#include "guis/GuiBusyInfoPopup.h"
-#include "GameStore/EpicGames/EpicGamesAuth.h"
+#include "utils/StringUtil.h"
+#include "views/ViewController.h"
+#include "HttpReq.h" // Necessario per le richieste HTTP
+#include "json.hpp"  // Necessario per il parsing del JSON
+#include <SDL.h>
 
+#include <thread> // Necessario per std::thread
 
+EpicGamesUI::EpicGamesUI() {}
+EpicGamesUI::~EpicGamesUI() {}
 
-EpicGamesUI::EpicGamesUI() {
-}
-
-EpicGamesUI::~EpicGamesUI() {
-}
-
-// --- Funzione showMainMenu MODIFICATA per Login Alternativo ---
 void EpicGamesUI::showMainMenu(Window* window, EpicGamesStore* store) {
- LOG(LogDebug) << "EpicGamesUI::showMainMenu";
+    if (!store || !store->getAuth()) { return; }
 
- if (!store) {
-     LOG(LogError) << "EpicGamesUI::showMainMenu - store pointer is null!";
-     return;
- }
+    auto* menu = new GuiSettings(window, "EPIC GAMES STORE");
+    EpicGamesAuth* auth = store->getAuth();
+    
+    auto reloadSystemView = [window, menu] {
+        if (menu && window->peekGui() == menu) menu->close();
+        ViewController::get()->reloadAll(window);
+    };
+    
+    std::string status = auth->isAuthenticated() ? "Autenticato: " + auth->getDisplayName() : "Non autenticato";
+    menu->addEntry(status, false, nullptr);
+    menu->addEntry(" ", false, nullptr);
 
- auto menu = new GuiSettings(window, "Epic Games Store");
+    if (!auth->isAuthenticated()) {
+        menu->addEntry("ACCEDI CON EPIC GAMES", true,
+            [window, auth, reloadSystemView]() {
+                const std::string initialLoginUrl = "https://www.epicgames.com/id/login";
+                const std::string personalUrlPart = "epicgames.com/account/personal";
+                const std::string finalRedirectUrlPart = "id/api/redirect?clientId=";
 
- // --- Logica per la voce di Login ---
- menu->addEntry("Login to Epic Games", true,
-    [window, store]() { // Cattura window e store
+                // Creiamo la WebView SENZA watch prefix. Questo bypassa la vecchia logica di auto-chiusura.
+                auto* webView = new GuiWebViewAuthLogin(window, initialLoginUrl, "EpicGames", "");
 
-        // 1. Mostra messaggio informativo
-        std::string msg =
-            "Si aprirà il browser per l'accesso a Epic Games.\n\n"
-            "Dopo aver effettuato l'accesso, Epic mostrerà una pagina con un CODICE DI AUTORIZZAZIONE (una lunga stringa di lettere e numeri).\n\n"
-            "Puoi usare CTRL+V";
-
-        window->pushGui(new GuiMsgBox(window, msg, "HO CAPITO, APRI IL BROWSER",
-            [window, store]() { // Eseguita dopo OK sul messaggio
-
-                // 2. Apri il browser con l'URL diretto
-                store->startLoginFlow();
-
-                // 3. Mostra la finestra per SCRIVERE il codice
-                std::string initialValue = "";
-                std::string acceptButtonText = "CONFERMA CODICE";
-                std::string title = "Inserisci Codice Autorizzazione Epic";
-                // Il prompt è stato rimosso dal costruttore
-
-                // Crea il popup con 6 argomenti
-                auto* codePopup = new GuiTextEditPopup(window, title, initialValue,
-                    [window, store](const std::string& enteredCode) { // Eseguita dopo CONFERMA CODICE
-                        if (!enteredCode.empty()) {
-                            std::string cleanCode = Utils::String::trim(enteredCode);
-                            LOG(LogDebug) << "Received authorization code from user input: '" << cleanCode << "'";
-                            store->processAuthCode(cleanCode);
-                        } else {
-                            LOG(LogWarning) << "User submitted empty authorization code.";
-                            window->pushGui(new GuiMsgBox(window, "Codice non inserito.", "OK"));
+                // Usiamo il NUOVO callback flessibile
+                webView->setNavigationCompletedCallback(
+                    [=](bool success, const std::string& navigatedUrl) mutable {
+                        if (!success || navigatedUrl == "user_cancelled") {
+                             if (auto* wv = dynamic_cast<GuiWebViewAuthLogin*>(window->peekGui())) wv->close();
+                             return;
                         }
-                    }, false, acceptButtonText.c_str() // 6 argomenti: window, titolo, valore iniziale, callback, multiline, testo bottone OK
-                  // <<< RIMOSSO: prompt.c_str()
-                ); // Fine costruttore GuiTextEditPopup
+                        
+                        auto* wvInstance = dynamic_cast<GuiWebViewAuthLogin*>(window->peekGui());
+                        if (!wvInstance) return;
 
-                window->pushGui(codePopup); // Questa riga ora funzioner
+                        // Fase finale: Siamo sulla pagina del codice JSON
+                       if (navigatedUrl.find(finalRedirectUrlPart) != std::string::npos) {
+    LOG(LogInfo) << "[EpicLoginFlow] Rilevato URL finale. Estraggo il contenuto...";
+    wvInstance->setNavigationCompletedCallback(nullptr);
+    
+  wvInstance->getTextAsync([=](const std::string& pageContent) mutable {
+    wvInstance->close();
+    
+    if (pageContent.empty()) {
+        window->pushGui(new GuiMsgBox(window, "Login Fallito: Timeout nella lettura del codice.", "OK"));
+        return;
+    }
+    
+    try {
+        // La WebView restituisce un JSON impacchettato in una stringa, es: "\"{\\\"key\\\":...}\""
+        // Dobbiamo fare un doppio parsing per estrarlo correttamente.
+        
+        // 1. Parsa la stringa esterna
+        auto outerJson = nlohmann::json::parse(pageContent);
+        // 2. Estrai il contenuto, che è il vero JSON
+        std::string innerJsonString = outerJson.get<std::string>();
+        // 3. Parsa il JSON interno e prendi il codice
+        std::string code = nlohmann::json::parse(innerJsonString).value("authorizationCode", "");
 
-            } // Fine lambda GuiMsgBox
-        )); // Fine pushGui GuiMsgBox
-
-    }, // Fine lambda principale addEntry
- "iconFolder");
-// --- NUOVA VOCE: Aggiorna Libreria Giochi ---
- EpicGamesAuth* auth = store->getAuth();
-    bool isEpicAuthenticated = (auth && auth->isAuthenticated()); // Controlla lo stato UNA VOLTA
-
-    // --- NUOVA VOCE: Aggiorna Libreria Giochi Online ---
-    // Mostra solo se autenticato
-    if (isEpicAuthenticated)
-    {
-        menu->addEntry(
+        if (!code.empty() && auth->exchangeAuthCodeForToken(code)) {
+            window->pushGui(new GuiMsgBox(window, "LOGIN COMPLETATO!", "OK", reloadSystemView));
+        } else {
+            throw std::runtime_error("Codice non trovato nel JSON o scambio fallito.");
+        }
+    } catch (const nlohmann::json::exception& e) {
+        LOG(LogError) << "Errore parsing JSON: " << e.what() << "\nDati ricevuti: " << pageContent;
+        window->pushGui(new GuiMsgBox(window, std::string("Login Fallito (Errore JSON):\n") + e.what(), "OK"));
+    }
+});
+}
+                        // Fase intermedia: Siamo sulla pagina dell'account
+                        else if (navigatedUrl.find(personalUrlPart) != std::string::npos) {
+                             LOG(LogInfo) << "[EpicLoginFlow] Rilevata pagina account. Navigo per ottenere il codice.";
+                             wvInstance->navigate(auth->getAuthorizationCodeUrl());
+                        }
+                    });
+                
+                window->pushGui(webView);
+            }, 
+            "iconBrowser");
+    } else {
+        // --- OPZIONI POST-LOGIN ---
+menu->addEntry(
             _("Scarica/Aggiorna Libreria Giochi Online"),
             true,
             [window, store, menu]() { // Non serve catturare 'auth' qui
@@ -113,16 +129,15 @@ void EpicGamesUI::showMainMenu(Window* window, EpicGamesStore* store) {
 
             },
             "iconSync");
+			 menu->addEntry("LOGOUT", true, [auth, menu, reloadSystemView] {
+            auth->logout();
+            if (menu) menu->close();
+            reloadSystemView();
+        }, "iconLogout");
     } // Fine if (isEpicAuthenticated)
 
     window->pushGui(menu);
 } // Fine showMainMenu
-
-// --- Funzione showLogin (Probabilmente non più necessaria) ---
-void EpicGamesUI::showLogin(Window* window, EpicGamesStore* store) {
- LOG(LogWarning) << "EpicGamesUI::showLogin called, redirecting to showMainMenu.";
- showMainMenu(window, store);
-}
 
 // --- Funzione showGameList (Invariata, ma assicurati che getGamesList funzioni) ---
 void EpicGamesUI::showGameList(Window* window, EpicGamesStore* store) {

@@ -49,6 +49,7 @@ GuiWebViewAuthLogin::GuiWebViewAuthLogin(Window* window, const std::string& init
     float height = Renderer::getScreenHeight() * 0.85f; 
     setSize(width, height);
     setPosition((Renderer::getScreenWidth() - mSize.x()) / 2.0f, (Renderer::getScreenHeight() - mSize.y()) / 2.0f);
+	init(); 
 }
 
 GuiWebViewAuthLogin::~GuiWebViewAuthLogin()
@@ -94,6 +95,13 @@ void GuiWebViewAuthLogin::init()
 void GuiWebViewAuthLogin::setOnLoginFinishedCallback(const std::function<void(bool success, const std::string& tokenOrError)>& callback)
 {
     mOnLoginFinishedCallback = callback;
+}
+
+void GuiWebViewAuthLogin::setWatchRedirectPrefix(const std::string& prefix)
+{
+    LOG(LogDebug) << "[" << mStoreNameForLogging << "] Setting watch prefix to: " << prefix;
+    mWatchRedirectPrefix = prefix;
+    mRedirectSuccessfullyHandled = false; // Resetta il flag per il passo successivo
 }
 
 void GuiWebViewAuthLogin::render(const Transform4x4f& parentTrans)
@@ -159,6 +167,16 @@ void GuiWebViewAuthLogin::onSizeChanged() {
     GuiComponent::onSizeChanged(); 
 #ifdef _WIN32
     if (mWebViewController) resizeWebView();
+#endif
+}
+
+void GuiWebViewAuthLogin::navigate(const std::string& url)
+{
+#ifdef _WIN32
+    if (mWebView) {
+        LOG(LogDebug) << "[" << mStoreNameForLogging << "] Navigazione manuale a: " << url;
+        mWebView->Navigate(Utils::String::convertToWideString(url).c_str());
+    }
 #endif
 }
 
@@ -383,65 +401,36 @@ bool GuiWebViewAuthLogin::initializeWebView() {
 LOG(LogDebug) << "[" << this->mStoreNameForLogging << "] Gestore NavigationStarting aggiunto.";
                            
 
-                            this->mWebView->add_NavigationCompleted( Microsoft::WRL::Callback<ICoreWebView2NavigationCompletedEventHandler>(
-                                [this](ICoreWebView2* sender, ICoreWebView2NavigationCompletedEventArgs* args) -> HRESULT {
-                                    BOOL success = FALSE; args->get_IsSuccess(&success);
-                                    COREWEBVIEW2_WEB_ERROR_STATUS errStatus = COREWEBVIEW2_WEB_ERROR_STATUS_UNKNOWN;
-                                    args->get_WebErrorStatus(&errStatus);
+                            this->mWebView->add_NavigationCompleted(Microsoft::WRL::Callback<ICoreWebView2NavigationCompletedEventHandler>(
+    [this](ICoreWebView2* sender, ICoreWebView2NavigationCompletedEventArgs* args) -> HRESULT {
+        this->mLoading = false;
+        BOOL isSuccess = FALSE;
+        args->get_IsSuccess(&isSuccess);
+        PWSTR srcUriRaw = nullptr;
+        sender->get_Source(&srcUriRaw);
+        std::string srcUri = Utils::String::convertFromWideString(std::wstring(srcUriRaw ? srcUriRaw : L""));
+        CoTaskMemFree(srcUriRaw);
 
-                                    PWSTR srcUriRaw = nullptr;
-                                    if(this->mWebView) this->mWebView->get_Source(&srcUriRaw);
-                                    else { LOG(LogWarning) << "[" << this->mStoreNameForLogging << "] mWebView è null in NavigationCompleted, impossibile ottenere Source."; return S_OK; }
+        LOG(LogInfo) << "[" << mStoreNameForLogging << "] WebView NavigationCompleted. URI: " << srcUri << ", Success: " << (isSuccess ? "true" : "false");
 
-                                    std::string srcUri = Utils::String::convertFromWideString(std::wstring(srcUriRaw ? srcUriRaw : L""));
-                                    CoTaskMemFree(srcUriRaw);
+        // NUOVA LOGICA: Se il nuovo callback è impostato, usiamo quello e ci fermiamo.
+        if (mNavigationCompletedCallback) {
+            mWindow->postToUiThread([this, isSuccess, srcUri] {
+                if (mNavigationCompletedCallback) mNavigationCompletedCallback(isSuccess, srcUri);
+            });
+            return S_OK;
+        }
 
-                                    LOG(LogInfo) << "[" << this->mStoreNameForLogging << "] WebView NavigationCompleted. URI: " << srcUri
-                                                 << ", IsSuccess: " << (success ? "true" : "false")
-                                                 << ", WebErrorStatus (enum): " << static_cast<int>(errStatus);
-                                     if (this->mRedirectSuccessfullyHandled) { // << AGGIUNGI QUESTO BLOCCO
-                                     LOG(LogDebug) << "[" << this->mStoreNameForLogging << "] NavigationCompleted: Redirect QRC già gestito con successo oppure un errore definitivo è già stato segnalato. Evento ignorato. URI: " << srcUri;
-                                   // Se l'URI è about:blank e il redirect è stato gestito, è normale.
-                                      // Non chiudere o rimuovere la GUI di nuovo se è già stato fatto da NavigationStarting.
-                                      return S_OK; 
-}
-                                    this->mLoading = false; 
-                                    if (!success) {
-                                        bool isRedirectAlreadyHandled = false;
-                                        if (!this->mWatchRedirectPrefix.empty() && srcUri.rfind(this->mWatchRedirectPrefix, 0) == 0) {
-                                            if (this->mWindow && this->mWindow->peekGui() != this) { 
-                                                 isRedirectAlreadyHandled = true; 
-                                                 LOG(LogDebug) << "[" << this->mStoreNameForLogging << "] NavigationCompleted per redirect URI, ma la GUI è già stata rimossa (probabilmente gestito da NavigationStarting).";
-                                            }
-                                        }
-
-                                        if (!isRedirectAlreadyHandled) {
-                                            LOG(LogError) << "[" << this->mStoreNameForLogging << "] Navigazione fallita per l'URI: " << srcUri 
-                                                        << ". WebErrorStatus: " << static_cast<int>(errStatus);
-                                            if (this->mOnLoginFinishedCallback) {
-                                                std::string error_message;
-                                                switch (errStatus) {
-                                                    case COREWEBVIEW2_WEB_ERROR_STATUS_UNKNOWN: error_message = "Errore sconosciuto"; break;
-                                                    case COREWEBVIEW2_WEB_ERROR_STATUS_CERTIFICATE_COMMON_NAME_IS_INCORRECT: error_message = "Errore Certificato: Nome comune errato"; break;
-                                                    case COREWEBVIEW2_WEB_ERROR_STATUS_CERTIFICATE_EXPIRED: error_message = "Errore Certificato: Scaduto"; break;
-                                                    case COREWEBVIEW2_WEB_ERROR_STATUS_HOST_NAME_NOT_RESOLVED: error_message = "Nome host non risolto"; break;
-                                                    // Aggiungi COREWEBVIEW2_WEB_ERROR_STATUS_CANNOT_CONNECT per l'errore 9 se necessario
-                                                    case COREWEBVIEW2_WEB_ERROR_STATUS_CANNOT_CONNECT: error_message = "Impossibile connettersi (WebView)"; break;
-                                                    default: error_message = "Fallimento navigazione WebView (Codice Errore: " + std::to_string(static_cast<int>(errStatus)) + ")"; break;
-                                                }
-                                                if (this->mWindow) this->mWindow->postToUiThread([this, error_message, srcUri] {
-                                                    if (this->mOnLoginFinishedCallback) this->mOnLoginFinishedCallback(false, error_message + " per l'URL: " + srcUri);
-                                                });
-                                                else if (this->mOnLoginFinishedCallback) this->mOnLoginFinishedCallback(false, error_message + " per l'URL: " + srcUri);
-                                            }
-                                            this->closeWebView(); 
-                                            if (this->mWindow) this->mWindow->removeGui(this); 
-                                        }
-                                    } else {
-                                        LOG(LogInfo) << "[" << this->mStoreNameForLogging << "] Pagina caricata con successo (isSuccess=true): " << srcUri;
-                                    }
-                                    return S_OK;
-                                }).Get(), &this->mNavigationCompletedToken); 
+        // VECCHIA LOGICA: Altrimenti, prosegui con la gestione errori per il vecchio sistema.
+        if (mRedirectSuccessfullyHandled) { return S_OK; }
+        if (!isSuccess && mOnLoginFinishedCallback) {
+            mWindow->postToUiThread([this, srcUri] {
+                if (mOnLoginFinishedCallback) mOnLoginFinishedCallback(false, "Navigazione Fallita: " + srcUri);
+            });
+            close();
+        }
+        return S_OK;
+    }).Get(), &mNavigationCompletedToken);
                             LOG(LogDebug) << "[" << this->mStoreNameForLogging << "] Gestore NavigationCompleted aggiunto.";
                             
                             this->resizeWebView(); 
@@ -548,4 +537,72 @@ void GuiWebViewAuthLogin::resizeWebView() {
         if (FAILED(hr)) LOG(LogError) << "[" << mStoreNameForLogging << "] Fallimento put_Bounds in resizeWebView. HR: 0x" << std::hex << hr;
     }
 }
+
+void GuiWebViewAuthLogin::setNavigationCompletedCallback(const std::function<void(bool isSuccess, const std::string& url)>& callback)
+{
+    mNavigationCompletedCallback = callback;
+}
+void GuiWebViewAuthLogin::getTextAsync(const std::function<void(const std::string& text)>& callback)
+{
+#ifdef _WIN32
+    if (!mWebView) {
+        if (callback) mWindow->postToUiThread([callback] { callback(""); });
+        return;
+    }
+
+    // Usiamo un piccolo trucco con un contatore per riprovare a leggere il testo
+    // per un massimo di 2 secondi (20 tentativi ogni 100ms)
+    auto tryGetText = std::make_shared<std::function<void(int)>>();
+    *tryGetText = [this, callback, tryGetText](int retriesLeft) {
+        if (retriesLeft <= 0) {
+            LOG(LogError) << "[" << mStoreNameForLogging << "] Impossibile ottenere il testo della pagina dopo vari tentativi.";
+            if (callback) mWindow->postToUiThread([callback] { callback(""); });
+            return;
+        }
+
+        const wchar_t* script = L"document.documentElement.innerText";
+        mWebView->ExecuteScript(script, Microsoft::WRL::Callback<ICoreWebView2ExecuteScriptCompletedHandler>(
+            [this, callback, tryGetText, retriesLeft](HRESULT errorCode, LPCWSTR result) -> HRESULT {
+                std::string pageText;
+                if (SUCCEEDED(errorCode) && result) {
+                    std::wstring wResult(result);
+                    // Se il risultato NON è vuoto o "null", abbiamo trovato il testo!
+                    if (!wResult.empty() && wResult != L"null") {
+                        pageText = Utils::String::convertFromWideString(wResult);
+                        LOG(LogInfo) << "[" << mStoreNameForLogging << "] Contenuto pagina ottenuto con successo!";
+                        if (callback) {
+                            mWindow->postToUiThread([callback, pageText] { callback(pageText); });
+                        }
+                        return S_OK;
+                    }
+                }
+                
+                // Se non abbiamo ancora trovato il testo, aspettiamo 100ms e riproviamo.
+                LOG(LogDebug) << "Testo non ancora pronto, nuovo tentativo tra 100ms...";
+                SDL_Delay(100);
+                mWindow->postToUiThread([tryGetText, retriesLeft] { (*tryGetText)(retriesLeft - 1); });
+                return S_OK;
+            }).Get());
+    };
+
+    // Avvia il primo tentativo
+    (*tryGetText)(20);
+#endif
+}
+void GuiWebViewAuthLogin::close()
+{
+#ifdef _WIN32
+    closeWebView();
+#endif
+    if (mWindow) {
+        mWindow->removeGui(this);
+    }
+}
+ ICoreWebView2Controller* GuiWebViewAuthLogin::getWebViewController() {
+ #ifdef _WIN32
+     return mWebViewController.Get();
+ #else
+     return nullptr;
+ #endif
+ }
 #endif // _WIN32

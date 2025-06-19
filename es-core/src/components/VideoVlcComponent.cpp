@@ -790,7 +790,7 @@ if (!Utils::FileSystem::exists(mVideoPath))
 			unsigned track_count;
 			// Get the media metadata so we can find the aspect ratio
 #ifdef WIN32
-			// It looks like an older version of the library is being used on Windows.
+			// It looks like an older version of the library is being used on Windows
 			libvlc_media_parse(mMedia);
 #else
 			libvlc_media_parse_with_options(mMedia, libvlc_media_parse_local, 0);

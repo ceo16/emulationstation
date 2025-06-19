@@ -4,6 +4,8 @@
 
 #include <SDL.h>
 #include <SDL_events.h>
+#include "GuiComponent.h" // Necessario per GuiComponent*
+#include <functional>     // Necessario per std::function
 
 
 #define SDL_STEAM_METADATA_UPDATE_COMPLETE      (SDL_USEREVENT + 5) // Era SDL_STEAM_METADATA_UPDATED, standardizziamo a _COMPLETE
@@ -19,6 +21,12 @@ extern Uint32 SDL_STEAM_REFRESH_COMPLETE;
 extern Uint32 SDL_XBOX_REFRESH_COMPLETE; 
 extern Uint32 SDL_GAMELIST_UPDATED; // 
 extern Uint32 SDL_XBOX_AUTH_COMPLETE_EVENT; // Aggiungi questa
+
+
+struct UIMessage {
+    GuiComponent* componentToDelete;
+    std::function<void()> postAction;
+};
 
 
 #endif // ES_APP_SDL_EVENTS_H

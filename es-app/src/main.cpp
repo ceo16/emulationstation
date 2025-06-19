@@ -597,6 +597,7 @@ if (SDL_GAMELIST_UPDATED == ((Uint32)-1)) {
     } else {
         LOG(LogInfo) << "Registered SDL_XBOX_AUTH_COMPLETE_EVENT with ID: " << SDL_XBOX_AUTH_COMPLETE_EVENT;
     }
+	
     //
 	PowerSaver::init();
 
@@ -829,6 +830,22 @@ if (SDL_GAMELIST_UPDATED == ((Uint32)-1)) {
                     } // --- FINE GESTIONE EVENTO EPIC GAMES ---
 
                 // --- GESTIONE EVENTO XBOX REFRESH ---
+				
+				else if (event.type == SDL_GAMELIST_UPDATED)
+{
+    LOG(LogDebug) << "Main Loop: Received SDL_GAMELIST_UPDATED event.";
+    if (event.user.data1)
+    {
+        UIMessage* msg = static_cast<UIMessage*>(event.user.data1);
+        if (msg->componentToDelete) {
+            delete msg->componentToDelete; // Cancella il popup in sicurezza
+        }
+        if (msg->postAction) {
+            msg->postAction(); // Esegui l'azione (es. mostra GuiMsgBox, ricarica vista)
+        }
+        delete msg; // Pulisci la struttura
+    }
+}
                 else if (event.user.code == SDL_XBOX_REFRESH_COMPLETE)
                 {
                     LOG(LogInfo) << "Main Loop: Received SDL_XBOX_REFRESH_COMPLETE event.";

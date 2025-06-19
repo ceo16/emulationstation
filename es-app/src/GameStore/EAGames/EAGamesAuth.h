@@ -19,6 +19,8 @@ namespace EAGames {
         std::string getPersonaId() const;
         std::string getUserName() const;
 
+		
+
         void login(std::function<void(bool success, const std::string& message)> callback);
         void logout();
 

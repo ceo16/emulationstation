@@ -47,6 +47,12 @@ public:
 
     void init(); 
     void setOnLoginFinishedCallback(const std::function<void(bool success, const std::string& dataOrError)>& callback);
+	void getTextAsync(const std::function<void(const std::string& text)>& callback);
+	void setNavigationCompletedCallback(const std::function<void(bool isSuccess, const std::string& url)>& callback);
+	void navigate(const std::string& url);
+	void close();
+	void setWatchRedirectPrefix(const std::string& prefix);
+	ICoreWebView2Controller* getWebViewController();
 
 private: 
 #ifdef _WIN32
@@ -55,7 +61,7 @@ private:
     void resizeWebView();
 #endif
     void navigateTo(const std::string& url);
-
+    
     bool mLoading;
     std::function<void(bool success, const std::string& dataOrError)> mOnLoginFinishedCallback;
     std::string mCurrentInitialUrl;
@@ -64,6 +70,7 @@ private:
     std::unique_ptr<TextCache> mTextCache; 
     std::string mCachedLoadingMsgText; // NUOVA MODIFICA: Per tracciare il testo del TextCache
 	bool mRedirectSuccessfullyHandled;
+	std::function<void(bool isSuccess, const std::string& url)> mNavigationCompletedCallback;
 
 #ifdef _WIN32
     HWND mParentHwnd;
