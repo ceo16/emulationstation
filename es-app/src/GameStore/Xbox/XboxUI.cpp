@@ -2,25 +2,25 @@
 #include "GameStore/Xbox/XboxStore.h"
 #include "GameStore/Xbox/XboxAuth.h"
 #include "Window.h"
-#include "guis/GuiMsgBox.h"          // Per GuiMsgBox e GuiMsgBoxIcon
-#include "guis/GuiTextEditPopup.h"   // Per GuiTextEditPopup
+#include "guis/GuiMsgBox.h"
+// #include "guis/GuiTextEditPopup.h" // Rimosso: non più necessario
 #include "guis/GuiBusyInfoPopup.h"
 #include "Log.h"
 #include "LocaleES.h"
-#include "utils/Platform.h"        // Per Utils::Platform::openUrl
-#include "utils/StringUtil.h"      // Per Utils::String::toUpper
-#include "renderers/Renderer.h"              // Per Renderer::getScreenWidth/Height, Renderer::swapBuffers()
-#include "Settings.h"              // Per Settings::getInstance() se usato per OSK
+#include "utils/Platform.h" // Potrebbe non servire più, ma lascialo se usato altrove
+#include "utils/StringUtil.h"
+#include "renderers/Renderer.h"
+#include "Settings.h"
 
-// NON includere <SDL.h> o SdlEvents.h qui se non invii eventi SDL da XboxUI per l'autenticazione
+// ... (restanti include e globali come pfnExclusionListGlobal) ...
 
 XboxUI::XboxUI(Window* window, XboxStore* store) :
     GuiComponent(window),
     mStore(store),
-    mMenu(window, _("XBOX LIVE")), // Titolo per MenuComponent
-    mLastAuthStatus(false)       // Inizializza mLastAuthStatus
+    mMenu(window, _("XBOX LIVE")),
+    mLastAuthStatus(false)
 {
-    mWindow = window; // Inizializza il membro mWindow
+    mWindow = window;
 
     XboxAuth* auth = getAuth();
     if (!mStore || !auth) {
@@ -30,12 +30,12 @@ XboxUI::XboxUI(Window* window, XboxStore* store) :
                 _("ERRORE CRITICO XBOX") + std::string("\n") + _("Impossibile inizializzare il menu Xbox."),
                 _("OK"),
                 [this]() { delete this; },
-                GuiMsgBoxIcon::ICON_ERROR // Usa l'enum corretto
+                GuiMsgBoxIcon::ICON_ERROR
             ));
         }
         return;
     }
-    mLastAuthStatus = auth->isAuthenticated(); // Imposta lo stato iniziale
+    mLastAuthStatus = auth->isAuthenticated();
 
     setSize(Renderer::getScreenWidth() * 0.7f, Renderer::getScreenHeight() * 0.7f);
     setPosition((Renderer::getScreenWidth() - mSize.x()) / 2, (Renderer::getScreenHeight() - mSize.y()) / 2);
@@ -61,92 +61,38 @@ void XboxUI::buildMenu() {
 
     if (auth->isAuthenticated()) {
         std::string xuid = auth->getXUID();
-        mMenu.addEntry(_("UTENTE: ") + (xuid.empty() ? "N/D" : xuid), false, nullptr, "", false, false, _("XUID utente connesso"));
+        mMenu.addEntry(_("UTENTE: ") + (xuid.empty() ? _("N/D") : xuid), false, nullptr, "", false, false, _("XUID utente connesso"));
         mMenu.addEntry(_("LOGOUT"), true, [this] { optionLogout(); });
         mMenu.addEntry(_("AGGIORNA LISTA GIOCHI"), true, [this] { optionRefreshGamesList(); });
     } else {
-        mMenu.addEntry(_("LOGIN / AUTENTICAZIONE"), true, [this] { optionLogin(); });
-        mMenu.addEntry(_("INSERISCI CODICE AUTENTICAZIONE"), true, [this] { optionEnterAuthCodeSincrono(); });
+        // NUOVO: Unico punto di login via WebView
+        mMenu.addEntry(_("LOGIN XBOX LIVE"), true, [this] { optionLogin(); });
+        // Rimosso: optionEnterAuthCodeSincrono() non più necessario
     }
     mMenu.addButton(_("INDIETRO"), _("torna indietro"), [this] { delete this; });
 }
 
+// MODIFICATO: Ora avvia direttamente il flusso di autenticazione WebView
 void XboxUI::optionLogin() {
-    LOG(LogDebug) << "XboxUI::optionLogin - Inizio. mWindow: " << static_cast<void*>(mWindow);
+    LOG(LogDebug) << "XboxUI::optionLogin - Avvio login Xbox Live via WebView.";
     XboxAuth* auth = getAuth();
     if (!auth || !mWindow) {
         LOG(LogError) << "XboxUI::optionLogin - Auth o mWindow non validi.";
-        return;
-    }
-
-    std::string state_unused;
-    std::string authUrl = auth->getAuthorizationUrl(state_unused);
-    LOG(LogDebug) << "XboxUI::optionLogin - Auth URL: " << (authUrl.empty() ? "VUOTO" : authUrl.c_str());
-
-    if (authUrl.empty()) {
         mWindow->pushGui(new GuiMsgBox(mWindow,
-            _("ERRORE LOGIN XBOX") + std::string("\n") + _("Impossibile ottenere l'URL di autenticazione."),
+            _("ERRORE LOGIN XBOX") + std::string("\n") + _("Impossibile avviare il processo di login."),
             _("OK"), nullptr, GuiMsgBoxIcon::ICON_ERROR));
         return;
     }
 
-    std::string msg = _("Verrai reindirizzato al sito di Microsoft...\n" /* Messaggio completo omesso per brevità */);
-    mWindow->pushGui(new GuiMsgBox(mWindow,
-        _("ISTRUZIONI LOGIN XBOX") + std::string("\n\n") + msg,
-        _("APRI BROWSER"), [this, authUrl] { Utils::Platform::openUrl(authUrl); },
-        _("ANNULLA"), nullptr,
-         GuiMsgBoxIcon::ICON_INFORMATION // << USA ICON_NONE PER EVITARE CRASH CON info.svg
-    ));
-    LOG(LogDebug) << "XboxUI::optionLogin - GuiMsgBox con istruzioni mostrato.";
+    // Chiamata diretta al metodo di autenticazione WebView di XboxAuth
+    auth->authenticateWithWebView(mWindow);
+
+    LOG(LogDebug) << "XboxUI::optionLogin - Chiamato authenticateWithWebView. Attendere il callback.";
 }
 
-void XboxUI::optionEnterAuthCodeSincrono() {
-    LOG(LogDebug) << "XboxUI::optionEnterAuthCodeSincrono - Inizio. mWindow: " << static_cast<void*>(mWindow);
-    XboxAuth* auth = getAuth();
-    if (!auth) { /* ... (gestione errore come nella risposta precedente) ... */ return; }
-    if (auth->isAuthenticated()) { /* ... (messaggio "già autenticato" con ICON_NONE) ... */ return; }
-    if (!mWindow) { /* ... (errore mWindow nullo) ... */ return; }
+// RIMOSSO/DEPRECATO: Questo metodo non è più necessario con il flusso WebView completo
+// void XboxUI::optionEnterAuthCodeSincrono() { /* ... */ }
 
-    std::string acceptBtnText = _("INVIA");
-
-    LOG(LogDebug) << "XboxUI::optionEnterAuthCodeSincrono - Creazione GuiTextEditPopup.";
-    mWindow->pushGui(new GuiTextEditPopup(mWindow,
-        _("INSERISCI CODICE AUTENTICAZIONE XBOX"), "",
-        [this, auth](const std::string& code) { // okCallback
-            if (!code.empty()) {
-                LOG(LogInfo) << "XboxUI (okCallback): Codice inserito: [" << code << "]";
-                if (!mWindow || !auth) { /* ... (log errore e return) ... */ return; }
-
-                GuiBusyInfoPopup* busyPopup = new GuiBusyInfoPopup(mWindow, _("AUTENTICAZIONE IN CORSO..."));
-                mWindow->pushGui(busyPopup);
-                if(mWindow) { mWindow->render(); Renderer::swapBuffers(); }
-
-                bool success = auth->exchangeAuthCodeForTokens(code); // BLOCCANTE
-                LOG(LogInfo) << "XboxUI (okCallback): Risultato autenticazione: " << success;
-
-                if (mWindow && mWindow->peekGui() == busyPopup) { delete busyPopup; }
-                else { if (busyPopup) delete busyPopup; }
-                busyPopup = nullptr;
-
-                if (success) {
-                    LOG(LogInfo) << "XboxUI (okCallback): Autenticazione riuscita.";
-                    if (mWindow) mWindow->pushGui(new GuiMsgBox(mWindow,
-                        _("XBOX LOGIN") + std::string("\n") + _("Autenticazione Xbox riuscita!"),
-                        _("OK"), nullptr,  GuiMsgBoxIcon::ICON_INFORMATION)); // ICON_NONE
-                    // buildMenu() verrà chiamato da update() a causa del cambio di mLastAuthStatus
-                } else {
-                    LOG(LogError) << "XboxUI (okCallback): Autenticazione fallita.";
-                    if (mWindow) mWindow->pushGui(new GuiMsgBox(mWindow,
-                        _("XBOX LOGIN") + std::string("\n") + _("Autenticazione Xbox fallita. Riprova."),
-                        _("OK"), nullptr, GuiMsgBoxIcon::ICON_ERROR));
-                }
-            }
-        },
-        false,
-        acceptBtnText.c_str() // O solo acceptBtnText se _() dà char* e non hai errori C2664
-    ));
-    LOG(LogDebug) << "XboxUI::optionEnterAuthCodeSincrono - GuiTextEditPopup creato.";
-}
 
 void XboxUI::optionLogout() {
     LOG(LogDebug) << "XboxUI::optionLogout - Inizio.";
@@ -155,7 +101,7 @@ void XboxUI::optionLogout() {
         auth->clearAllTokenData();
         mWindow->pushGui(new GuiMsgBox(mWindow,
             _("XBOX LOGOUT") + std::string("\n") + _("Logout effettuato."),
-            _("OK"), nullptr,  GuiMsgBoxIcon::ICON_INFORMATION // ICON_NONE
+            _("OK"), nullptr, GuiMsgBoxIcon::ICON_INFORMATION
         ));
     }
     // buildMenu() verrà chiamato da update()
@@ -173,26 +119,31 @@ void XboxUI::optionRefreshGamesList() {
     }
     GuiBusyInfoPopup* busyPopup = new GuiBusyInfoPopup(mWindow, _("AGGIORNAMENTO LIBRERIA XBOX..."));
     mWindow->pushGui(busyPopup);
-    mStore->refreshGamesListAsync(); // Invia SDL_XBOX_REFRESH_COMPLETE
-    delete this; // Chiudi XboxUI, il busyPopup è gestito da main.cpp
+    mStore->refreshGamesListAsync(); // Questa funzione invia SDL_XBOX_REFRESH_COMPLETE al thread principale
+
+    // IMPORTANTE: Non fare delete this qui. La UI di XboxUI deve rimanere aperta mentre il popup è mostrato.
+    // La gestione della chiusura del busyPopup e dell'aggiornamento della UI avverrà
+    // nel loop di gestione degli eventi SDL nel tuo main.cpp.
 }
 
 bool XboxUI::input(InputConfig* config, Input input) {
     if (mMenu.input(config, input)) return true;
-    if (config->isMappedTo("b", input) && input.value != 0) {
-        delete this; return true;
+    if (input.value != 0 && (config->isMappedTo("b", input) || (input.id == SDLK_ESCAPE && input.type == TYPE_KEY))) {
+        LOG(LogDebug) << "XboxUI: Chiusura per input 'Indietro'.";
+        delete this;
+        return true;
     }
     return GuiComponent::input(config, input);
 }
 
 void XboxUI::update(int deltaTime) {
-    GuiComponent::update(deltaTime); // Chiama updateChildren, incluso mMenu
+    GuiComponent::update(deltaTime);
 
     XboxAuth* auth = getAuth();
     if (auth) {
         bool currentAuthStatus = auth->isAuthenticated();
         if (mLastAuthStatus != currentAuthStatus) {
-            LOG(LogInfo) << "XboxUI::update - Stato autenticazione cambiato. Ricostruzione menu.";
+            LOG(LogInfo) << "XboxUI::update - Stato autenticazione Xbox cambiato. Ricostruzione menu.";
             buildMenu();
             mLastAuthStatus = currentAuthStatus;
         }
@@ -200,19 +151,14 @@ void XboxUI::update(int deltaTime) {
 }
 void XboxUI::rebuildMenu() {
     LOG(LogDebug) << "XboxUI::rebuildMenu chiamata.";
-    buildMenu(); // Chiama direttamente buildMenu
+    buildMenu();
 }
 
 void XboxUI::render(const Transform4x4f& parentTrans) {
     Transform4x4f trans = parentTrans * getTransform();
-    // Opzionale: Renderer::drawRect(0.f, 0.f, mSize.x(), mSize.y(), 0x000000A0, 0x000000A0, false, Renderer::BlendFactor::BLEND_SRC_ALPHA, Renderer::BlendFactor::BLEND_ONE_MINUS_SRC_ALPHA);
     GuiComponent::renderChildren(trans);
 }
 
 std::vector<HelpPrompt> XboxUI::getHelpPrompts() {
     return mMenu.getHelpPrompts();
 }
-
-// void XboxUI::rebuildMenu() { // Potrebbe non servire più se update() gestisce il refresh
-//     if (mMenu.getTheme()){ buildMenu(); }
-// }

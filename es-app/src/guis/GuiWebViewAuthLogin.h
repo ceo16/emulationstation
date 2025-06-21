@@ -37,7 +37,14 @@
 class GuiWebViewAuthLogin : public GuiComponent
 {
 public:
-    GuiWebViewAuthLogin(Window* window, const std::string& initialUrl, const std::string& storeNameForLogging, const std::string& watchRedirectPrefix);
+ enum class AuthMode {
+        DEFAULT,
+        FETCH_STEAM_COOKIE,
+		 FETCH_STEAM_GAMES_JSON // <-- AGGIUNGI QUESTA RIGA
+    };
+
+
+    GuiWebViewAuthLogin(Window* window, const std::string& initialUrl, const std::string& storeNameForLogging, const std::string& watchRedirectPrefix = "", AuthMode mode = AuthMode::DEFAULT);
     virtual ~GuiWebViewAuthLogin();
 
     void render(const Transform4x4f& parentTrans) override;
@@ -53,6 +60,11 @@ public:
 	void close();
 	void setWatchRedirectPrefix(const std::string& prefix);
 	ICoreWebView2Controller* getWebViewController();
+	void setSteamCookieDomain(const std::string& domain);
+    void executeScript(const std::string& script);
+    void executeScriptAndGetResult(const std::string& script, const std::function<void(const std::string&)>& callback);
+	const std::string& getAuthCode() const { return mAuthCode; }
+
 
 private: 
 #ifdef _WIN32
@@ -81,6 +93,14 @@ private:
     EventRegistrationToken mNavigationCompletedToken;
     EventRegistrationToken mProcessFailedToken; 
 #endif
+     AuthMode mAuthMode;
+     std::string mAuthCode;
+    std::string mSteamCookieDomain;
+
+#ifdef _WIN32
+    void getSteamCookies(); // Funzione helper solo per Steam
+#endif
+
 };
 
 #endif // ES_APP_GUIS_GUI_WEBVIEW_AUTH_LOGIN_H

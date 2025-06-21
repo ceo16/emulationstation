@@ -1,3 +1,4 @@
+#pragma once
 #ifndef ES_APP_GAMESTORE_XBOX_AUTH_H
 #define ES_APP_GAMESTORE_XBOX_AUTH_H
 
@@ -6,6 +7,7 @@
 #include <functional>
 #include <chrono>
 #include "utils/FileSystemUtil.h" // Per std::filesystem::path
+#include "Window.h"
 
 
 // Forward declaration
@@ -46,6 +48,7 @@ public:
     void loadTokenData();
     void saveTokenData();
     void clearAllTokenData();
+	void authenticateWithWebView(Window* window);
 
 private:
     // Funzione di callback per aggiornare lo stato (es. in UI)

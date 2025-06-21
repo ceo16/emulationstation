@@ -27,30 +27,40 @@
 #include "guis/GuiWebViewAuthLogin.h"
 
 
-GuiWebViewAuthLogin::GuiWebViewAuthLogin(Window* window, const std::string& initialUrl, const std::string& storeNameForLogging, const std::string& watchRedirectPrefix)
-    : GuiComponent(window), 
+GuiWebViewAuthLogin::GuiWebViewAuthLogin(Window* window, const std::string& initialUrl, const std::string& storeNameForLogging, const std::string& watchRedirectPrefix, AuthMode mode)
+    : GuiComponent(window),
       mLoading(false),
       mCurrentInitialUrl(initialUrl),
       mStoreNameForLogging(storeNameForLogging),
       mWatchRedirectPrefix(watchRedirectPrefix),
       mCachedLoadingMsgText(""),
-	  mRedirectSuccessfullyHandled(false)
+      mRedirectSuccessfullyHandled(false), // <-- VIRGOLA AGGIUNTA QUI
+      mAuthMode(mode),
+      mSteamCookieDomain(""), // <-- VIRGOLA AGGIUNTA QUI
+	  mAuthCode("")
 #ifdef _WIN32
-    , mParentHwnd(nullptr), 
+    , mParentHwnd(nullptr),
       mWebViewEnvironment(nullptr),
       mWebViewController(nullptr),
       mWebView(nullptr),
-      mNavigationStartingToken({0}), 
+      mNavigationStartingToken({0}),
       mNavigationCompletedToken({0}),
-      mProcessFailedToken({0}) 
+      mProcessFailedToken({0})
 #endif
-{ 
+{
     float width = Renderer::getScreenWidth() * 0.8f;
-    float height = Renderer::getScreenHeight() * 0.85f; 
+    float height = Renderer::getScreenHeight() * 0.85f;
     setSize(width, height);
     setPosition((Renderer::getScreenWidth() - mSize.x()) / 2.0f, (Renderer::getScreenHeight() - mSize.y()) / 2.0f);
-	init(); 
+    init();
 }
+
+void GuiWebViewAuthLogin::setSteamCookieDomain(const std::string& domain) {
+    if (mAuthMode == AuthMode::FETCH_STEAM_COOKIE) {
+        mSteamCookieDomain = domain;
+    }
+}
+
 
 GuiWebViewAuthLogin::~GuiWebViewAuthLogin()
 {
@@ -354,48 +364,79 @@ bool GuiWebViewAuthLogin::initializeWebView() {
                             }).Get(), &this->mProcessFailedToken); 
                             LOG(LogDebug) << "[" << this->mStoreNameForLogging << "] Gestore ProcessFailed aggiunto.";
 
-                            this->mWebView->add_NavigationStarting( Microsoft::WRL::Callback<ICoreWebView2NavigationStartingEventHandler>(
+                           this->mWebView->add_NavigationStarting(Microsoft::WRL::Callback<ICoreWebView2NavigationStartingEventHandler>(
     [this](ICoreWebView2* sender, ICoreWebView2NavigationStartingEventArgs* args) -> HRESULT {
-        PWSTR uriRaw = nullptr; args->get_Uri(&uriRaw);
+        PWSTR uriRaw = nullptr;
+        args->get_Uri(&uriRaw);
         std::string uriA = Utils::String::convertFromWideString(std::wstring(uriRaw ? uriRaw : L""));
         CoTaskMemFree(uriRaw);
 
         LOG(LogInfo) << "[" << this->mStoreNameForLogging << "] WebView NavigationStarting: " << uriA;
         this->mLoading = true; // Considera una gestione più granulare dello stato di caricamento
 
-        // Aggiungi il controllo !this->mRedirectSuccessfullyHandled per maggiore robustezza
+        // Gestione del reindirizzamento OAuth (come per Xbox Live)
+        // Questo è il punto in cui intercettiamo l'URL di reindirizzamento di successo.
         if (!this->mRedirectSuccessfullyHandled && !this->mWatchRedirectPrefix.empty() && uriA.rfind(this->mWatchRedirectPrefix, 0) == 0) {
             LOG(LogInfo) << "[" << this->mStoreNameForLogging << "] Rilevato URI di redirect (" << this->mWatchRedirectPrefix << "): " << uriA;
-            this->mRedirectSuccessfullyHandled = true;
 
+            // Estrai il codice di autorizzazione dalla query string (es. "?code=...")
+            std::string code = Utils::String::getUrlParam(uriA, "code");
+            if (code.empty()) {
+                LOG(LogWarning) << "[" << this->mStoreNameForLogging << "] URI di redirect rilevato ma parametro 'code' non trovato. URL: " << uriA;
+                // Potrebbe essere un login fallito o annullato, o un flusso diverso senza "code".
+                // In questo caso, consideriamo il successo false se il codice è atteso e non trovato.
+                this->mAuthCode = ""; // Assicura che sia vuoto se il codice non viene trovato
+            } else {
+                this->mAuthCode = code; // Memorizza il codice per il chiamante (es. XboxAuth)
+                LOG(LogInfo) << "[" << this->mStoreNameForLogging << "] Codice di autorizzazione catturato: " << mAuthCode.substr(0, 10) << "...";
+            }
+
+            this->mRedirectSuccessfullyHandled = true; // Segna come gestito per evitare chiamate multiple
+
+            // Invoca la callback di completamento con il successo/fallimento e l'URL finale.
             if (this->mOnLoginFinishedCallback) {
+                // Posta al thread UI per garantire l'esecuzione sicura della callback.
                 if (this->mWindow) {
-                    this->mWindow->postToUiThread([this, uriA] {
-                        if (this->mOnLoginFinishedCallback) this->mOnLoginFinishedCallback(true, uriA);
+                    this->mWindow->postToUiThread([this, success = !mAuthCode.empty(), finalUrl = uriA] {
+                        if (this->mOnLoginFinishedCallback) {
+                            this->mOnLoginFinishedCallback(success, finalUrl);
+                        }
                     });
                 } else {
-                    // Fallback se mWindow è null, anche se in un contesto GUI dovrebbe esistere
-                    if (this->mOnLoginFinishedCallback) this->mOnLoginFinishedCallback(true, uriA);
+                    // Fallback se mWindow è null (dovrebbe esistere in un contesto GUI).
+                    if (this->mOnLoginFinishedCallback) {
+                        this->mOnLoginFinishedCallback(!mAuthCode.empty(), uriA);
+                    }
                 }
             }
-                       if (this->mWindow) {
+
+            // Chiudi la WebView dopo che il reindirizzamento è stato gestito e la callback è stata pianificata.
+            // Questo assicura che la WebView scompaia automaticamente dopo il login.
+            if (this->mWindow) {
                 this->mWindow->postToUiThread([this] {
-                    this->closeWebView();
-                    // Controlla di nuovo mWindow perché potrebbe essere stato invalidato
-                    if (this->mWindow) {
-                        this->mWindow->removeGui(this);
+                    this->closeWebView(); // Chiude il controller e rilascia le risorse WebView2
+                    if (this->mWindow) { // Controlla se la finestra è ancora valida prima di rimuovere la GUI
+                        this->mWindow->removeGui(this); // Rimuove questa istanza di GuiWebViewAuthLogin dalla pila
                     }
                 });
             } else {
-                // Se mWindow è null, non si può posticipare. Chiamata diretta (potenzialmente rischiosa se non sull'UI thread).
-                // Tuttavia, le callback di WebView2 sono generalmente sull'UI thread.
+                // Se mWindow è null, non possiamo postare all'UI thread. Chiudi direttamente.
                 this->closeWebView();
-                // Non si può chiamare removeGui se mWindow è null o la GUI è già stata rimossa.
+                // Non possiamo chiamare removeGui se mWindow non è valido o se la GUI è già stata rimossa.
             }
-            // Anche se non annulliamo la navigazione, una volta pianificata la callback e la chiusura,
-            // abbiamo terminato con questo evento specifico.
-            return S_OK;
+            // Non annulliamo la navigazione (args->put_Cancel(TRUE)) perché vogliamo che l'URL venga caricato
+            // per estrarre i parametri, ma una volta che l'abbiamo fatto, chiudiamo la WebView.
+            return S_OK; // Indica che l'evento è stato gestito
         }
+
+        // Se la modalità è per recuperare i cookie Steam e non è ancora stata gestita la redirezione
+        // e siamo su un URL che non è il WatchRedirectPrefix (es. la pagina del profilo/giochi Steam)
+        if (mAuthMode == AuthMode::FETCH_STEAM_COOKIE && !mRedirectSuccessfullyHandled && uriA.find("steamcommunity.com") != std::string::npos) {
+            LOG(LogInfo) << "[Steam] WebView NavigationStarting: Tentativo di recuperare i cookie dalla pagina Steam. URI: " << uriA;
+            // Qui potresti voler ritardare la chiamata a getSteamCookies per assicurarti che la pagina sia completamente caricata.
+            // Per ora, prosegui con la logica esistente di NavigationCompleted.
+        }
+
         return S_OK;
     }).Get(), &this->mNavigationStartingToken);
 LOG(LogDebug) << "[" << this->mStoreNameForLogging << "] Gestore NavigationStarting aggiunto.";
@@ -412,6 +453,44 @@ LOG(LogDebug) << "[" << this->mStoreNameForLogging << "] Gestore NavigationStart
         CoTaskMemFree(srcUriRaw);
 
         LOG(LogInfo) << "[" << mStoreNameForLogging << "] WebView NavigationCompleted. URI: " << srcUri << ", Success: " << (isSuccess ? "true" : "false");
+		
+	   if (mAuthMode == AuthMode::FETCH_STEAM_COOKIE && !mRedirectSuccessfullyHandled) {
+            PWSTR srcUriRaw = nullptr;
+            sender->get_Source(&srcUriRaw);
+            std::string srcUri = Utils::String::convertFromWideString(std::wstring(srcUriRaw ? srcUriRaw : L""));
+            CoTaskMemFree(srcUriRaw);
+
+            // Se siamo sulla pagina dei giochi...
+            if (srcUri.find("/games") != std::string::npos) {
+                 LOG(LogInfo) << "[Steam] Pagina giochi caricata. Eseguo script per scraping dati.";
+                 mRedirectSuccessfullyHandled = true;
+
+                 const char* script = "document.querySelector('#gameslist_config')?.getAttribute('data-profile-gameslist');";
+                 
+                 // Eseguiamo lo script. La callback di questo metodo ora chiamerà la callback principale.
+                 this->executeScriptAndGetResult(script, [this](const std::string& jsonString) {
+                     if (mOnLoginFinishedCallback) {
+                         mWindow->postToUiThread([this, jsonString] {
+                             // Passiamo il risultato dello script direttamente alla UI.
+                             mOnLoginFinishedCallback(true, jsonString);
+                         });
+                     }
+                 });
+                 return S_OK; // Abbiamo gestito l'evento.
+            }
+        }
+		
+	 if (mAuthMode == AuthMode::FETCH_STEAM_COOKIE) {
+            LOG(LogInfo) << "[WebView] Modalità Login. Esecuzione script per dati profilo...";
+            const char* profile_script = R"JS((function(){var el=document.querySelector('.actual_persona_name');var id=window.g_steamID;if(el&&id){return JSON.stringify({'strProfileName':el.innerText,'strSteamId':id});}return null;})())JS";
+            
+            this->executeScriptAndGetResult(profile_script, [this](const std::string& jsonString) {
+                if (mOnLoginFinishedCallback) mWindow->postToUiThread([this, jsonString] { mOnLoginFinishedCallback(true, jsonString); });
+                close();
+            });
+            return S_OK;
+        }
+
 
         // NUOVA LOGICA: Se il nuovo callback è impostato, usiamo quello e ci fermiamo.
         if (mNavigationCompletedCallback) {
@@ -542,6 +621,65 @@ void GuiWebViewAuthLogin::setNavigationCompletedCallback(const std::function<voi
 {
     mNavigationCompletedCallback = callback;
 }
+
+void GuiWebViewAuthLogin::executeScript(const std::string& script)
+{
+    if (mWebView) {
+        mWebView->ExecuteScript(Utils::String::convertToWideString(script).c_str(), nullptr);
+    }
+}
+
+void GuiWebViewAuthLogin::executeScriptAndGetResult(const std::string& script, const std::function<void(const std::string& text)>& callback)
+{
+    if (!mWebView) {
+        if (callback) mWindow->postToUiThread([callback] { callback(""); });
+        return;
+    }
+
+    // Usiamo l'approccio "paziente" a tentativi che avevi nel tuo getTextAsync originale.
+    // È la soluzione più robusta per le pagine web dinamiche.
+    auto tryGetScriptResult = std::make_shared<std::function<void(int)>>();
+    *tryGetScriptResult = [this, script, callback, tryGetScriptResult](int retriesLeft) {
+        if (retriesLeft <= 0) {
+            LOG(LogError) << "[" << mStoreNameForLogging << "] SCRAPING FALLITO: Impossibile ottenere il risultato dello script dopo i tentativi.";
+            if (callback) mWindow->postToUiThread([callback] { callback(""); });
+            return;
+        }
+
+        mWebView->ExecuteScript(Utils::String::convertToWideString(script).c_str(), Microsoft::WRL::Callback<ICoreWebView2ExecuteScriptCompletedHandler>(
+            [this, callback, tryGetScriptResult, retriesLeft](HRESULT errorCode, LPCWSTR result) -> HRESULT {
+                std::string scriptResult;
+                if (SUCCEEDED(errorCode) && result) {
+                    // Eseguiamo la pulizia della stringa JSON
+                    scriptResult = Utils::String::convertFromWideString(result);
+                    if (scriptResult.length() > 2 && scriptResult.front() == '"' && scriptResult.back() == '"') {
+                        scriptResult = scriptResult.substr(1, scriptResult.length() - 2);
+                    }
+                    scriptResult = Utils::String::replace(scriptResult, "\\\"", "\"");
+                    scriptResult = Utils::String::replace(scriptResult, "\\\\", "\\");
+                }
+
+                // Se abbiamo un risultato valido (non vuoto e non "null"), abbiamo finito!
+                if (!scriptResult.empty() && scriptResult != "null") {
+                    LOG(LogInfo) << "[" << mStoreNameForLogging << "] SCRAPING RIUSCITO: Dati del profilo ottenuti!";
+                    if (callback) {
+                        mWindow->postToUiThread([callback, scriptResult] { callback(scriptResult); });
+                    }
+                    return S_OK;
+                }
+                
+                // Se non abbiamo ancora trovato il risultato, aspettiamo e riproviamo.
+                LOG(LogDebug) << "Dati non ancora pronti (Tentativo " << (25 - retriesLeft + 1) << "/25). Nuovo tentativo tra 200ms...";
+                SDL_Delay(200); // Attesa bloccante ma efficace in questo contesto
+                mWindow->postToUiThread([tryGetScriptResult, retriesLeft] { (*tryGetScriptResult)(retriesLeft - 1); });
+                return S_OK;
+            }).Get());
+    };
+
+    // Avviamo il primo tentativo con una pazienza di 5 secondi totali (25 * 200ms)
+    (*tryGetScriptResult)(25);
+}
+
 void GuiWebViewAuthLogin::getTextAsync(const std::function<void(const std::string& text)>& callback)
 {
 #ifdef _WIN32
@@ -604,5 +742,40 @@ void GuiWebViewAuthLogin::close()
  #else
      return nullptr;
  #endif
+ }
+void GuiWebViewAuthLogin::getSteamCookies() {
+    if (!mWebView) return;
+    Microsoft::WRL::ComPtr<ICoreWebView2CookieManager> cookieManager;
+    Microsoft::WRL::ComPtr<ICoreWebView2_2> webView_versioned;
+    if (SUCCEEDED(mWebView.As(&webView_versioned)) && webView_versioned) {
+        webView_versioned->get_CookieManager(&cookieManager);
+    } else { return; }
+
+    cookieManager->GetCookies(nullptr, Microsoft::WRL::Callback<ICoreWebView2GetCookiesCompletedHandler>(
+        [this](HRESULT hr, ICoreWebView2CookieList* cookieList) -> HRESULT {
+            if (FAILED(hr) || !cookieList) return hr;
+            UINT cookieCount;
+            cookieList->get_Count(&cookieCount);
+            
+            std::string fullCookieString;
+            bool foundLoginCookie = false;
+
+            for (UINT i = 0; i < cookieCount; ++i) {
+                // ... (codice per estrarre e costruire la fullCookieString, come nella risposta precedente) ...
+            }
+
+            if (foundLoginCookie) {
+                LOG(LogInfo) << "[Steam] Stringa cookie completa costruita. Invio alla callback e chiusura.";
+                mRedirectSuccessfullyHandled = true;
+                if (mOnLoginFinishedCallback) {
+                    mWindow->postToUiThread([this, fullCookieString] {
+                        mOnLoginFinishedCallback(true, fullCookieString);
+                    });
+                }
+                // Chiudiamo la WebView QUI, dopo aver ottenuto il risultato.
+                mWindow->postToUiThread([this] { this->close(); });
+            }
+            return S_OK;
+        }).Get());
  }
 #endif // _WIN32

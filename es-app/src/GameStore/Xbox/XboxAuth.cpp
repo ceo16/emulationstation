@@ -10,6 +10,9 @@
 #include <string>
 #include "utils/FileSystemUtil.h"
 #include <thread> 
+#include "guis/GuiWebViewAuthLogin.h" // Includi il tuo header GuiWebViewAuthLogin
+#include "guis/GuiMsgBox.h"           // Per mostrare messaggi all'utente
+#include "LocaleES.h" 
 
 #include <fstream>      // Per std::ifstream, std::ofstream
 #include <iomanip>      // Per std::put_time, std::get_time (per salvare/caricare expiry)
@@ -126,6 +129,104 @@ std::string XboxAuth::getAuthorizationUrl(std::string& state_out) {
                           "&redirect_uri=" + HttpReq::urlEncode(REDIRECT_URI);
     LOG(LogDebug) << "XboxAuth: Generated Authorization URL: " << authUrl;
     return authUrl;
+}
+
+void XboxAuth::authenticateWithWebView(Window* window)
+{
+    // Costruisci l'URL di autorizzazione Xbox Live.
+    // Usiamo le costanti già definite nella tua classe XboxAuth.
+    std::string authUrl = LIVE_AUTHORIZE_URL +
+                          "?client_id=" + HttpReq::urlEncode(CLIENT_ID) +
+                          "&response_type=code" +
+                          "&approval_prompt=auto" + // "auto" non forza il prompt se l'utente è già loggato
+                          "&scope=" + HttpReq::urlEncode(SCOPE) +
+                          "&redirect_uri=" + HttpReq::urlEncode(REDIRECT_URI);
+
+    LOG(LogInfo) << "[XboxAuth] Avvio login WebView per Xbox Live. URL: " << authUrl;
+
+    // Crea e mostra la GuiWebViewAuthLogin.
+    // Passiamo l'URL iniziale, il nome dello store, e il prefisso di reindirizzamento atteso.
+    auto webViewGui = new GuiWebViewAuthLogin(
+        window,
+        authUrl,
+        "Xbox Live",             // mStoreNameForLogging: Nome per i log e la UI
+        REDIRECT_URI,            // mWatchRedirectPrefix: Il prefisso che la WebView monitorerà
+        GuiWebViewAuthLogin::AuthMode::DEFAULT // Utilizziamo la modalità DEFAULT
+    );
+
+    // Imposta la callback che verrà chiamata quando la WebView rileva il reindirizzamento.
+    // Questa callback è garantita essere eseguita sul thread UI.
+    webViewGui->setOnLoginFinishedCallback(
+        [this, window, webViewGui](bool success, const std::string& dataOrErrorUrl)
+    {
+            // La GuiWebViewAuthLogin si auto-gestisce la chiusura
+            // (removeGui e delete this) dopo che la callback è stata invocata e completata.
+
+            if (success)
+            {
+                LOG(LogInfo) << "[XboxAuth] WebView login completato per Xbox. URL di reindirizzamento ricevuto.";
+
+                // Il codice di autorizzazione è già stato estratto e memorizzato da GuiWebViewAuthLogin
+                // e passed as part of the dataOrErrorUrl if success is true.
+                std::string authCode = Utils::String::getUrlParam(dataOrErrorUrl, "code");
+
+                if (!authCode.empty())
+                {
+                    LOG(LogInfo) << "[XboxAuth] Codice di autorizzazione Xbox Live ottenuto (primi 10 caratteri): " << authCode.substr(0, 10) << "...";
+
+                    // Esegui lo scambio del codice per i token in un thread separato
+                    // per evitare di bloccare l'interfaccia utente.
+                    std::thread([this, authCode, window]() {
+                        LOG(LogInfo) << "[XboxAuth Thread] Avvio scambio token Xbox in background.";
+                        bool exchangeAndXstsSuccess = false;
+                        try {
+                            // Chiama il metodo esistente che scambia il codice per i token Live
+                            // e poi procede all'autenticazione XSTS.
+                            exchangeAndXstsSuccess = exchangeAuthCodeForTokens(authCode);
+
+                            // Dopo un successo, i token sono già salvati e i membri di XboxAuth aggiornati.
+                        } catch (const std::exception& e) {
+                            LOG(LogError) << "[XboxAuth Thread] Eccezione durante lo scambio token/XSTS di Xbox: " << e.what();
+                            exchangeAndXstsSuccess = false;
+                        }
+
+                        // Torna al thread UI per mostrare il risultato finale.
+                        window->postToUiThread([this, window, exchangeAndXstsSuccess]() {
+                            if (exchangeAndXstsSuccess)
+                            {
+                                LOG(LogInfo) << "[XboxAuth UI] Login Xbox Live COMPLETATO con successo! XUID: " << mUserXUID;
+                                window->pushGui(new GuiMsgBox(window, _("Login Xbox Live riuscito! Benvenuto,") + " " + mUserXUID + "!"));
+
+                                // L'utente è autenticato, ora puoi scatenare la scansione dei giochi.
+                                // La logica verrà gestita da XboxUI::optionRefreshGamesList()
+                                // o direttamente qui se il flusso lo richiede.
+                                // Se vuoi avviare un refresh automatico subito dopo il login:
+                                // XboxStore::getInstance()->refreshGamesListAsync();
+                            }
+                            else
+                            {
+                                LOG(LogError) << "[XboxAuth UI] Login Xbox Live fallito dopo lo scambio token o XSTS.";
+                                window->pushGui(new GuiMsgBox(window, _("Accesso Xbox Live fallito. Riprova più tardi.")));
+                                // Pulisci i dati dei token per assicurare uno stato coerente dopo il fallimento.
+                                clearAllTokenData();
+                            }
+                        });
+                    }).detach(); // Dettach il thread per farlo eseguire in background.
+                }
+                else // Codice di autorizzazione non trovato nell'URL
+                {
+                    LOG(LogError) << "[XboxAuth] Login Xbox Live fallito: Codice di autorizzazione non trovato nell'URL di reindirizzamento.";
+                    window->pushGui(new GuiMsgBox(window, _("Accesso Xbox Live fallito: Codice non ricevuto nell'URL.")));
+                }
+            }
+            else // La WebView ha segnalato un fallimento o l'utente ha annullato
+            {
+                LOG(LogError) << "[XboxAuth] Login WebView per Xbox Live annullato o fallito: " << dataOrErrorUrl;
+                window->pushGui(new GuiMsgBox(window, _("Accesso Xbox Live annullato o fallito.")));
+            }
+        });
+
+    window->pushGui(webViewGui); // Aggiungi la WebView alla pila delle GUI per visualizzarla
 }
 
 bool XboxAuth::exchangeAuthCodeForTokens(const std::string& authCode) {
