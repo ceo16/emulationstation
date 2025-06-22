@@ -1,14 +1,16 @@
 #pragma once
-#ifndef ES_APP_GAMESTORE_STEAM_STORE_API_H
-#define ES_APP_GAMESTORE_STEAM_STORE_API_H
+#ifndef ES_APP_GAMESTORE_STEAM_STEAM_STORE_API_H
+#define ES_APP_GAMESTORE_STEAM_STEAM_STORE_API_H
 
 #include <string>
 #include <vector>
 #include <map>
+#include <functional> // Per std::function
 #include "SteamAuth.h"
 #include "HttpReq.h"
 #include "json.hpp" // nlohmann/json
 #include "Log.h"
+#include "Window.h" // Necessario per getOwnedGamesViaScraping
 
 // Strutture dati per le risposte API (semplificate)
 namespace Steam {
@@ -74,23 +76,19 @@ class SteamStoreAPI
 public:
     SteamStoreAPI(SteamAuth* auth);
 
-    // TODO: Implementare chiamate API Steam
-    // https://partner.steamgames.com/doc/webapi
-    // https://wiki.teamfortress.com/wiki/User:RJackson/StorefrontAPI#appdetails
-
-    // Ottiene i giochi posseduti dall'utente autenticato
+    // Ottiene i giochi posseduti dall'utente autenticato (via API Key)
     std::vector<Steam::OwnedGame> GetOwnedGames(const std::string& steamId, const std::string& apiKey, bool includeAppInfo = true, bool includePlayedFreeGames = true, bool includeFreeSubs = false);
 
-    // Ottiene i dettagli di una o più app (per lo scraper)
-    // Restituisce una mappa <appId, AppDetails>
+    // Ottiene i dettagli di una o più app (per lo scraper GetAppDetails)
     std::map<unsigned int, Steam::AppDetails> GetAppDetails(const std::vector<unsigned int>& appIds, const std::string& countryCode = "US", const std::string& language = "english");
 
+    // NUOVO METODO: Ottiene la lista dei giochi tramite web scraping della pagina della libreria.
+    void getOwnedGamesViaScraping(Window* window, const std::string& steamId, std::function<void(bool success, const std::string& gameDataJson)> callback);
 
 private:
-    SteamAuth* mAuth; // Non posseduto, solo reference
+    SteamAuth* mAuth;
     std::unique_ptr<HttpReq> createHttpRequest(const std::string& url);
 
-    // Funzioni helper per il parsing JSON
     Steam::OwnedGame parseOwnedGame(const nlohmann::json& gameJson);
     Steam::AppDetails parseAppDetails(unsigned int appId, const nlohmann::json& appJsonData);
 };

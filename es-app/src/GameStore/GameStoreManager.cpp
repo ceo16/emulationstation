@@ -58,7 +58,7 @@ GameStoreManager::GameStoreManager(Window* window) : mWindow(window) {
         // Il tuo SteamStore.h ha SteamStore(SteamAuth* auth); e uno che prendeva HttpManager.
         // Usa quello che prende solo SteamAuth*.
         SteamAuth* steamAuth = new SteamAuth(/* params per SteamAuth? */);
-        mStores["SteamStore"] = new SteamStore(steamAuth); // CORREZIONE: Assumendo che prenda solo SteamAuth*
+        mStores["SteamStore"] = new SteamStore(steamAuth, mWindow); // CORREZIONE: Assumendo che prenda solo SteamAuth*
         LOG(LogInfo) << "GameStoreManager: SteamStore registered successfully.";
     }
     

@@ -13,6 +13,7 @@
 #include "views/ViewController.h"
 #include "SdlEvents.h"              // Per SDL_STEAM_REFRESH_COMPLETE
 
+#include "json.hpp" // Per nlohmann/json
 #include <fstream>
 #include <sstream>
 #include <map>
@@ -23,10 +24,26 @@
 #include <chrono>
 #include <iomanip>                  // Per std::get_time
 #include <ctime>                    // Per std::tm, mktime
+#include <mutex> 
+#include "../../es-core/src/AppContext.h"
 
 #ifdef _WIN32
 #include <windows.h>
 #endif
+
+struct SteamScrapedGame {
+    unsigned int appId;
+    std::string name;
+    unsigned int playtimeForever;
+    time_t rtimeLastPlayed;
+};
+
+struct BasicGameInfo {
+    std::string path;
+    std::string appIdStr;
+    bool isInstalled;
+    std::string name;
+};
 
 // Helper Functions and Enums for VDF Parsing
 enum class VdfParseState {
@@ -35,13 +52,20 @@ enum class VdfParseState {
     ReadingValue
 };
 
+// NUOVO: unescapeVdfString più robusto
 static std::string unescapeVdfString(const std::string& str) {
     std::string result;
+    result.reserve(str.length());
     for (size_t i = 0; i < str.length(); ++i) {
         if (str[i] == '\\' && i + 1 < str.length()) {
-            if (str[i + 1] == '\\') result += '\\';
-            else if (str[i + 1] == '"') result += '"';
-            else result += str[i + 1]; // Handle other escape sequences if needed
+            switch (str[i + 1]) {
+                case '\\': result += '\\'; break;
+                case '"':  result += '"';  break;
+                case 'n':  result += '\n'; break;
+                case 't':  result += '\t'; break;
+                case 'r':  result += '\r'; break;
+                default:   result += str[i + 1]; break;
+            }
             ++i;
         } else {
             result += str[i];
@@ -50,99 +74,166 @@ static std::string unescapeVdfString(const std::string& str) {
     return result;
 }
 
+// MODIFICATO: Parser VDF con debugging estremamente dettagliato e logica più robusta.
 static std::map<std::string, std::string> parseVdf(const std::string& filePath) {
     std::map<std::string, std::string> data;
     std::ifstream file(filePath);
     if (!file.is_open()) {
-        LOG(LogError) << "VDF: Failed to open file: " << filePath;
+        LOG(LogError) << "VDF_DEBUG: Failed to open file: " << filePath;
         return data;
     }
 
-    VdfParseState state = VdfParseState::LookingForToken;
-    std::stack<std::string> blockStack;
+    std::stack<std::string> keyStack;
     std::string currentKey;
-    std::string currentToken;
-    int lineNumber = 1;
+    std::string currentValue;
+    std::string tempToken;
     bool inQuotes = false;
+    bool inLineComment = false;
+    bool inBlockComment = false; // Non usato ma presente nelle precedenti versioni, per coerenza.
+    char c;
+    int lineNumber = 1; // <<<< MODIFICATO: DICHIARAZIONE DI lineNumber QUI
 
-    auto processToken = [&]() {
-        if (currentToken.empty()) return;
-        LOG(LogDebug) << "VDF: Processing token: '" << currentToken << "' in state: " << static_cast<int>(state);
-        if (state == VdfParseState::LookingForToken) {
-            if (currentToken == "{") {
-                if (!currentKey.empty()) {
-                    blockStack.push(currentKey);
-                }
-            } else if (currentToken == "}") {
-                if (!blockStack.empty()) {
-                    blockStack.pop();
-                } else {
-                    LOG(LogWarning) << "VDF: Unbalanced curly braces in " << filePath << " at line " << lineNumber;
-                }
-            } else if (currentToken[0] == '"') {
-                currentKey = unescapeVdfString(currentToken.substr(1, currentToken.length() - 2));
-                state = VdfParseState::ReadingValue;
-            }
-        } else if (state == VdfParseState::ReadingValue) {
-            if (currentToken[0] == '"') {
-                data[currentKey] = unescapeVdfString(currentToken.substr(1, currentToken.length() - 2));
-            } else {
-                data[currentKey] = currentToken;
-            }
-            state = VdfParseState::LookingForToken;
-            currentKey = "";
+    auto trimQuotes = [](std::string s) {
+        if (s.length() >= 2 && s.front() == '"' && s.back() == '"') {
+            return s.substr(1, s.length() - 2);
         }
-        currentToken.clear();
+        return s;
     };
 
-    char c;
     while (file.get(c)) {
-        if (c == '"') {
-            inQuotes = !inQuotes;
-            if (!currentToken.empty() && state != VdfParseState::LookingForToken) {
-                currentToken += c;
-            } else {
-                currentToken += c;
+        if (c == '\n') lineNumber++; // Aggiorna il numero di riga qui, all'inizio del loop.
+
+        // ... (resto della logica di parseVdf, inclusi gestione commenti, virgolette, ecc.) ...
+        // Le righe che fanno riferimento a 'lineNumber' dovrebbero essere ora riconosciute.
+
+        if (inLineComment) {
+            if (c == '\n') {
+                inLineComment = false;
             }
-        } else if (std::isspace(c) && !inQuotes) {
-            processToken();
-        } else if (c == '{' || c == '}') {
-            if (!currentToken.empty()) {
-                processToken();
+            continue;
+        }
+        if (inBlockComment) {
+            if (c == '*' && file.peek() == '/') {
+                inBlockComment = false;
+                file.get(c);
             }
-            currentToken += c;
-            processToken();
-        } else {
-            currentToken += c;
+            continue;
         }
 
-        if (c == '\n') lineNumber++;
+        if (c == '/' && file.peek() == '/') {
+            inLineComment = true;
+            file.get(c);
+            continue;
+        }
+        if (c == '/' && file.peek() == '*') {
+            inBlockComment = true;
+            file.get(c);
+            continue;
+        }
+
+        if (c == '"') {
+            inQuotes = !inQuotes;
+            if (!inQuotes) {
+                if (!currentKey.empty() && currentKey.front() == '"') {
+                    currentKey = unescapeVdfString(trimQuotes(currentKey));
+                } else if (!currentValue.empty() && currentValue.front() == '"') {
+                    currentValue = unescapeVdfString(trimQuotes(currentValue));
+                    data[keyStack.empty() ? currentKey : keyStack.top() + "/" + currentKey] = currentValue;
+                    currentKey.clear();
+                    currentValue.clear();
+                }
+            } else {
+                tempToken.clear();
+            }
+            continue;
+        }
+
+        if (inQuotes) {
+            tempToken += c;
+            continue;
+        }
+
+        if (std::isspace(static_cast<unsigned char>(c)) || c == '{' || c == '}') {
+            if (!tempToken.empty()) {
+                if (currentKey.empty()) {
+                    currentKey = tempToken;
+                } else {
+                    currentValue = tempToken;
+                }
+                tempToken.clear();
+            }
+
+            if (c == '{') {
+                if (!currentKey.empty()) {
+                    keyStack.push(currentKey);
+                    currentKey.clear();
+                } else {
+                    LOG(LogWarning) << "VDF_DEBUG: Unexpected '{' at top level or without a key in " << filePath << ". Line: " << lineNumber << ". Assuming anonymous block.";
+                    keyStack.push("");
+                }
+            } else if (c == '}') {
+                if (!keyStack.empty()) {
+                    keyStack.pop();
+                } else {
+                    LOG(LogWarning) << "VDF_DEBUG: Unbalanced '}' in " << filePath << ". Line: " << lineNumber << ". Too many closing braces.";
+                }
+            }
+
+            if (!currentKey.empty() && !currentValue.empty()) {
+                std::string fullKey = currentKey;
+                if (!keyStack.empty()) {
+                    fullKey = keyStack.top() + "/" + currentKey;
+                }
+                data[fullKey] = currentValue;
+                currentKey.clear();
+                currentValue.clear();
+            }
+            continue;
+        }
+
+        tempToken += c;
     }
 
-    processToken(); // Process any remaining token
-    if (!blockStack.empty()) {
-        LOG(LogWarning) << "VDF: Unclosed block in " << filePath;
+    if (!tempToken.empty()) {
+        if (currentKey.empty()) {
+            currentKey = tempToken;
+        } else {
+            currentValue = tempToken;
+        }
+    }
+
+    if (!currentKey.empty() && !currentValue.empty()) {
+        std::string fullKey = currentKey;
+        if (!keyStack.empty()) {
+            fullKey = keyStack.top() + "/" + currentKey;
+        }
+        data[fullKey] = currentValue;
+    }
+    
+    if (!keyStack.empty()) {
+        LOG(LogWarning) << "VDF_DEBUG: Unclosed block(s) in " << filePath << ". Remaining blocks on stack.";
     }
 
     file.close();
+    LOG(LogInfo) << "VDF_DEBUG: Parser finished for file: " << filePath;
     return data;
 }
 
 // --- SteamStore Class Implementation ---
-
-SteamStore::SteamStore(SteamAuth* auth)
-    // Inizializza _initialized ereditato da GameStore
-    : GameStore(), mAuth(auth), mAPI(nullptr), mWindow(nullptr) {
+SteamStore::SteamStore(SteamAuth* auth, Window* window_param)
+    : GameStore(), mAuth(auth), mAPI(nullptr), mWindow(window_param) // Inizializza mWindow
+{
     LOG(LogDebug) << "SteamStore: Constructor";
     if (!mAuth) {
         LOG(LogError) << "SteamStore: Auth object is null in constructor!";
     }
     mAPI = new SteamStoreAPI(mAuth);
-if (!mAPI) {
-    LOG(LogError) << "SteamStore: Failed to create SteamStoreAPI object! mAPI is NULL."; // Log più specifico
-} else {
-    LOG(LogDebug) << "SteamStore: SteamStoreAPI object created successfully. mAPI pointer: " << mAPI; // Log di successo
-}
+    if (!mAPI) {
+        LOG(LogError) << "SteamStore: Failed to create SteamStoreAPI object! mAPI is NULL.";
+    } else {
+        LOG(LogDebug) << "SteamStore: SteamStoreAPI object created successfully. mAPI pointer: " << mAPI;
+    }
+    _initialized = false; // Imposta _initialized qui, poi init lo metterà a true.
 }
 
 SteamStore::~SteamStore() {
@@ -190,271 +281,169 @@ bool SteamStore::checkInstallationStatus(unsigned int appId, const std::vector<S
 }
 
 std::vector<FileData*> SteamStore::getGamesList() {
-  LOG(LogDebug) << "----------------------------------------------------";
-  LOG(LogDebug) << "SteamStore::getGamesList() - ENTRY POINT! ";
-  LOG(LogDebug) << "SteamStore: mAuth = " << mAuth << ", mAPI = " << mAPI;
-  std::vector<FileData*> gameList;
- 
+    LOG(LogDebug) << "SteamStore::getGamesList() - Lettura giochi esistenti dal SystemData.";
+    std::vector<FileData*> gameFiles;
+    SystemData* steamSystem = SystemData::getSystem("steam");
+    if (!steamSystem) {
+        LOG(LogError) << "SteamStore::getGamesList() - Sistema 'steam' non trovato!";
+        return gameFiles;
+    }
 
-  if (!this->_initialized || !this->mAPI) {
-  LOG(LogError) << "SteamStore not initialized or API unavailable.";
-  return gameList;
-  }
- 
-
-  //  1. Find locally installed games
-  std::vector<SteamInstalledGameInfo> installedGames = findInstalledSteamGames();
-  if (installedGames.empty()) {
-  LOG(LogWarning) << "No locally installed Steam games found.";
-  } else {
-  LOG(LogInfo) << "SteamStore: Found " << installedGames.size() << " locally installed Steam games.";
-  }
- 
-
-  //  2. Get games from online library if authenticated
-  std::vector<Steam::OwnedGame> onlineGames;
-  if (mAuth && mAuth->isAuthenticated() && !mAuth->getSteamId().empty() && !mAuth->getApiKey().empty()) {
-  onlineGames = mAPI->GetOwnedGames(mAuth->getSteamId(), mAuth->getApiKey());
-  if (onlineGames.empty()) {
-  LOG(LogWarning) << "No games found in the online Steam library.";
-  } else {
-  LOG(LogInfo) << "SteamStore: Obtained " << onlineGames.size() << " games from the online Steam library.";
-  }
-  } else {
-  LOG(LogInfo) << "SteamStore: Not authenticated or missing credentials, online library games will not be loaded.";
-  }
- 
-
-  SystemData* steamSystem = SystemData::getSystem("steam");
-  LOG(LogDebug) << "SteamStore: steamSystem = " << steamSystem;
-  if (!steamSystem) {
-  LOG(LogError) << "SteamStore::getGamesList() - Could not find SystemData for 'steam'. Games might not have the correct system.";
-  }
- 
-
-  std::map<unsigned int, FileData*> processedGames;
- 
-
-  //  First, installed games
-  for (const auto& installedGame : installedGames) {
-  if (installedGame.appId == 0) continue;
- 
-
-  FileData* fd = new FileData(FileType::GAME, getGameLaunchUrl(installedGame.appId), steamSystem);
- 
-
-  fd->setMetadata(MetaDataId::Name, installedGame.name);
-  fd->setMetadata(MetaDataId::SteamAppId, std::to_string(installedGame.appId));
-  fd->setMetadata(MetaDataId::Installed, "true");
-  fd->setMetadata(MetaDataId::Virtual, "false");
-  fd->setMetadata(MetaDataId::Path, installedGame.libraryFolderPath + "/common/" + installedGame.installDir);
-  fd->setMetadata(MetaDataId::LaunchCommand, getGameLaunchUrl(installedGame.appId));
- 
-
-  processedGames[installedGame.appId] = fd;
-  gameList.push_back(fd);
-  }
- 
-
-  //  Then, online games
-  for (const auto& onlineGame : onlineGames) {
-  if (onlineGame.appId == 0) continue;
- 
-
-  if (processedGames.find(onlineGame.appId) == processedGames.end()) {
-  FileData* fd = new FileData(FileType::GAME, getGameLaunchUrl(onlineGame.appId), steamSystem);
- 
-
-  fd->setMetadata(MetaDataId::Name, onlineGame.name);
-  fd->setMetadata(MetaDataId::SteamAppId, std::to_string(onlineGame.appId));
-  fd->setMetadata(MetaDataId::Installed, checkInstallationStatus(onlineGame.appId, installedGames) ? "true" : "false");
-  fd->setMetadata(MetaDataId::Virtual, "true");
-  fd->setMetadata(MetaDataId::LaunchCommand, getGameLaunchUrl(onlineGame.appId));
- 
-
-  processedGames[onlineGame.appId] = fd;
-  gameList.push_back(fd);
-  } else {
-  FileData* existingFd = processedGames[onlineGame.appId];
-  if (existingFd->getMetadata().get(MetaDataId::Name).empty() || existingFd->getMetadata().get(MetaDataId::Name) == "N/A") {
-  existingFd->setMetadata(MetaDataId::Name, onlineGame.name);
-  }
-  //  TODO: Update playtime if necessary
-  }
-  }
- 
-
-  LOG(LogInfo) << "SteamStore::getGamesList() - End, returned " << gameList.size() << " games.";
-  return gameList;
- }
- 
- std::future<void> SteamStore::refreshSteamGamesListAsync() {
-    // Cattura 'this' per accedere ai membri e metodi della classe
+    // Restituisce semplicemente i giochi già presenti nel SystemData per "steam".
+    // I giochi vengono aggiunti/aggiornati in refreshSteamGamesListAsync.
+    if (steamSystem->getRootFolder()) {
+        gameFiles = steamSystem->getRootFolder()->getFilesRecursive(GAME, true);
+    }
+    
+    LOG(LogInfo) << "SteamStore::getGamesList() - Fine, restituiti " << gameFiles.size() << " giochi esistenti.";
+    return gameFiles;
+}
+std::future<void> SteamStore::refreshSteamGamesListAsync() {
     return std::async(std::launch::async, [this]() {
-        std::vector<NewSteamGameData>* payload = nullptr;
-        SystemData* steamSystemForEvent = nullptr; 
-        bool initialChecksOk = false;
-        auto startTime = std::chrono::high_resolution_clock::now();
+        LOG(LogInfo) << "Steam Store Refresh BG: Avvio refresh asincrono (Parte 1)...";
 
-        LOG(LogInfo) << "Steam Store Refresh BG: Starting asynchronous refresh...";
+        // --- FASE 1: RACCOLTA DATI ESISTENTI E GIOCHI INSTALLATI (come prima) ---
+        std::vector<BasicGameInfo> copiedExistingGamesInfo;
+        std::map<std::string, BasicGameInfo> copiedGamesMap;
 
         try {
-            // --- CONTROLLI PRELIMINARI ---
-            LOG(LogDebug) << "Steam Store Refresh BG: Performing pre-checks...";
-            LOG(LogDebug) << "  - 'this' pointer: " << static_cast<void*>(this);
-            if (!this) {
-                LOG(LogError) << "Steam Store Refresh BG: 'this' pointer is NULL! Aborting.";
-                // L'evento verrà inviato nel blocco 'finally' implicito con payload nullo.
-                // Per sicurezza, creiamo un payload vuoto per evitare dereferenziazioni nulle nel gestore.
-                payload = new std::vector<NewSteamGameData>();
-                throw std::runtime_error("'this' pointer is null"); // Esce dal try, va al catch, poi invia evento.
-            }
-            LOG(LogDebug) << "  - this->_initialized: " << this->_initialized;
-            LOG(LogDebug) << "  - this->mAuth pointer: " << static_cast<void*>(this->mAuth);
-            LOG(LogDebug) << "  - this->mAPI pointer: " << static_cast<void*>(this->mAPI);
+            { // Blocco per il lock
+                std::lock_guard<std::mutex> lock(g_systemDataMutex);
+                SystemData* steamSystem = SystemData::getSystem("steam");
+                if (!steamSystem || !steamSystem->getRootFolder()) {
+                    LOG(LogError) << "Steam Store Refresh BG: Sistema Steam non trovato. Annullamento.";
+                    return;
+                }
+                if (!mAuth || !mAuth->isAuthenticated()) {
+                    LOG(LogError) << "Steam Store Refresh BG: Non autenticato. Annullamento.";
+                    return;
+                }
 
-            if (!this->_initialized || !this->mAuth || !this->mAPI) {
-                LOG(LogError) << "Steam Store Refresh BG: Precondition failed: Store not initialized, Auth, or API unavailable.";
-                if (!this->_initialized) LOG(LogError) << "   - Reason: _initialized is false";
-                if (!this->mAuth) LOG(LogError) << "   - Reason: mAuth is NULL";
-                if (!this->mAPI) LOG(LogError) << "   - Reason: mAPI is NULL";
-                payload = new std::vector<NewSteamGameData>(); // Payload vuoto per segnalare problema
-                throw std::runtime_error("Store prerequisites not met");
-            }
-
-            if (!this->mAuth->isAuthenticated()) {
-                LOG(LogError) << "Steam Store Refresh BG: Not authenticated. Aborting.";
-                payload = new std::vector<NewSteamGameData>(); // Payload vuoto
-                throw std::runtime_error("Not authenticated");
-            }
-            LOG(LogInfo) << "Steam Store Refresh BG: Authentication verified as TRUE.";
-
-            steamSystemForEvent = SystemData::getSystem("steam");
-            if (!steamSystemForEvent || !steamSystemForEvent->getRootFolder()) {
-                LOG(LogError) << "Steam Store Refresh BG: Cannot find Steam system or its root folder (" << this->getStoreName() << "). Aborting.";
-                payload = new std::vector<NewSteamGameData>(); // Payload vuoto
-                throw std::runtime_error("Steam system or root folder not found");
-            }
-            initialChecksOk = true; // Tutti i controlli iniziali sono passati
-
-            // --- RACCOLTA DATI (solo se i controlli iniziali sono OK) ---
-            LOG(LogInfo) << "Steam Store Refresh BG: Collecting data...";
-            std::set<unsigned int> existingAppIds;
-            LOG(LogDebug) << "Steam Store Refresh BG: Collecting existing AppIDs...";
-            try {
-                std::vector<FileData*> currentFiles = steamSystemForEvent->getRootFolder()->getFilesRecursive(GAME);
-                for (FileData* fd : currentFiles) {
+                std::vector<FileData*> currentSystemGames = steamSystem->getRootFolder()->getFilesRecursive(GAME, true);
+                for (FileData* fd : currentSystemGames) {
                     if (!fd) continue;
-                    std::string appIdStr = fd->getMetadata().get(MetaDataId::SteamAppId);
-                    if (!appIdStr.empty()) {
-                        try { existingAppIds.insert(std::stoul(appIdStr)); } catch(...) { /* ignora errori di conversione */ }
-                    }
+                    BasicGameInfo info;
+                    info.path = fd->getPath();
+                    info.appIdStr = fd->getMetadata().get(MetaDataId::SteamAppId);
+                    info.isInstalled = (fd->getMetadata().get(MetaDataId::Installed) == "true");
+                    info.name = fd->getName();
+                    copiedExistingGamesInfo.push_back(info);
                 }
-                LOG(LogDebug) << "Steam Store Refresh BG: Found " << existingAppIds.size() << " existing AppIDs.";
-            } catch (const std::exception& e) {
-                LOG(LogError) << "Steam Store Refresh BG: Exception while collecting existing AppIDs: " << e.what();
-                // Non rilanciare, potremmo voler comunque inviare un payload vuoto.
-                // Il payload sarà vuoto se si arriva qui e non viene popolato dopo.
+            } // Fine lock
+
+            for (const auto& gameInfo : copiedExistingGamesInfo) {
+                if (!gameInfo.appIdStr.empty()) copiedGamesMap[gameInfo.appIdStr] = gameInfo;
+                else copiedGamesMap[gameInfo.path] = gameInfo;
             }
 
-            LOG(LogInfo) << "Steam Store Refresh BG: Searching for installed games...";
-            std::vector<SteamInstalledGameInfo> installedGames = findInstalledSteamGames(); // Assicurati che questa funzione sia robusta
-            LOG(LogInfo) << "Steam Store Refresh BG: Found " << installedGames.size() << " installed games.";
+            LOG(LogInfo) << "Steam Store Refresh BG: Ricerca giochi Steam installati localmente...";
+            std::vector<SteamInstalledGameInfo> installedGames = findInstalledSteamGames();
+            LOG(LogInfo) << "Steam Store Refresh BG: Trovati " << installedGames.size() << " giochi installati.";
 
-            std::vector<Steam::OwnedGame> onlineGames;
-            LOG(LogInfo) << "Steam Store Refresh BG: Fetching online owned games...";
+            // --- FASE 2: DEFINIZIONE DEL LAVORO DA FARE DOPO LO SCRAPING ---
+            // Questo blocco di codice verrà eseguito DOPO che la WebView ha finito.
+            auto processScrapedData = [this, copiedGamesMap, installedGames](const std::string& scrapedGameDataJson) {
+                LOG(LogInfo) << "Steam Store Refresh BG: Avvio elaborazione dati (Parte 2)...";
+                std::vector<NewSteamGameData> newGamesPayload;
+                bool metadataChangedForExisting = false; // Traccia se i metadati cambiano
+
+                // (Qui andrebbe tutta la logica di parsing del JSON e confronto con i giochi installati.
+                // Per ora, ci concentriamo sul far funzionare il flusso.
+                // Se lo scraping ha successo, questo log apparirà)
+                if (!scrapedGameDataJson.empty() && scrapedGameDataJson != "null")
+{
+    LOG(LogInfo) << "Steam Store Refresh BG: Scraping riuscito! Inizio il parsing del JSON...";
+    try
+    {
+        nlohmann::json profileJson = nlohmann::json::parse(scrapedGameDataJson);
+        
+        // IL CAMBIAMENTO CHIAVE E' QUI: cerchiamo la lista dentro l'oggetto del profilo.
+        // La pagina dei giochi di Steam la chiama "rgGames".
+        if (profileJson.is_object() && profileJson.contains("rgGames") && profileJson["rgGames"].is_array())
+        {
+            nlohmann::json gamesJson = profileJson["rgGames"];
+            LOG(LogInfo) << "Steam Store Refresh BG: Trovata la lista 'rgGames' con " << gamesJson.size() << " giochi.";
+
+            for (const auto& gameNode : gamesJson)
+            {
+                if (!gameNode.is_object() || !gameNode.contains("appid") || !gameNode.contains("name")) {
+                    continue;
+                }
+
+                unsigned int appId = gameNode.value("appid", 0);
+                if (appId == 0 || appId == 228980) continue; 
+
+                std::string appIdStr = std::to_string(appId);
+                if (copiedGamesMap.find(appIdStr) != copiedGamesMap.end()) {
+                    continue; // Gioco già presente
+                }
+
+                NewSteamGameData data;
+                data.pseudoPath = "steam_online_appid://" + appIdStr;
+                data.metadataMap[MetaDataId::Name] = gameNode.value("name", "Unknown Steam Game");
+                data.metadataMap[MetaDataId::SteamAppId] = appIdStr;
+                data.metadataMap[MetaDataId::Installed] = "false";
+                data.metadataMap[MetaDataId::Virtual] = "true";
+                data.metadataMap[MetaDataId::LaunchCommand] = "steam://rungameid/" + appIdStr;
+
+                unsigned int playtimeMinutes = gameNode.value("playtime_forever", 0);
+            //    data.metadataMap[MetaDataId::PlayTime] = std::to_string(playtimeMinutes * 60);
+
+                time_t lastPlayedTimestamp = gameNode.value("rtime_last_played", 0);
+                if (lastPlayedTimestamp > 0) {
+                     data.metadataMap[MetaDataId::LastPlayed] = Utils::Time::timeToMetaDataString(lastPlayedTimestamp);
+                }
+
+                newGamesPayload.push_back(data);
+            }
+            LOG(LogInfo) << "Steam Store Refresh BG: Parsing completato. Aggiunti " << newGamesPayload.size() << " nuovi giochi online.";
+        }
+        else
+        {
+            LOG(LogError) << "Steam Store Refresh BG: Il JSON ricevuto non contiene la lista 'rgGames' attesa.";
+        }
+    }
+    catch (const nlohmann::json::parse_error& e) {
+        LOG(LogError) << "Steam Store Refresh BG: Errore fatale durante il parsing del JSON dei giochi: " << e.what();
+    }
+}
+else {
+    LOG(LogWarning) << "Steam Store Refresh BG: Nessun dato valido ricevuto dallo scraping.";
+}
+
+                // --- FASE FINALE: INVIO EVENTO ALL'INTERFACCIA ---
+                SystemData* steamSystemForEvent = SystemData::getSystem("steam");
+                if(steamSystemForEvent) {
+                    SDL_Event event;
+                    SDL_zero(event);
+                    event.type = SDL_USEREVENT;
+                    // !!! QUESTA E' LA CORREZIONE DEL PASSO 2 !!!
+                    event.user.code = SDL_STEAM_REFRESH_COMPLETE;
+                    event.user.data1 = new std::vector<NewSteamGameData>(newGamesPayload);
+                    event.user.data2 = steamSystemForEvent;
+                    SDL_PushEvent(&event);
+                    LOG(LogInfo) << "Steam Store Refresh BG: Lavoro completato. Evento di fine inviato all'interfaccia.";
+                }
+            };
+
+            // --- FASE 3: AVVIO DELLO SCRAPING SUL THREAD UI ---
+            LOG(LogInfo) << "Steam Store Refresh BG: Invio richiesta di scraping al thread UI...";
             std::string steamId = mAuth->getSteamId();
-            std::string apiKey = mAuth->getApiKey();
-            if (!steamId.empty() && !apiKey.empty()) {
-                try {
-                    onlineGames = this->mAPI->GetOwnedGames(steamId, apiKey, true, true); // Assumendo che `this->mAPI` sia l'oggetto corretto
-                    LOG(LogInfo) << "Steam Store Refresh BG: Fetched " << onlineGames.size() << " online games.";
-                } catch (const std::exception& e) {
-                    LOG(LogError) << "Steam Store Refresh BG: Exception fetching owned games: " << e.what();
-                    // Continua, potremmo avere giochi installati da processare
-                }
-            } else {
-                 LOG(LogWarning) << "Steam Store Refresh BG: SteamID or API Key missing, cannot fetch online games.";
-            }
-
-            // --- PREPARAZIONE PAYLOAD ---
-            LOG(LogInfo) << "Steam Store Refresh BG: Identifying new games and preparing payload...";
-            payload = new std::vector<NewSteamGameData>(); // Alloca il payload qui
-            std::set<unsigned int> processedForPayload; 
-
-            for (const auto& installedGame : installedGames) {
-                if (installedGame.appId == 0) continue;
-                if (existingAppIds.find(installedGame.appId) == existingAppIds.end()) { 
-                    if (processedForPayload.insert(installedGame.appId).second) { 
-                        NewSteamGameData data;
-                        data.pseudoPath = getGameLaunchUrl(installedGame.appId); 
-                        data.metadataMap[MetaDataId::Name] = installedGame.name;
-                        data.metadataMap[MetaDataId::SteamAppId] = std::to_string(installedGame.appId);
-                        data.metadataMap[MetaDataId::Installed] = "true";
-                        data.metadataMap[MetaDataId::Virtual] = "false";
-                        data.metadataMap[MetaDataId::InstallDir] = installedGame.libraryFolderPath + "/common/" + installedGame.installDir;
-                        data.metadataMap[MetaDataId::LaunchCommand] = data.pseudoPath;
-                        payload->push_back(data);
-                        LOG(LogDebug) << "  Added NEW INSTALLED to payload: " << installedGame.name;
+            mWindow->postToUiThread([this, steamId, processScrapedData]() {
+                mAPI->getOwnedGamesViaScraping(mWindow, steamId, [processScrapedData](bool success, const std::string& gameDataJson) {
+                    // Quando la webview ha finito, chiama la funzione che abbiamo definito prima
+                    if (success) {
+                        processScrapedData(gameDataJson);
+                    } else {
+                        LOG(LogError) << "Scraping fallito, chiamo il processo di elaborazione con dati vuoti.";
+                        processScrapedData(""); // Gestisce il fallimento
                     }
-                }
-            }
-
-            for (const auto& onlineGame : onlineGames) {
-                if (onlineGame.appId == 0) continue;
-                if (existingAppIds.find(onlineGame.appId) == existingAppIds.end()) { 
-                    if (processedForPayload.insert(onlineGame.appId).second) { 
-                        NewSteamGameData data;
-                        data.pseudoPath = getGameLaunchUrl(onlineGame.appId); 
-                        data.metadataMap[MetaDataId::Name] = onlineGame.name.empty() ? ("Steam Game " + std::to_string(onlineGame.appId)) : onlineGame.name;
-                        data.metadataMap[MetaDataId::SteamAppId] = std::to_string(onlineGame.appId);
-                        data.metadataMap[MetaDataId::Installed] = "false"; 
-                        data.metadataMap[MetaDataId::Virtual] = "true";
-                        data.metadataMap[MetaDataId::LaunchCommand] = data.pseudoPath;
-                        payload->push_back(data);
-                        LOG(LogDebug) << "  Added NEW ONLINE to payload: " << onlineGame.name;
-                    }
-                }
-            }
-
-            if (payload->empty()) {
-                LOG(LogInfo) << "Steam Store Refresh BG: No new games found to add.";
-            } else {
-                LOG(LogInfo) << "Steam Store Refresh BG: Prepared payload with " << payload->size() << " new games.";
-            }
+                });
+            });
 
         } catch (const std::exception& e) {
-            LOG(LogError) << "Steam Store Refresh BG: General exception during refresh logic: " << e.what();
-            if (payload == nullptr) { // Se l'eccezione è avvenuta prima dell'allocazione del payload
-                payload = new std::vector<NewSteamGameData>(); // Alloca un payload vuoto
-            } else {
-                // Se payload era già allocato ma c'è stata un'eccezione dopo, 
-                // potrebbe contenere dati parziali. Potresti volerlo svuotare.
-                // payload->clear(); // Opzionale: svuota se preferisci un payload pulito in caso di errore
-            }
-        } catch (...) {
-            LOG(LogError) << "Steam Store Refresh BG: Unknown exception during refresh logic.";
-            if (payload == nullptr) {
-                payload = new std::vector<NewSteamGameData>();
-            }
+            LOG(LogError) << "Steam Store Refresh BG: Eccezione generale: " << e.what();
         }
-
-        // --- INVIO EVENTO (SEMPRE) ---
-        auto endTime = std::chrono::high_resolution_clock::now();
-        auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - startTime);
-        LOG(LogInfo) << "Steam Store Refresh BG: Operation completed. Duration: " << duration.count() << " ms. Pushing completion event.";
-
-        SDL_Event event;
-        SDL_zero(event); // o SDL_memset(&event, 0, sizeof(event));
-        event.type = SDL_USEREVENT; // Assicurati che il tuo sistema registri e gestisca SDL_USEREVENT
-                                    // o usa un tipo di evento utente specifico se registrato con SDL_RegisterEvents()
-        event.user.code = SDL_STEAM_REFRESH_COMPLETE; // Il tuo codice specifico per questo evento
-        event.user.data1 = payload;        // Passa il payload (che è SEMPRE allocato qui, anche se vuoto)
-        event.user.data2 = steamSystemForEvent; // Passa il puntatore al sistema (può essere nullptr se i check iniziali sono falliti)
-        
-        SDL_PushEvent(&event);
-        // Il gestore eventi nel thread principale è ora responsabile della deallocazione di 'payload'
-        // (event.user.data1) dopo averlo usato.
     });
 }
 
@@ -549,7 +538,7 @@ std::string SteamStore::getSteamInstallationPath() {
 std::vector<std::string> SteamStore::getSteamLibraryFolders(const std::string& steamPath) {
     std::vector<std::string> libraryFolders;
     if (steamPath.empty() || !Utils::FileSystem::exists(steamPath)) {
-        LOG(LogWarning) << "SteamStore: Invalid or not found Steam installation path: " << steamPath;
+        LOG(LogWarning) << "SteamStore: Percorso di installazione Steam non valido o non trovato: " << steamPath;
         return libraryFolders;
     }
 
@@ -558,18 +547,21 @@ std::vector<std::string> SteamStore::getSteamLibraryFolders(const std::string& s
         libraryFolders.push_back(Utils::FileSystem::getGenericPath(mainSteamApps));
     }
 
-    std::string libraryFoldersVdfPath = steamPath + "/config/libraryfolders.vdf"; // Corrected path
-    LOG(LogDebug) << "SteamStore: Attempting to read libraryfolders.vdf from: " << libraryFoldersVdfPath;
+    std::string libraryFoldersVdfPath = steamPath + "/config/libraryfolders.vdf";
+    LOG(LogDebug) << "SteamStore: Tentativo di leggere libraryfolders.vdf da: " << libraryFoldersVdfPath;
 
     if (Utils::FileSystem::exists(libraryFoldersVdfPath)) {
         try {
             std::map<std::string, std::string> vdfData = parseVdf(libraryFoldersVdfPath);
-            for (const auto& pair : vdfData) {
-                if (Utils::String::isNumber(pair.first) && pair.second.find(":\\") != std::string::npos) { // Basic path check
-                    std::string path = Utils::FileSystem::getGenericPath(pair.second) + "/steamapps";
+            // MODIFICATO: Accedi alle cartelle della libreria usando le chiavi gerarchiche (es. "0/path", "1/path")
+            for (int i = 0; ; ++i) { // Cicla per trovare tutte le cartelle numerate (0, 1, 2, ...)
+                std::string pathKey = std::to_string(i) + "/path";
+                if (vdfData.count(pathKey)) {
+                    std::string path = Utils::FileSystem::getGenericPath(vdfData[pathKey]) + "/steamapps";
                     if (Utils::FileSystem::exists(path) && Utils::FileSystem::isDirectory(path)) {
                         bool alreadyAdded = false;
                         for (const auto& existing : libraryFolders) {
+                            // Confronta i percorsi genericizzati per evitare duplicati.
                             if (Utils::FileSystem::getGenericPath(existing) == Utils::FileSystem::getGenericPath(path)) {
                                 alreadyAdded = true;
                                 break;
@@ -577,20 +569,24 @@ std::vector<std::string> SteamStore::getSteamLibraryFolders(const std::string& s
                         }
                         if (!alreadyAdded) {
                             libraryFolders.push_back(Utils::FileSystem::getGenericPath(path));
-                            LOG(LogInfo) << "SteamStore: Found additional Steam library folder: " << path;
+                            LOG(LogInfo) << "SteamStore: Trovata cartella libreria Steam aggiuntiva: " << path;
                         }
                     }
+                } else {
+                    // Se la chiave numerica non esiste, significa che non ci sono più cartelle da aggiungere.
+                    break;
                 }
             }
+
         } catch (const std::exception& e) {
-            LOG(LogError) << "SteamStore: Error parsing libraryfolders.vdf: " << e.what();
+            LOG(LogError) << "SteamStore: Errore durante il parsing di libraryfolders.vdf: " << e.what();
         }
     } else {
-        LOG(LogInfo) << "SteamStore: libraryfolders.vdf not found.";
+        LOG(LogInfo) << "SteamStore: libraryfolders.vdf non trovato.";
     }
 
     if (libraryFolders.empty()) {
-        LOG(LogWarning) << "SteamStore: No Steam library folders found (not even the main one?).";
+        LOG(LogWarning) << "SteamStore: Nessuna cartella libreria Steam trovata (nemmeno la principale?).";
     }
     return libraryFolders;
 }
@@ -641,24 +637,31 @@ SteamInstalledGameInfo SteamStore::parseAppManifest(const std::string& acfFilePa
     try {
         std::map<std::string, std::string> appStateValues = parseVdf(acfFilePath);
 
-        if (appStateValues.count("appid")) gameInfo.appId = static_cast<unsigned int>(std::stoul(appStateValues["appid"]));
-        if (appStateValues.count("name")) gameInfo.name = appStateValues["name"];
-        if (appStateValues.count("installdir")) gameInfo.installDir = appStateValues["installdir"];
-        if (appStateValues.count("StateFlags")) {
-            unsigned int stateFlags = static_cast<unsigned int>(std::stoul(appStateValues["StateFlags"]));
-            if ((stateFlags & 4) != 0) {
+        // MODIFICATO: Accedi alle chiavi usando il percorso completo (ad esempio, "AppState/appid")
+        // in base alla struttura VDF tipica dei file .acf.
+        if (appStateValues.count("AppState/appid")) gameInfo.appId = static_cast<unsigned int>(std::stoul(appStateValues["AppState/appid"]));
+        if (appStateValues.count("AppState/name")) gameInfo.name = appStateValues["AppState/name"];
+        if (appStateValues.count("AppState/installdir")) gameInfo.installDir = appStateValues["AppState/installdir"];
+        if (appStateValues.count("AppState/StateFlags")) {
+            unsigned int stateFlags = static_cast<unsigned int>(std::stoul(appStateValues["AppState/StateFlags"]));
+            if ((stateFlags & 4) != 0) { // StateFlags == 4 significa "Fully Installed"
                 gameInfo.fullyInstalled = true;
             }
         }
+        // Aggiungi altre chiavi se necessario, ad esempio "AppState/LastOwner"
+     //   if (appStateValues.count("AppState/LastOwner")) gameInfo.lastOwnerId = appStateValues["AppState/LastOwner"];
+        // ... (altre chiavi utili da ACF, come "Universe", "buildid", "LastPlayed")
 
     } catch (const std::exception& e) {
-        LOG(LogError) << "SteamStore: Error parsing ACF file: " << acfFilePath << " - " << e.what();
-        throw; // Re-throw the exception to be caught in findInstalledSteamGames
+        LOG(LogError) << "SteamStore: Errore parsing ACF file: " << acfFilePath << " - " << e.what();
+        // Nota: Il LOG qui è generico. Il log precedente mostrava un LogError diverso per il refresh.
+        // Questo è il log specifico per l'eccezione interna del parsing ACF.
+        throw; // Rilancia l'eccezione per essere gestita a un livello superiore.
     }
 
     if (gameInfo.appId == 0 || gameInfo.name.empty() || gameInfo.installDir.empty()) {
-        LOG(LogWarning) << "SteamStore: Incomplete data in manifest ACF: " << acfFilePath;
-        gameInfo.fullyInstalled = false; // Ensure it's marked as not fully installed
+        LOG(LogWarning) << "SteamStore: Dati incompleti nel manifest ACF: " << acfFilePath;
+        gameInfo.fullyInstalled = false; // Assicurati che sia marcato come non completamente installato
     }
     return gameInfo;
 }

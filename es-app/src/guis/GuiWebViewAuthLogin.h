@@ -44,7 +44,9 @@ public:
     };
 
 
-    GuiWebViewAuthLogin(Window* window, const std::string& initialUrl, const std::string& storeNameForLogging, const std::string& watchRedirectPrefix = "", AuthMode mode = AuthMode::DEFAULT);
+        GuiWebViewAuthLogin(Window* window, const std::string& initialUrl, const std::string& storeNameForLogging, const std::string& watchRedirectPrefix = "", AuthMode mode = AuthMode::DEFAULT, bool visible = true);
+
+	
     virtual ~GuiWebViewAuthLogin();
 
     void render(const Transform4x4f& parentTrans) override;
@@ -96,6 +98,7 @@ private:
      AuthMode mAuthMode;
      std::string mAuthCode;
     std::string mSteamCookieDomain;
+	bool mIsVisible;
 
 #ifdef _WIN32
     void getSteamCookies(); // Funzione helper solo per Steam

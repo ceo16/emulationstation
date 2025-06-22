@@ -1035,6 +1035,8 @@ bool isNumber(const std::string& str) {
 
 			return neg ? -value : value;
 		}
+		
+		
 
 		std::string decodeXmlString(const std::string& string)
 		{

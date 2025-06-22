@@ -12,6 +12,10 @@
 #include "SystemData.h"
 #include "MetaData.h"
 #include <future> // Per std::future
+#include "Window.h"
+#include <vector>
+#include <string>
+#include <map>
 
 // Helper struct per info giochi installati (simile a Playnite)
 struct SteamInstalledGameInfo {
@@ -31,7 +35,7 @@ struct NewSteamGameData {
 class SteamStore : public GameStore
 {
 public:
-    SteamStore(SteamAuth* auth);
+    SteamStore(SteamAuth* auth, Window* window); // MODIFICATO: Aggiunto Window*
     ~SteamStore() override;
 
     bool init(Window* window) override;
@@ -40,7 +44,7 @@ public:
     std::string getStoreName() const override;
 	SteamStoreAPI* getApi() { return mAPI; } // Add this line
 
-    std::vector<FileData*> getGamesList() override; // Mostra giochi installati e/o posseduti online
+    std::vector<FileData*> getGamesList() override; // Mostra giochi installati e/o posseduti onlin
     bool installGame(const std::string& gameId) override;   // gameId qui è l'appId
     bool uninstallGame(const std::string& gameId) override; // gameId qui è l'appId
     bool updateGame(const std::string& gameId) override;    // gameId qui è l'appId

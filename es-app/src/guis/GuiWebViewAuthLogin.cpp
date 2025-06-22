@@ -27,7 +27,7 @@
 #include "guis/GuiWebViewAuthLogin.h"
 
 
-GuiWebViewAuthLogin::GuiWebViewAuthLogin(Window* window, const std::string& initialUrl, const std::string& storeNameForLogging, const std::string& watchRedirectPrefix, AuthMode mode)
+GuiWebViewAuthLogin::GuiWebViewAuthLogin(Window* window, const std::string& initialUrl, const std::string& storeNameForLogging, const std::string& watchRedirectPrefix, AuthMode mode, bool visible)
     : GuiComponent(window),
       mLoading(false),
       mCurrentInitialUrl(initialUrl),
@@ -37,7 +37,8 @@ GuiWebViewAuthLogin::GuiWebViewAuthLogin(Window* window, const std::string& init
       mRedirectSuccessfullyHandled(false), // <-- VIRGOLA AGGIUNTA QUI
       mAuthMode(mode),
       mSteamCookieDomain(""), // <-- VIRGOLA AGGIUNTA QUI
-	  mAuthCode("")
+	  mAuthCode(""),
+	  mIsVisible(visible) // Inizializza la nuova variabile
 #ifdef _WIN32
     , mParentHwnd(nullptr),
       mWebViewEnvironment(nullptr),
@@ -116,6 +117,9 @@ void GuiWebViewAuthLogin::setWatchRedirectPrefix(const std::string& prefix)
 
 void GuiWebViewAuthLogin::render(const Transform4x4f& parentTrans)
 {
+	if (!mIsVisible) {
+        return; // Non disegnare nulla se invisibile
+    }
     Transform4x4f trans = parentTrans * getTransform();
     Renderer::setMatrix(trans); 
     
@@ -320,9 +324,13 @@ bool GuiWebViewAuthLogin::initializeWebView() {
                                 }
 
                                 if (SUCCEEDED(hr_cookie) && cookieManager) {
-                                    cookieManager->DeleteAllCookies();
-                                    LOG(LogInfo) << "[" << this->mStoreNameForLogging << "] Chiamata a DeleteAllCookies() per il profilo WebView eseguita con successo.";
-                                } else {
+    // AGGIUNGI QUESTO CONTROLLO: Cancella i cookie solo se NON siamo in modalità scraping
+    if (mAuthMode != AuthMode::FETCH_STEAM_GAMES_JSON) 
+    {
+        cookieManager->DeleteAllCookies();
+        LOG(LogInfo) << "[" << this->mStoreNameForLogging << "] Chiamata a DeleteAllCookies() per il profilo WebView eseguita con successo.";
+    }
+} else {
                                     LOG(LogError) << "[" << this->mStoreNameForLogging << "] Fallimento nell'ottenere CookieManager. HR: 0x" << std::hex << hr_cookie;
                                     LOG(LogError) << "[" << this->mStoreNameForLogging << "] Assicurati che l'interfaccia ICoreWebView2_N interrogata sia quella corretta che espone get_CookieManager nella tua versione dell'SDK WebView2.";
                                 }
@@ -442,7 +450,7 @@ bool GuiWebViewAuthLogin::initializeWebView() {
 LOG(LogDebug) << "[" << this->mStoreNameForLogging << "] Gestore NavigationStarting aggiunto.";
                            
 
-                            this->mWebView->add_NavigationCompleted(Microsoft::WRL::Callback<ICoreWebView2NavigationCompletedEventHandler>(
+                           this->mWebView->add_NavigationCompleted(Microsoft::WRL::Callback<ICoreWebView2NavigationCompletedEventHandler>(
     [this](ICoreWebView2* sender, ICoreWebView2NavigationCompletedEventArgs* args) -> HRESULT {
         this->mLoading = false;
         BOOL isSuccess = FALSE;
@@ -453,67 +461,179 @@ LOG(LogDebug) << "[" << this->mStoreNameForLogging << "] Gestore NavigationStart
         CoTaskMemFree(srcUriRaw);
 
         LOG(LogInfo) << "[" << mStoreNameForLogging << "] WebView NavigationCompleted. URI: " << srcUri << ", Success: " << (isSuccess ? "true" : "false");
-		
-	   if (mAuthMode == AuthMode::FETCH_STEAM_COOKIE && !mRedirectSuccessfullyHandled) {
-            PWSTR srcUriRaw = nullptr;
-            sender->get_Source(&srcUriRaw);
-            std::string srcUri = Utils::String::convertFromWideString(std::wstring(srcUriRaw ? srcUriRaw : L""));
-            CoTaskMemFree(srcUriRaw);
 
-            // Se siamo sulla pagina dei giochi...
-            if (srcUri.find("/games") != std::string::npos) {
-                 LOG(LogInfo) << "[Steam] Pagina giochi caricata. Eseguo script per scraping dati.";
-                 mRedirectSuccessfullyHandled = true;
-
-                 const char* script = "document.querySelector('#gameslist_config')?.getAttribute('data-profile-gameslist');";
-                 
-                 // Eseguiamo lo script. La callback di questo metodo ora chiamerà la callback principale.
-                 this->executeScriptAndGetResult(script, [this](const std::string& jsonString) {
-                     if (mOnLoginFinishedCallback) {
-                         mWindow->postToUiThread([this, jsonString] {
-                             // Passiamo il risultato dello script direttamente alla UI.
-                             mOnLoginFinishedCallback(true, jsonString);
-                         });
-                     }
-                 });
-                 return S_OK; // Abbiamo gestito l'evento.
+        // Assicurati che la navigazione sia avvenuta con successo per continuare con l'analisi della pagina.
+        if (!isSuccess) {
+            LOG(LogError) << "[" << mStoreNameForLogging << "] Navigazione fallita. Non eseguo script o callbacks di successo.";
+            if (mOnLoginFinishedCallback && !mRedirectSuccessfullyHandled) { // Solo se non gestito e non per reindirizzamento
+                mWindow->postToUiThread([this, srcUri] {
+                    mOnLoginFinishedCallback(false, "Navigazione fallita: " + srcUri);
+                });
             }
-        }
-		
-	 if (mAuthMode == AuthMode::FETCH_STEAM_COOKIE) {
-            LOG(LogInfo) << "[WebView] Modalità Login. Esecuzione script per dati profilo...";
-            const char* profile_script = R"JS((function(){var el=document.querySelector('.actual_persona_name');var id=window.g_steamID;if(el&&id){return JSON.stringify({'strProfileName':el.innerText,'strSteamId':id});}return null;})())JS";
-            
-            this->executeScriptAndGetResult(profile_script, [this](const std::string& jsonString) {
-                if (mOnLoginFinishedCallback) mWindow->postToUiThread([this, jsonString] { mOnLoginFinishedCallback(true, jsonString); });
-                close();
-            });
+            close(); // Chiudi la WebView in caso di navigazione fallita non gestita.
             return S_OK;
         }
+        
+        // --- GESTIONE SPECIFICA PER AUTH_MODE (DOPO IL COMPLETAMENTO DELLA NAVIGAZIONE) ---
 
+        // 1. Modalità FETCH_STEAM_COOKIE (Login Steam e recupero dati profilo)
+        // Questo si attiva quando la WebView naviga a una pagina che indica un login Steam riuscito (es. profilo o home).
+        if (mAuthMode == AuthMode::FETCH_STEAM_COOKIE && !mRedirectSuccessfullyHandled) {
+            // Controlla se l'URL attuale indica che l'utente è loggato su Steam Community o Store.
+            bool isSteamLoggedInPage = 
+                srcUri.find("steamcommunity.com/profiles/") != std::string::npos || // Pagina profilo numerica
+                srcUri.find("steamcommunity.com/id/") != std::string::npos ||     // Pagina profilo con vanity URL
+                srcUri == "https://steamcommunity.com/" ||                        // Pagina home community
+                srcUri == "https://store.steampowered.com/";                     // Pagina home store
 
-        // NUOVA LOGICA: Se il nuovo callback è impostato, usiamo quello e ci fermiamo.
-        if (mNavigationCompletedCallback) {
+            if (isSteamLoggedInPage) {
+                LOG(LogInfo) << "[Steam] Pagina di login/profilo Steam rilevata. Esecuzione script per dati profilo...";
+                mRedirectSuccessfullyHandled = true; // Segna come gestito per prevenire esecuzioni multiple
+
+                // Script per estrarre nome profilo e SteamID.
+                // Questo script è progettato per funzionare su pagine Steam post-login.
+                const char* profile_script = R"JS((function(){
+                    var el_name = document.querySelector('.actual_persona_name'); // Elemento comune su steamcommunity.com
+                    if (!el_name) el_name = document.querySelector('.playerAvatar.playerAvatar.profile_page.medium > img'); // Alternativa per Steam store se il nome è nell'alt dell'avatar
+                    
+                    var profileName = el_name ? el_name.innerText.trim() : null;
+                    if (!profileName && el_name && el_name.alt) profileName = el_name.alt.trim(); // Se è un'immagine avatar
+
+                    var steamId = window.g_steamID; // Variabile globale comune nelle pagine Steam per lo SteamID64
+                    if (!steamId) {
+                        // Alternativa: estrai da URL se è del tipo steamcommunity.com/profiles/<SteamID64>/
+                        var match = window.location.href.match(/steamcommunity\.com\/profiles\/(\d+)/);
+                        if (match && match[1]) steamId = match[1];
+                    }
+
+                    if(profileName && steamId){
+                        return JSON.stringify({'strProfileName':profileName,'strSteamId':steamId});
+                    }
+                    return null; // Ritorna null se i dati non sono trovati
+                })())JS";
+                
+                this->executeScriptAndGetResult(profile_script, [this](const std::string& jsonString) {
+                    if (mOnLoginFinishedCallback) {
+                        mWindow->postToUiThread([this, jsonString] {
+                            // La 'success' della callback dipende dal fatto che lo script abbia restituito dati validi.
+                            mOnLoginFinishedCallback(!jsonString.empty() && jsonString != "null", jsonString);
+                        });
+                    }
+                    close(); // Chiudi la WebView dopo aver tentato di ottenere i dati del profilo.
+                });
+                return S_OK; // Evento gestito.
+            } else {
+                // Se la pagina non è ancora una di login riuscito, non facciamo nulla.
+                // L'utente deve interagire con la WebView per effettuare il login.
+                LOG(LogDebug) << "[" << mStoreNameForLogging << "] Pagina non è di login riuscito, attendo interazione utente. URI: " << srcUri;
+            }
+            // Non chiamare S_OK e non settare mRedirectSuccessfullyHandled = true qui se l'utente non ha ancora fatto il login.
+            // Lascia che la WebView continui a navigare finché non si raggiunge una pagina di successo.
+        }
+
+        // 2. Modalità FETCH_STEAM_GAMES_JSON (Scraping della Libreria Giochi)
+        // Si attiva quando la WebView naviga alla pagina specifica della libreria giochi.
+        if (mAuthMode == AuthMode::FETCH_STEAM_GAMES_JSON && !mRedirectSuccessfullyHandled) {
+            // Controlla se l'URL è la pagina dei giochi che vogliamo scrapare.
+            // steamcommunity.com/profiles/<SteamID64>/games/?tab=all
+            // o steamcommunity.com/id/<vanity_url>/games/?tab=all
+            if (srcUri.find("/games") != std::string::npos && (srcUri.find("steamcommunity.com/profiles/") != std::string::npos || srcUri.find("steamcommunity.com/id/") != std::string::npos)) {
+                LOG(LogInfo) << "[Steam] Pagina giochi caricata per scraping. Eseguo script.";
+                mRedirectSuccessfullyHandled = true; // Impedisce esecuzioni multiple dello script.
+
+                // Lo script per estrarre il JSON dei giochi.
+    const char* games_script = R"JS((function() {
+    try {
+        // Tentativo 1: Cerca la variabile globale 'rgGames', che è il metodo più comune.
+        if (typeof rgGames !== 'undefined' && Array.isArray(rgGames) && rgGames.length > 0) {
+            return JSON.stringify(rgGames);
+        }
+
+        // Tentativo 2: Se il primo fallisce, cerca i dati direttamente nel codice HTML,
+        // dentro i tag <script>. Questo è un approccio molto più robusto.
+        const scripts = document.getElementsByTagName('script');
+        for (let i = 0; i < scripts.length; i++) {
+            const scriptContent = scripts[i].innerHTML;
+            // Cerchiamo la riga esatta in cui Valve definisce la variabile.
+            if (scriptContent.includes('var rgGames = ')) {
+                // Usiamo un'espressione regolare per estrarre l'array [...] in modo pulito.
+                const match = scriptContent.match(/var rgGames = (\[.*\]);/);
+                if (match && match[1]) {
+                    // Trovato! Restituisce la stringa JSON dei giochi.
+                    return match[1];
+                }
+            }
+        }
+
+        // Tentativo 3 (Fallback): In alcune vecchie versioni della pagina, i dati erano
+        // in un attributo di un elemento specifico. Questo è il metodo originale di Playnite.
+        const configElement = document.querySelector('#gameslist_config');
+        if (configElement && configElement.hasAttribute('data-profile-gameslist')) {
+            return configElement.getAttribute('data-profile-gameslist');
+        }
+
+    } catch (e) {
+        // Se si verifica un errore durante lo script, non bloccare tutto.
+        return null;
+    }
+
+    // Se nessuno dei tentativi ha funzionato, restituisce null.
+    return null;
+})())JS";
+                
+                this->executeScriptAndGetResult(games_script, [this](const std::string& jsonString) {
+                    if (mOnLoginFinishedCallback) {
+                        mWindow->postToUiThread([this, jsonString] {
+                            mOnLoginFinishedCallback(!jsonString.empty() && jsonString != "null", jsonString);
+                        });
+                    }
+                    close(); // Chiudi la WebView dopo aver tentato di ottenere i dati dei giochi.
+                });
+                return S_OK; // Evento gestito.
+            }
+        }
+        
+        // 3. Logica generica di reindirizzamento OAuth (es. Xbox Live)
+        // Questa parte è già nel NavigationStarting, ma se per qualche ragione la gestisci anche qui,
+        // assicurati che !mRedirectSuccessfullyHandled sia rispettato per non duplicare le chiamate.
+        // La versione che ti ho dato per NavigationStarting dovrebbe già catturare e chiudere la WebView.
+        // Quindi questo blocco potrebbe essere superfluo qui se la tua logica principale è in NavigationStarting.
+        if (!this->mWatchRedirectPrefix.empty() && srcUri.rfind(this->mWatchRedirectPrefix, 0) == 0 && !this->mRedirectSuccessfullyHandled) {
+            LOG(LogInfo) << "[" << this->mStoreNameForLogging << "] Rilevato URI di redirect OAuth in NavigationCompleted.";
+            // Qui dovresti ricreare o chiamare la logica di estrazione del codice e la callback,
+            // simile a quanto fai in NavigationStarting per questi flussi.
+            // Per ora, ci basiamo sulla logica di NavigationStarting per questi.
+            // Mantiene il flag 'mRedirectSuccessfullyHandled' per non duplicare l'azione.
+        }
+
+        // 4. Logica di fallback o per mNavigationCompletedCallback generica (se non gestita da altri blocchi)
+        if (mNavigationCompletedCallback && !mRedirectSuccessfullyHandled) { // Aggiunto !mRedirectSuccessfullyHandled
             mWindow->postToUiThread([this, isSuccess, srcUri] {
                 if (mNavigationCompletedCallback) mNavigationCompletedCallback(isSuccess, srcUri);
             });
+            // Non chiamare close() qui, a meno che non sia l'ultima logica rimanente e la WebView debba chiudersi.
+            // Se la WebView è per interazione utente, dovrebbe rimanere aperta.
+            // close(); // ATTENZIONE: Questo chiuderebbe la WebView anche se l'utente deve ancora interagire!
             return S_OK;
         }
 
-        // VECCHIA LOGICA: Altrimenti, prosegui con la gestione errori per il vecchio sistema.
-        if (mRedirectSuccessfullyHandled) { return S_OK; }
-        if (!isSuccess && mOnLoginFinishedCallback) {
+        // Se nessun AuthMode specifico o redirect è stato gestito da questa funzione,
+        // e la WebView deve chiudersi solo in caso di errore, ma la navigazione è fallita:
+        // Se non è un flusso gestito da mRedirectSuccessfullyHandled, e la navigazione è fallita, chiudi.
+        if (!isSuccess && mOnLoginFinishedCallback && !mRedirectSuccessfullyHandled) {
             mWindow->postToUiThread([this, srcUri] {
-                if (mOnLoginFinishedCallback) mOnLoginFinishedCallback(false, "Navigazione Fallita: " + srcUri);
+                if (this->mOnLoginFinishedCallback) this->mOnLoginFinishedCallback(false, "Navigazione Fallita: " + srcUri);
             });
-            close();
+            close(); // Chiudi la WebView in caso di navigazione fallita non gestita.
+            return S_OK;
         }
+
         return S_OK;
     }).Get(), &mNavigationCompletedToken);
                             LOG(LogDebug) << "[" << this->mStoreNameForLogging << "] Gestore NavigationCompleted aggiunto.";
                             
                             this->resizeWebView(); 
-                            this->mWebViewController->put_IsVisible(TRUE);
+                            this->mWebViewController->put_IsVisible(mIsVisible ? TRUE : FALSE);
                             LOG(LogInfo) << "[" << this->mStoreNameForLogging << "] Setup WebView2 completato. Pronto per la navigazione iniziale.";
                             this->navigateTo(this->mCurrentInitialUrl); 
                             return S_OK;
@@ -648,6 +768,7 @@ void GuiWebViewAuthLogin::executeScriptAndGetResult(const std::string& script, c
 
         mWebView->ExecuteScript(Utils::String::convertToWideString(script).c_str(), Microsoft::WRL::Callback<ICoreWebView2ExecuteScriptCompletedHandler>(
             [this, callback, tryGetScriptResult, retriesLeft](HRESULT errorCode, LPCWSTR result) -> HRESULT {
+				 LOG(LogDebug) << "[WebViewScraping-DEBUG] Raw script result: " << (result ? Utils::String::convertFromWideString(result) : "NULL") << " | HR: 0x" << std::hex << errorCode;
                 std::string scriptResult;
                 if (SUCCEEDED(errorCode) && result) {
                     // Eseguiamo la pulizia della stringa JSON

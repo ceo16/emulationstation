@@ -1,8 +1,10 @@
-#include "GameStore/Steam/SteamStoreAPI.h" // Assicurati che il percorso sia corretto
-#include "utils/StringUtil.h" // Per UrlEncode se necessario
-#include "HttpReq.h"          // Includi HttpReq.h
-#include "Log.h"              // Per il logging
-#include "json.hpp"           // Per nlohmann/json
+#include "GameStore/Steam/SteamStoreAPI.h"
+#include "utils/StringUtil.h"
+#include "HttpReq.h"
+#include "Log.h"
+#include "json.hpp"
+#include "guis/GuiWebViewAuthLogin.h" // Per usare la WebView
+#include "Settings.h" // Per ottenere lo SteamID dell'utente
 
 SteamStoreAPI::SteamStoreAPI(SteamAuth* auth) : mAuth(auth)
 {
@@ -14,7 +16,7 @@ SteamStoreAPI::SteamStoreAPI(SteamAuth* auth) : mAuth(auth)
 std::unique_ptr<HttpReq> SteamStoreAPI::createHttpRequest(const std::string& url)
 {
     auto req = std::make_unique<HttpReq>(url);
-    // Potresti voler impostare un User-Agent qui se il tuo HttpReq lo supporta
+    // Potresti voler impostare un User-Agent qui se il tuo HttpReq lo support
     // Esempio: req->SetUserAgent("EmulationStation/1.0 SteamIntegration");
     return req;
 }
@@ -285,4 +287,73 @@ Steam::AppDetails SteamStoreAPI::parseAppDetails(unsigned int appId, const nlohm
     // --- FINE NUOVA LOGICA DI ESTRAZIONE ---
 
     return details;
+}
+
+void SteamStoreAPI::getOwnedGamesViaScraping(Window* window, const std::string& steamId, std::function<void(bool success, const std::string& gameDataJson)> callback)
+{
+    LOG(LogInfo) << "[SteamStoreAPI] getOwnedGamesViaScraping - Inizio.";
+    Log::flush(); // Forza il log immediatamente.
+
+    if (!mAuth || !mAuth->isAuthenticated() || steamId.empty() || !window) {
+        LOG(LogError) << "[SteamStoreAPI] getOwnedGamesViaScraping: Prerequisiti mancanti (autenticazione, SteamID o Window).";
+        Log::flush();
+        callback(false, "");
+        return;
+    }
+
+    std::string gamesPageUrl = "https://steamcommunity.com/profiles/" + steamId + "/games/?tab=all";
+
+    LOG(LogInfo) << "[SteamStoreAPI] Avvio scraping giochi Steam da: " << gamesPageUrl;
+    Log::flush();
+
+    // NUOVI LOG: Prima e dopo la creazione e il push della WebView.
+    LOG(LogDebug) << "[SteamStoreAPI] About to create GuiWebViewAuthLogin for scraping.";
+    Log::flush();
+    
+    // Controlla il puntatore a window di nuovo, per sicurezza, anche se è stato controllato all'inizio della funzione.
+    if (!window) {
+        LOG(LogError) << "[SteamStoreAPI] Window pointer is null before creating WebView. Aborting scraping.";
+        Log::flush();
+        callback(false, "Window is null.");
+        return;
+    }
+
+   auto webViewScraper = new GuiWebViewAuthLogin(
+    window,
+    gamesPageUrl,
+    "Steam",
+    "",
+    GuiWebViewAuthLogin::AuthMode::FETCH_STEAM_GAMES_JSON,
+    false // <--- DIGLI DI ESSERE INVISIBILE
+);
+
+    LOG(LogDebug) << "[SteamStoreAPI] GuiWebViewAuthLogin created. About to push to window.";
+    Log::flush();
+
+    // <<< PUNTO CRITICO: La creazione della WebView e il push sullo stack della GUI.
+    // Il crash potrebbe avvenire durante l'allocazione, l'inizializzazione o l'aggiunta alla GUI.
+    window->pushGui(webViewScraper);
+    
+    LOG(LogDebug) << "[SteamStoreAPI] GuiWebViewAuthLogin pushed to window. Setting callback.";
+    Log::flush();
+
+    webViewScraper->setOnLoginFinishedCallback(
+        [callback, window, webViewScraper](bool success, const std::string& jsonData)
+    {
+        // Questa callback viene eseguita sul thread UI dopo che la WebView ha completato la sua operazione.
+        LOG(LogDebug) << "[SteamStoreAPI] Callback from WebView scraper received on UI thread. Success: " << (success ? "true" : "false");
+        Log::flush();
+        if (success && !jsonData.empty() && jsonData != "null") {
+            LOG(LogInfo) << "[SteamStoreAPI] Scraping giochi Steam riuscito. JSON ricevuto (primi 200 char): " << jsonData.substr(0, std::min(jsonData.length(), (size_t)200));
+            Log::flush();
+            callback(true, jsonData); // Invia il JSON dei giochi al chiamante (SteamStore)
+        } else {
+            LOG(LogError) << "[SteamStoreAPI] Scraping giochi Steam fallito o dati mancanti. Messaggio: " << jsonData;
+            Log::flush();
+            callback(false, "");
+        }
+    });
+
+    // La funzione non restituisce immediatamente, poiché la WebView opera in modo asincrono.
+    // Il meccanismo promise/future in refreshSteamGamesListAsync gestisce l'attesa.
 }

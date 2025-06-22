@@ -5,6 +5,7 @@
 #include <string>
 #include "Log.h"      // Per il logging
 #include "Settings.h" // Per salvare/recuperare API Key e SteamID dalla configurazione di ES
+#include "Window.h"
 
 class SteamAuth
 {
@@ -15,16 +16,12 @@ public:
     // Verifica se le credenziali (API Key, SteamID) sono state caricate/impostate
     bool hasCredentials() const;
 
-    // Tenta di validare le credenziali caricate.
-    // Internamente, può fare una chiamata API leggera per confermare che funzionino
-    // e per recuperare/aggiornare il nome utente (PersonaName).
-    // Restituisce true se la validazione ha successo, altrimenti false.
-    // Dovrebbe essere chiamata dopo che l'utente ha inserito/modificato le credenziali,
-    // o all'avvio se le credenziali sono già salvate.
+    void authenticateWithWebView(Window* window);
     bool validateAndSetAuthentication();
 
     // Restituisce lo stato di autenticazione (true se validateAndSetAuthentication è andata a buon fine)
     bool isAuthenticated() const;
+	bool isLoggedIn() const;
 
     std::string getSteamId() const;         // Restituisce lo SteamID64 dell'utente
     std::string getApiKey() const;          // Restituisce l'API Key dell'utente

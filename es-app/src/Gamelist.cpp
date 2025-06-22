@@ -27,6 +27,7 @@ std::string getGamelistRecoveryPath(SystemData* system)
 static bool isPathActuallyVirtual(const std::string& path) {
     return Utils::String::startsWith(path, "epic:/") ||    // Assicurati che i tuoi prefissi reali siano "epic://" vs "epic:/"
            Utils::String::startsWith(path, "steam:/") ||   // Assicurati che i tuoi prefissi reali siano "steam://" vs "steam:/"
+		   Utils::String::startsWith(path, "steam_online_appid:/") || 
            Utils::String::startsWith(path, "xbox_online_prodid:/") ||
            Utils::String::startsWith(path, "xbox_online_pfn:/") ||
            Utils::String::startsWith(path, "xbox:/pfn/") || // Se usi anche questo formato generale
@@ -43,6 +44,7 @@ FileData* findOrCreateFile(SystemData* system, const std::string& path, FileType
     // Il log mostra "xbox_online_prodid:/" (singola slash)
     if (Utils::String::startsWith(path, "epic:/") ||         // Assumi "epic://"
         Utils::String::startsWith(path, "steam:/") ||        // Assumi "steam://"
+		Utils::String::startsWith(path, "steam_online_appid:/") || 
         Utils::String::startsWith(path, "xbox_online_prodid:/") ||  // CORRETTO DAL LOG
         Utils::String::startsWith(path, "xbox_online_pfn:/") ||    // CORRETTO DAL LOG (presumendo stesso formato)
         Utils::String::startsWith(path, "xbox:/pfn/")  ||    // Altro formato virtuale Xbox, se usato
@@ -707,6 +709,7 @@ void updateGamelist(SystemData* system)
             // MODIFIED SECTION for lookupPath
             if (Utils::String::startsWith(nodePathText, "epic:/") ||
                 Utils::String::startsWith(nodePathText, "steam:/") ||
+				Utils::String::startsWith(nodePathText, "steam_online_appid:/") || 
                 Utils::String::startsWith(nodePathText, "xbox_online_prodid:/") ||
                 Utils::String::startsWith(nodePathText, "xbox_online_pfn:/") ||
                 Utils::String::startsWith(nodePathText, "xbox:/") || // General Xbox virtual path

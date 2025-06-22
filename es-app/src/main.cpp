@@ -558,6 +558,8 @@ int main(int argc, char* argv[])
   LOG(LogDebug) << "main - CollectionSystemManager::init() called";
   VideoVlcComponent::init();
   LOG(LogDebug) << "main - VideoVlcComponent::init() called";
+  NetworkThread* nthread = new NetworkThread(&window);
+    HttpServerThread httpServer(&window);
 
 	window.pushGui(ViewController::get());
 	if(!window.init(true, false))
@@ -615,8 +617,7 @@ if (SDL_GAMELIST_UPDATED == ((Uint32)-1)) {
 
 
 	MameNames::init();
-		NetworkThread* nthread = new NetworkThread(&window);
-    HttpServerThread httpServer(&window); 
+		 
 	GameStoreManager::getInstance(&window)->initAllStores(); 
 	
 	const char* errorMsg = NULL;

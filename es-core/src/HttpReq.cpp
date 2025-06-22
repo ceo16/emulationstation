@@ -168,6 +168,18 @@ void HttpReq::performRequest(const std::string& url, HttpReqOptions* options)
 
 		curl_easy_setopt(mHandle, CURLOPT_HTTPHEADER, hs);
 	}
+	
+	  if (options && !options->userAgent.empty()) {
+        curl_easy_setopt(mHandle, CURLOPT_USERAGENT, options->userAgent.c_str());
+    } else {
+        curl_easy_setopt(mHandle, CURLOPT_USERAGENT, HTTP_REQ_USERAGENT);
+    }
+	
+	  if (options && !options->cookieData.empty())
+    {
+        LOG(LogDebug) << "HttpReq: Impostazione cookie personalizzato.";
+        curl_easy_setopt(mHandle, CURLOPT_COOKIE, options->cookieData.c_str());
+    }
 
 	//set curl to handle redirects
 	err = curl_easy_setopt(mHandle, CURLOPT_FOLLOWLOCATION, 1L);

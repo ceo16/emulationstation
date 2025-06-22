@@ -25,6 +25,9 @@ private:
     // Prende il puntatore alla GuiSettings corrente (s_ptr) da chiudere,
     // la window e lo store per ricreare il menu.
 static void reloadSettingsMenu(Window* window, SteamStore* store, GuiComponent* currentMenu);
+ void optionLogin(Window* window, SteamStore* store, GuiSettings* currentMenu);
+    void optionLogout(Window* window, SteamStore* store, GuiSettings* currentMenu);
+    void optionRefreshGamesList(Window* window, SteamStore* store, GuiSettings* currentMenu);
 };
 
 #endif // ES_APP_GAMESTORE_STEAM_UI_H

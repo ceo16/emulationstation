@@ -56,6 +56,20 @@ namespace Utils
 
 		int			occurs(const std::string& str, char target);
 		bool		isPrintableChar(char c);
+	    inline std::string getUrlParam(const std::string& url, const std::string& paramName)
+		{
+		    std::string searchParam = paramName + "=";
+		    size_t startPos = url.find(searchParam);
+		    if (startPos == std::string::npos) {
+		        return ""; // Parametro non trovato
+		    }
+		    startPos += searchParam.length(); // Sposta l'indice all'inizio del valore
+		    size_t endPos = url.find('&', startPos); // Cerca il prossimo '&' o la fine della stringa
+
+		    std::string paramValue = url.substr(startPos, (endPos == std::string::npos) ? std::string::npos : endPos - startPos);
+		    return paramValue;
+		}
+
 
 		// for Korean text input
 		const std::vector<const char*> KOREAN_CHOSUNG_LIST = { "ㄱ", "ㄲ", "ㄴ", "ㄷ", "ㄸ", "ㄹ", "ㅁ", "ㅂ", "ㅃ", "ㅅ", "ㅆ", "ㅇ", "ㅈ", "ㅉ", "ㅊ", "ㅋ", "ㅌ", "ㅍ", "ㅎ" };
