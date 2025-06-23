@@ -7,16 +7,18 @@
 #include <vector>
 
 class AmazonAuth;
+class Window; // Forward declaration
 
 class AmazonGamesAPI
 {
 public:
-    AmazonGamesAPI(AmazonAuth* auth);
+    // Il costruttore ora accetta un puntatore a Window
+    AmazonGamesAPI(Window* window, AmazonAuth* auth);
 
-    // Recupera tutti i giochi posseduti, gestendo la paginazione internamente
     void getOwnedGames(std::function<void(std::vector<Amazon::GameEntitlement> games, bool success)> on_complete);
 
 private:
+    Window* mWindow; // Memorizziamo qui il puntatore alla finestra
     AmazonAuth* mAuth;
 };
 

@@ -17,9 +17,13 @@ AmazonGamesStore::~AmazonGamesStore() {
 bool AmazonGamesStore::init(Window* window) {
     mWindow = window;
     mAuth = std::make_unique<AmazonAuth>(mWindow);
-    mApi = std::make_unique<AmazonGamesAPI>(mAuth.get());
+    
+    // --- MODIFICA CHIAVE ---
+    // Passiamo mWindow al costruttore di AmazonGamesAPI
+    mApi = std::make_unique<AmazonGamesAPI>(mWindow, mAuth.get());
+
     mScanner = std::make_unique<AmazonGamesScanner>();
-    _initialized = true;
+    _initialized = true; 
     LOG(LogInfo) << "Amazon Games Store Initialized.";
     return true;
 }
@@ -121,24 +125,36 @@ void AmazonGamesStore::syncGames(std::function<void(bool)> on_complete) {
 }
 
 void AmazonGamesStore::processGamesList(const std::vector<Amazon::GameEntitlement>& onlineGames, const std::vector<Amazon::InstalledGameInfo>& installedGames) {
-    shutdown(); 
-
     SystemData* sys = SystemData::getSystem("amazon");
     if (!sys) {
         LOG(LogError) << "Amazon Store: System 'amazon' not found!";
         return;
     }
 
+    FolderData* root = sys->getRootFolder();
+    root->clear(); // Pulisce i giochi esistenti dalla vista
+
+    // Puliamo la nostra cache interna per evitare puntatori duplicati
+    for (auto game : mGames) {
+        // Non cancelliamo il FileData qui, perché ora è gestito da root->clear()
+    }
+    mGames.clear();
+
     std::map<std::string, std::string> installedMap;
     for (const auto& game : installedGames) {
         installedMap[game.id] = game.installDirectory;
     }
 
+    int processedCount = 0;
     for (const auto& onlineGame : onlineGames) {
+        if (onlineGame.product_productLine == "Twitch:FuelEntitlement") {
+            continue;
+        }
+
         bool isInstalled = (installedMap.find(onlineGame.id) != installedMap.end());
         std::string path = isInstalled ? "amazon_installed:/" + onlineGame.id : "amazon_virtual:/" + onlineGame.id;
 
-        FileData* fd = new FileData(GAME, path, sys);
+        FileData* fd = new FileData(FileType::GAME, path, sys);
         MetaDataList& mdl = fd->getMetadata();
         mdl.set(MetaDataId::Name, onlineGame.product_title);
         mdl.set(MetaDataId::Image, onlineGame.product_imageUrl);
@@ -146,10 +162,13 @@ void AmazonGamesStore::processGamesList(const std::vector<Amazon::GameEntitlemen
         mdl.set(MetaDataId::Virtual, !isInstalled ? "true" : "false");
         mdl.set("storeId", onlineGame.id);
         
-        mGames.push_back(fd);
+        root->addChild(fd, false);
+        processedCount++;
     }
     
-    // CORREZIONE: Usa il metodo corretto dal tuo ViewController.h
+    // --- MODIFICA FINALE ---
+    // Chiamiamo la funzione con il numero corretto di argomenti (uno solo).
     ViewController::get()->reloadGameListView(sys);
-    LOG(LogInfo) << "Amazon Sync: Processing complete. Total games in cache: " << mGames.size();
+
+    LOG(LogInfo) << "Amazon Sync: Processing complete. Total games processed: " << processedCount;
 }

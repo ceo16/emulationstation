@@ -2,38 +2,34 @@
 #ifndef ES_APP_GAMESTORE_AMAZON_MODELS_H
 #define ES_APP_GAMESTORE_AMAZON_MODELS_H
 
-#include "json.hpp" // nlohmann/json
+#include "json.hpp"
 #include <string>
 #include <vector>
 #include <map>
 
 namespace Amazon
 {
-    // Modello per la richiesta di registrazione del dispositivo (da DeviceRegistration.cs)
+    // --- DeviceRegistrationRequest (verificato e corretto) ---
     struct DeviceRegistrationRequest {
         struct RegistrationData {
-            std::string app_name = "AGSLauncher for Windows";
-            std::string app_version = "1.0.0";
-            std::string device_model = "Windows";
-            std::string device_name; // Verrà popolato con il nome del computer
-            std::string device_serial; // Verrà popolato con un GUID della macchina
-            std::string device_type = "A2UMVHOX7UP4V7"; // Magic string da Playnite
-            std::string domain = "Device";
-            std::string os_version = "10.0"; // Semplificato
+            std::string app_name;
+            std::string app_version;
+            std::string device_model;
+            std::string device_name;
+            std::string device_serial;
+            std::string device_type;
+            std::string domain;
+            std::string os_version;
         };
-
         struct AuthData {
             std::string access_token;
         };
-
         RegistrationData registration_data;
         AuthData auth_data;
         nlohmann::json user_context_map = nlohmann::json::object();
-        std::vector<std::string> requested_extensions = { "customer_info", "device_info" };
-        std::vector<std::string> requested_token_type = { "bearer", "mac_dms" };
+        std::vector<std::string> requested_extensions;
+        std::vector<std::string> requested_token_type;
     };
-
-    // Serializzatore per DeviceRegistrationRequest
     inline void to_json(nlohmann::json& j, const DeviceRegistrationRequest& p) {
         j = nlohmann::json{
             {"registration_data", {
@@ -55,48 +51,51 @@ namespace Amazon
         };
     }
 
-    // Modello per la richiesta dei giochi posseduti (da Entitlements.cs)
+    // --- EntitlementsRequest (RISCRITTO DA ZERO PER CORRISPONDERE A PLAYNITE) ---
     struct EntitlementsRequest {
-        bool ownershipOnly = true;
-        std::string status = "ENTITLED";
-        std::string type = "PURCHASE";
-        int limit = 100;
-        std::string nextToken; // Per la paginazione
+        std::string Operation = "GetEntitlements";
+        std::string clientId = "Sonic";
+        int syncPoint = 0;
+        std::string nextToken;
+        int maxResults = 500;
+        std::string keyId = "d5dc8b8b-86c8-4fc4-ae93-18c0def5314d";
+        std::string hardwareHash;
+        bool disableStateFilter = true;
     };
-
     inline void to_json(nlohmann::json& j, const EntitlementsRequest& p) {
         j = nlohmann::json{
-            {"ownershipOnly", p.ownershipOnly},
-            {"status", p.status},
-            {"type", p.type},
-            {"limit", p.limit}
+            {"Operation", p.Operation},
+            {"clientId", p.clientId},
+            {"syncPoint", p.syncPoint},
+            {"maxResults", p.maxResults},
+            {"keyId", p.keyId},
+            {"hardwareHash", p.hardwareHash},
+            {"disableStateFilter", p.disableStateFilter}
         };
         if (!p.nextToken.empty()) {
             j["nextToken"] = p.nextToken;
         }
     }
 
-    // Modello per la risposta dei giochi posseduti
+    // --- Strutture di Risposta (verificate e corrette) ---
     struct GameEntitlement {
         std::string id;
         std::string product_title;
         std::string product_imageUrl;
+        std::string product_productLine;
     };
-
     struct EntitlementsResponse {
         std::vector<GameEntitlement> entitlements;
         std::string nextToken;
     };
-
-    // Deserializzatori per la risposta
     inline void from_json(const nlohmann::json& j, GameEntitlement& p) {
         p.id = j.value("id", "");
         if (j.contains("product")) {
             p.product_title = j["product"].value("title", "Unknown Title");
             p.product_imageUrl = j["product"].value("imageUrl", "");
+            p.product_productLine = j["product"].value("productLine", "");
         }
     }
-
     inline void from_json(const nlohmann::json& j, EntitlementsResponse& p) {
         if (j.contains("entitlements")) {
             j.at("entitlements").get_to(p.entitlements);
@@ -104,7 +103,6 @@ namespace Amazon
         p.nextToken = j.value("nextToken", "");
     }
     
-    // Struttura per contenere i dati di un gioco installato localmente
     struct InstalledGameInfo {
         std::string id;
         std::string title;
@@ -112,4 +110,4 @@ namespace Amazon
     };
 }
 
-#endif //ES_APP_GAMESTORE_AMAZON_MODELS_H
+#endif

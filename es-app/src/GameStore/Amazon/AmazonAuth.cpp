@@ -11,51 +11,20 @@
 #include <thread>
 #include <fstream>
 #include <iomanip>
-#include <map>
-#include <sstream> // Per stringstream
 
-// --- FUNZIONE urlDecode MANCANTE, AGGIUNTA QUI ---
-std::string urlDecode(const std::string& encoded) {
-    std::string res;
-    res.reserve(encoded.length());
-    for (std::size_t i = 0; i < encoded.length(); ++i) {
-        if (encoded[i] == '%') {
-            if (i + 2 < encoded.length()) {
-                int val;
-                std::stringstream ss;
-                ss << std::hex << encoded.substr(i + 1, 2);
-                ss >> val;
-                res += static_cast<char>(val);
-                i += 2;
-            }
-        } else if (encoded[i] == '+') {
-            res += ' ';
-        } else {
-            res += encoded[i];
-        }
-    }
-    return res;
-}
-
-// Funzione helper che usa la nostra urlDecode
-std::map<std::string, std::string> ParseQueryString(const std::string& query)
+// --- FUNZIONE HELPER SPOSTATA QUI IN CIMA ---
+// In questo modo, è dichiarata prima di essere usata da startLoginFlow
+std::string getRawUrlParam(const std::string& url, const std::string& paramName)
 {
-    std::map<std::string, std::string> result;
-    std::string cleanQuery = query;
-    if (query.length() > 0 && (query[0] == '?' || query[0] == '#'))
-        cleanQuery = query.substr(1);
-
-    auto pairs = Utils::String::split(cleanQuery, '&');
-    for (const auto& pair : pairs)
-    {
-        auto keyValue = Utils::String::split(pair, '=');
-        if (keyValue.size() == 2)
-        {
-            result[urlDecode(keyValue[0])] = urlDecode(keyValue[1]);
-        }
-    }
-    return result;
+    std::string key = paramName + "=";
+    size_t startPos = url.find(key);
+    if (startPos == std::string::npos) return "";
+    startPos += key.length();
+    size_t endPos = url.find('&', startPos);
+    if (endPos == std::string::npos) return url.substr(startPos);
+    return url.substr(startPos, endPos - startPos);
 }
+
 
 AmazonAuth::AmazonAuth(Window* window) : mWindow(window) {
     std::string userPath = Paths::getUserEmulationStationPath();
@@ -78,21 +47,17 @@ void AmazonAuth::startLoginFlow(std::function<void(bool success)> on_complete)
     webViewGui->setOnLoginFinishedCallback(
         [this, on_complete](bool success, const std::string& finalUrl) {
             if (success) {
-                size_t queryPos = finalUrl.find('?');
-                std::string queryString = (queryPos != std::string::npos) ? finalUrl.substr(queryPos) : "";
-                
-                auto params = ParseQueryString(queryString);
-                std::string initialToken = params["openid.oa2.access_token"];
-
+                // Ora questa chiamata funzionerà perché la funzione è stata definita prima
+                std::string initialToken = getRawUrlParam(finalUrl, "openid.oa2.access_token");
                 if (!initialToken.empty()) {
-                    LOG(LogInfo) << "Amazon Auth: Token estratto e decodificato con successo. Avvio scambio.";
+                    LOG(LogInfo) << "Amazon Auth: Token GREZZO estratto con successo. Avvio scambio.";
                     std::thread(&AmazonAuth::exchangeInitialToken, this, initialToken, on_complete).detach();
                 } else {
-                    LOG(LogError) << "Amazon Auth: Login riuscito, ma token non trovato. URL: " << finalUrl;
+                    LOG(LogError) << "Amazon Auth: Login OK, ma token non trovato.";
                     if (on_complete) on_complete(false);
                 }
             } else {
-                LOG(LogError) << "Amazon Auth: Login WebView fallito o annullato.";
+                LOG(LogError) << "Amazon Auth: Login WebView fallito.";
                 if (on_complete) on_complete(false);
             }
         });
@@ -132,7 +97,7 @@ void AmazonAuth::exchangeInitialToken(const std::string& initialToken, std::func
                 mAccessToken = bearerToken.value("access_token", "");
                 mRefreshToken = bearerToken.value("refresh_token", "");
                 saveTokens();
-                LOG(LogInfo) << "Amazon Auth: VITTORIA! TOKEN SCAMBIATI E SALVATI CON SUCCESSO!";
+                LOG(LogInfo) << "Amazon Auth: TOKEN SCAMBIATI E SALVATI CON SUCCESSO!";
                 if (on_complete) mWindow->postToUiThread([on_complete]{ on_complete(true); });
             } else {
                 LOG(LogError) << "Amazon Auth: Risposta JSON non valida. Body: " << request.getContent();
@@ -147,8 +112,6 @@ void AmazonAuth::exchangeInitialToken(const std::string& initialToken, std::func
         if (on_complete) mWindow->postToUiThread([on_complete]{ on_complete(false); });
     }
 }
-
-// ... (Il resto delle funzioni: logout, isAuthenticated, load/save/clearTokens rimangono invariate) ...
 
 void AmazonAuth::logout() {
     clearTokens();
