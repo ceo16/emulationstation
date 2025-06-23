@@ -7,7 +7,8 @@
 
 #include "GameStore/EpicGames/EpicGamesAuth.h" 
 #include "GameStore/Steam/SteamAuth.h"       
-#include "GameStore/Xbox/XboxAuth.h"         
+#include "GameStore/Xbox/XboxAuth.h"    
+#include "GameStore/Amazon/AmazonGamesStore.h"     
 // EAGamesAuth è gestito internamente da EAGamesStore
 
 #include "guis/GuiMenu.h" // Necessario per GuiMenu::openQuitMenu_static (se showStoreSelectionUI usa una logica simile)
@@ -44,6 +45,13 @@ GameStoreManager::GameStoreManager(Window* window) : mWindow(window) {
 
     // Rimuovi HttpReq::Manager* httpManager e Settings::getInstance()->getHttpManager()
     // poiché non esistono e non sono più passati.
+	
+	if (Settings::getInstance()->getBool("EnableAmazonGames")) { // Usa un'impostazione per abilitarlo
+    auto store = new AmazonGamesStore(mWindow);
+    store->init(mWindow);
+    mStores[store->getStoreName()] = store;
+    LOG(LogInfo) << "GameStoreManager: Amazon Games Store registrato.";
+}
 
     if (Settings::getInstance()->getBool("EnableEpicGamesStore")) {
         LOG(LogDebug) << "GameStoreManager: Attempting to register EpicGamesStore.";

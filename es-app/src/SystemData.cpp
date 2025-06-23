@@ -47,6 +47,7 @@
 #include "GameStore/EAGames/EAGamesStore.h"
 #include "GameStore/EAGames/EAGamesModels.h"
 #include "GameStore/EAGames/EAGamesScanner.h"
+#include "GameStore/Amazon/AmazonGamesStore.h"
 
 #if WIN32
 #include "Win32ApiSystem.h"
@@ -1149,6 +1150,66 @@ void SystemData::loadAdditionnalConfig(pugi::xml_node& srcSystems)
   CollectionSystemManager::get()->loadCollectionSystems();
   }
   
+// --- AMAZON GAMES SYSTEM CREATION (Blocco Corretto e Semplificato) ---
+LOG(LogInfo) << "[AmazonDynamic] Checking/Creating Amazon Games system...";
+
+if (Settings::getInstance()->getBool("EnableAmazonGames")) 
+{
+    SystemData* amazonSystem = SystemData::getSystem("amazon");
+    bool amazonSystemWasNewlyCreated = false;
+
+    if (amazonSystem == nullptr) {
+        LOG(LogInfo) << "[AmazonDynamic] Amazon Games system not found, creating dynamically...";
+        SystemMetadata md_amazon;
+        md_amazon.name = "amazon";
+        md_amazon.fullName = _("Amazon Games");
+        md_amazon.themeFolder = "amazon";
+        md_amazon.manufacturer = "Amazon";
+        md_amazon.hardwareType = "pc";
+
+        SystemEnvironmentData* envData_amazon = new SystemEnvironmentData();
+        std::string exeDir = Utils::FileSystem::getParent(Paths::getExePath());
+        std::string amazonGamelistDir = Utils::FileSystem::getGenericPath(exeDir + "/roms/amazon");
+        
+        if (!Utils::FileSystem::exists(amazonGamelistDir)) {
+            Utils::FileSystem::createDirectory(amazonGamelistDir);
+        }
+        envData_amazon->mStartPath = amazonGamelistDir;
+        envData_amazon->mPlatformIds = {PlatformIds::PC};
+        envData_amazon->mLaunchCommand = "";
+
+        std::vector<EmulatorData> amazonEmulators_empty;
+        amazonSystem = new SystemData(md_amazon, envData_amazon, &amazonEmulators_empty, false, false, true, true);
+
+        if (amazonSystem) {
+            amazonSystemWasNewlyCreated = true;
+            sSystemVector.push_back(amazonSystem);
+            LOG(LogInfo) << "[AmazonDynamic] 'amazon' system created and added to sSystemVector.";
+        } else {
+            delete envData_amazon;
+            LOG(LogError) << "[AmazonDynamic] Failed to create 'amazon' system object!";
+        }
+    }
+
+    if (amazonSystem != nullptr) {
+        // All'avvio, l'unica cosa da fare qui è caricare i giochi già presenti nel gamelist.xml (la cache).
+        // La sincronizzazione con i giochi installati/online avverrà tramite la UI che chiamerà AmazonGamesStore::syncGames().
+        std::string gamelistPath = amazonSystem->getGamelistPath(false);
+        if (Utils::FileSystem::exists(gamelistPath) && amazonSystem->getRootFolder()->getChildren().empty()) {
+            LOG(LogInfo) << "[AmazonDynamic] Parsing cached Amazon gamelist: " << gamelistPath;
+            std::unordered_map<std::string, FileData*> fileMap;
+            parseGamelist(amazonSystem, fileMap);
+        }
+        
+        if (amazonSystemWasNewlyCreated) {
+            amazonSystem->loadTheme();
+        }
+
+        amazonSystem->updateDisplayedGameCount();
+        LOG(LogInfo) << "[AmazonDynamic] Amazon system is ready. Current cached games: " << amazonSystem->getGameCount();
+    }
+}
+// --- FINE BLOCCO AMAZON ---
   
 // --- All'interno di SystemData::loadConfig() o funzione equivalente ---
 // Questo è l'inizio della sezione di codice che gestisce il sistema 'epicgamestore'

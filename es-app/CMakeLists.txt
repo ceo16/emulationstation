@@ -54,7 +54,13 @@ set(ES_HEADERS
     ${CMAKE_CURRENT_SOURCE_DIR}/src/GameStore/EAGames/EAGamesUI.h
     ${CMAKE_CURRENT_SOURCE_DIR}/src/GameStore/IGDB/IGDBAPI.h
 	${CMAKE_CURRENT_SOURCE_DIR}/src/GameStore/IGDB/IGDBModels.h
-	
+	${CMAKE_CURRENT_SOURCE_DIR}/src/GameStore/Amazon/AmazonAuth.h
+	${CMAKE_CURRENT_SOURCE_DIR}/src/GameStore/Amazon/AmazonGamesAPI.h
+	${CMAKE_CURRENT_SOURCE_DIR}/src/GameStore/Amazon/AmazonGamesScanner.h
+	${CMAKE_CURRENT_SOURCE_DIR}/src/GameStore/Amazon/AmazonGamesStore.h
+	${CMAKE_CURRENT_SOURCE_DIR}/src/GameStore/Amazon/AmazonGamesHelper.h
+	${CMAKE_CURRENT_SOURCE_DIR}/src/GameStore/Amazon/AmazonGamesModels.h
+	 ${CMAKE_CURRENT_SOURCE_DIR}/src/GameStore/Amazon/AmazonUI.h
     # GuiComponents
     ${CMAKE_CURRENT_SOURCE_DIR}/src/components/ScraperSearchComponent.h
 
@@ -198,6 +204,11 @@ set(ES_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/src/GameStore/EAGames/EAGamesUI.cpp
 	    ${CMAKE_CURRENT_SOURCE_DIR}/src/GameStore/IGDB/IGDBAPI.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/src/GameStore/IGDB/IGDBModels.cpp
+		${CMAKE_CURRENT_SOURCE_DIR}/src/GameStore/Amazon/AmazonAuth.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/src/GameStore/Amazon/AmazonGamesAPI.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/src/GameStore/Amazon/AmazonGamesScanner.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/src/GameStore/Amazon/AmazonGamesStore.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/GameStore/Amazon/AmazonUI.cpp
 
     # GuiComponents
     ${CMAKE_CURRENT_SOURCE_DIR}/src/components/ScraperSearchComponent.cpp
@@ -287,6 +298,8 @@ if(MSVC)
     )
 endif()
 
+
+
 # Keep Directory structure in Visual Studio
 if(MSVC)
     file(
@@ -302,8 +315,12 @@ if(MSVC)
     endforeach()
 endif()
 
+
+
+
 #-------------------------------------------------------------------------------
 # define target
+
 add_executable(emulationstation ${ES_SOURCES} ${ES_HEADERS})
 
 target_include_directories(emulationstation PRIVATE
@@ -373,6 +390,7 @@ target_link_libraries(emulationstation PRIVATE "${WEBVIEW2_LIB_PATH}")
 target_link_libraries(emulationstation PRIVATE
     ${COMMON_LIBRARIES}
     es-core
+	sqlite3_lib
 )
 
 if(WIN32)

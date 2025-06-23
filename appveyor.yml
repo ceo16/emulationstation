@@ -47,6 +47,7 @@ build_script:
       7z a EmulationStation-Win32.zip C:\src\EmulationStation\win32-libs\curl\x86\bin\libcurl.dll
       7z a EmulationStation-Win32.zip C:\src\EmulationStation\win32-libs\FreeImage\x86\FreeImage.dll
       7z a EmulationStation-Win32.zip C:\src\EmulationStation\external\webview2sdk\build\x86\WebView2Loader.dll
+      7z a EmulationStation-Win32.zip C:\src\EmulationStation\bin\win32\Release\sqlite3_lib.lib
       7z a EmulationStation-Win32.zip C:\src\EmulationStation\resources
       7z a EmulationStation-Win32.zip C:\src\EmulationStation\version.info
 

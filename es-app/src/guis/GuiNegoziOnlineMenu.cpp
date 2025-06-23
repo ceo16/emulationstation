@@ -7,6 +7,7 @@
 #include "guis/GuiWebViewAuthLogin.h"
 #include "guis/GuiMsgBox.h"
 #include "Log.h"
+#include "GameStore/Amazon/AmazonUI.h"
 
 GuiNegoziOnlineMenu::GuiNegoziOnlineMenu(Window* window) 
 	: GuiSettings(window, _("IMPOSTAZIONI NEGOZI ONLINE")) // Titolo della finestra
@@ -14,6 +15,14 @@ GuiNegoziOnlineMenu::GuiNegoziOnlineMenu(Window* window)
 	// =======================================================================
 	// === SEZIONE 1: INTERRUTTORI PER ABILITARE/DISABILITARE GLI STORE ===
 	// =======================================================================
+
+    // --- Amazon Games Store Switch --- (NUOVO BLOCCO)
+    auto enable_amazon_games = std::make_shared<SwitchComponent>(mWindow);
+    enable_amazon_games->setState(Settings::getInstance()->getBool("EnableAmazonGames"));
+    addWithLabel(_("VISUALIZZA AMAZON GAMES STORE"), enable_amazon_games);
+    addSaveFunc([enable_amazon_games] {
+        Settings::getInstance()->setBool("EnableAmazonGames", enable_amazon_games->getState());
+    });
 
 	// --- EA Games Store Switch ---
 	auto enable_ea_games = std::make_shared<SwitchComponent>(mWindow);
@@ -55,6 +64,12 @@ GuiNegoziOnlineMenu::GuiNegoziOnlineMenu(Window* window)
 	// =======================================================================
 	// === SEZIONE 2: I TUOI PULSANTI ESISTENTI PER ACCEDERE AGLI STORE ===
 	// =======================================================================
+
+     // Voce per AMAZON GAMES STORE (NUOVO BLOCCO)
+    addEntry(_("GESTISCI AMAZON GAMES"), true, [this] {
+        auto amazonUI = new AmazonUI(mWindow);
+        amazonUI->openAmazonStoreMenu();
+    }, "iconGames");
 
 	// Voce per EPIC GAMES STORE
 	addEntry(_("APRI EPIC GAMES STORE"), true, [this] {

@@ -27,7 +27,7 @@
 #include "guis/GuiWebViewAuthLogin.h"
 
 
-GuiWebViewAuthLogin::GuiWebViewAuthLogin(Window* window, const std::string& initialUrl, const std::string& storeNameForLogging, const std::string& watchRedirectPrefix, AuthMode mode, bool visible)
+GuiWebViewAuthLogin::GuiWebViewAuthLogin(Window* window, const std::string& initialUrl, const std::string& storeNameForLogging, const std::string& watchRedirectPrefix, AuthMode mode, bool visible, const std::string& fragmentIdentifier)
     : GuiComponent(window),
       mLoading(false),
       mCurrentInitialUrl(initialUrl),
@@ -38,7 +38,8 @@ GuiWebViewAuthLogin::GuiWebViewAuthLogin(Window* window, const std::string& init
       mAuthMode(mode),
       mSteamCookieDomain(""), // <-- VIRGOLA AGGIUNTA QUI
 	  mAuthCode(""),
-	  mIsVisible(visible) // Inizializza la nuova variabile
+	  mIsVisible(visible), // Inizializza la nuova variabile
+	  mFragmentIdentifier(fragmentIdentifier) // Salva il nuovo parametro
 #ifdef _WIN32
     , mParentHwnd(nullptr),
       mWebViewEnvironment(nullptr),
@@ -372,7 +373,7 @@ bool GuiWebViewAuthLogin::initializeWebView() {
                             }).Get(), &this->mProcessFailedToken); 
                             LOG(LogDebug) << "[" << this->mStoreNameForLogging << "] Gestore ProcessFailed aggiunto.";
 
-                           this->mWebView->add_NavigationStarting(Microsoft::WRL::Callback<ICoreWebView2NavigationStartingEventHandler>(
+this->mWebView->add_NavigationStarting(Microsoft::WRL::Callback<ICoreWebView2NavigationStartingEventHandler>(
     [this](ICoreWebView2* sender, ICoreWebView2NavigationStartingEventArgs* args) -> HRESULT {
         PWSTR uriRaw = nullptr;
         args->get_Uri(&uriRaw);
@@ -380,69 +381,56 @@ bool GuiWebViewAuthLogin::initializeWebView() {
         CoTaskMemFree(uriRaw);
 
         LOG(LogInfo) << "[" << this->mStoreNameForLogging << "] WebView NavigationStarting: " << uriA;
-        this->mLoading = true; // Considera una gestione più granulare dello stato di caricamento
 
-        // Gestione del reindirizzamento OAuth (come per Xbox Live)
-        // Questo è il punto in cui intercettiamo l'URL di reindirizzamento di successo.
-        if (!this->mRedirectSuccessfullyHandled && !this->mWatchRedirectPrefix.empty() && uriA.rfind(this->mWatchRedirectPrefix, 0) == 0) {
-            LOG(LogInfo) << "[" << this->mStoreNameForLogging << "] Rilevato URI di redirect (" << this->mWatchRedirectPrefix << "): " << uriA;
+        if (this->mRedirectSuccessfullyHandled)
+            return S_OK;
 
-            // Estrai il codice di autorizzazione dalla query string (es. "?code=...")
-            std::string code = Utils::String::getUrlParam(uriA, "code");
-            if (code.empty()) {
-                LOG(LogWarning) << "[" << this->mStoreNameForLogging << "] URI di redirect rilevato ma parametro 'code' non trovato. URL: " << uriA;
-                // Potrebbe essere un login fallito o annullato, o un flusso diverso senza "code".
-                // In questo caso, consideriamo il successo false se il codice è atteso e non trovato.
-                this->mAuthCode = ""; // Assicura che sia vuoto se il codice non viene trovato
-            } else {
-                this->mAuthCode = code; // Memorizza il codice per il chiamante (es. XboxAuth)
-                LOG(LogInfo) << "[" << this->mStoreNameForLogging << "] Codice di autorizzazione catturato: " << mAuthCode.substr(0, 10) << "...";
+        if (!this->mWatchRedirectPrefix.empty() && uriA.rfind(this->mWatchRedirectPrefix, 0) == 0)
+        {
+            std::string resultData;
+            bool success = false;
+
+            // --- NUOVA LOGICA CORRETTA PER AMAZON ---
+            if (mAuthMode == AuthMode::AMAZON_OAUTH_FRAGMENT) // Lasciamo il nome dell'enum per compatibilità
+            {
+                // Cerchiamo il token direttamente nei parametri dell'URL (?...)
+                std::string accessToken = Utils::String::getUrlParam(uriA, "openid.oa2.access_token");
+                if (!accessToken.empty())
+                {
+                    LOG(LogInfo) << "[" << this->mStoreNameForLogging << "] Rilevato redirect con access_token per Amazon.";
+                    resultData = uriA; // Passiamo l'intero URL al callback
+                    success = true;
+                }
             }
-
-            this->mRedirectSuccessfullyHandled = true; // Segna come gestito per evitare chiamate multiple
-
-            // Invoca la callback di completamento con il successo/fallimento e l'URL finale.
-            if (this->mOnLoginFinishedCallback) {
-                // Posta al thread UI per garantire l'esecuzione sicura della callback.
-                if (this->mWindow) {
-                    this->mWindow->postToUiThread([this, success = !mAuthCode.empty(), finalUrl = uriA] {
-                        if (this->mOnLoginFinishedCallback) {
-                            this->mOnLoginFinishedCallback(success, finalUrl);
-                        }
-                    });
-                } else {
-                    // Fallback se mWindow è null (dovrebbe esistere in un contesto GUI).
-                    if (this->mOnLoginFinishedCallback) {
-                        this->mOnLoginFinishedCallback(!mAuthCode.empty(), uriA);
-                    }
+            // --- LOGICA ESISTENTE PER GLI ALTRI STORE ---
+            else // La modalità è DEFAULT
+            {
+                std::string code = Utils::String::getUrlParam(uriA, "code");
+                if (!code.empty())
+                {
+                    LOG(LogInfo) << "[" << this->mStoreNameForLogging << "] Rilevato redirect con parametro 'code'.";
+                    this->mAuthCode = code;
+                    resultData = uriA; // Passiamo l'intero URL
+                    success = true;
                 }
             }
 
-            // Chiudi la WebView dopo che il reindirizzamento è stato gestito e la callback è stata pianificata.
-            // Questo assicura che la WebView scompaia automaticamente dopo il login.
-            if (this->mWindow) {
-                this->mWindow->postToUiThread([this] {
-                    this->closeWebView(); // Chiude il controller e rilascia le risorse WebView2
-                    if (this->mWindow) { // Controlla se la finestra è ancora valida prima di rimuovere la GUI
-                        this->mWindow->removeGui(this); // Rimuove questa istanza di GuiWebViewAuthLogin dalla pila
-                    }
-                });
-            } else {
-                // Se mWindow è null, non possiamo postare all'UI thread. Chiudi direttamente.
-                this->closeWebView();
-                // Non possiamo chiamare removeGui se mWindow non è valido o se la GUI è già stata rimossa.
+            if (success)
+            {
+                this->mRedirectSuccessfullyHandled = true;
+                if (this->mOnLoginFinishedCallback) {
+                    this->mWindow->postToUiThread([this, success, resultData] {
+                        if (this->mOnLoginFinishedCallback) this->mOnLoginFinishedCallback(success, resultData);
+                    });
+                }
+                this->mWindow->postToUiThread([this] { this->closeWebView(); delete this; });
+                return S_OK;
             }
-            // Non annulliamo la navigazione (args->put_Cancel(TRUE)) perché vogliamo che l'URL venga caricato
-            // per estrarre i parametri, ma una volta che l'abbiamo fatto, chiudiamo la WebView.
-            return S_OK; // Indica che l'evento è stato gestito
         }
-
-        // Se la modalità è per recuperare i cookie Steam e non è ancora stata gestita la redirezione
-        // e siamo su un URL che non è il WatchRedirectPrefix (es. la pagina del profilo/giochi Steam)
-        if (mAuthMode == AuthMode::FETCH_STEAM_COOKIE && !mRedirectSuccessfullyHandled && uriA.find("steamcommunity.com") != std::string::npos) {
-            LOG(LogInfo) << "[Steam] WebView NavigationStarting: Tentativo di recuperare i cookie dalla pagina Steam. URI: " << uriA;
-            // Qui potresti voler ritardare la chiamata a getSteamCookies per assicurarti che la pagina sia completamente caricata.
-            // Per ora, prosegui con la logica esistente di NavigationCompleted.
+        
+        // Logica per Steam
+        if (mAuthMode == AuthMode::FETCH_STEAM_COOKIE && uriA.find("steamcommunity.com") != std::string::npos) {
+             LOG(LogInfo) << "[Steam] In navigazione su steamcommunity.com";
         }
 
         return S_OK;

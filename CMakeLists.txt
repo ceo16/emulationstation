@@ -301,8 +301,6 @@ set(COMMON_INCLUDE_DIRS
     ${CMAKE_CURRENT_SOURCE_DIR}/es-core/src
 )
 
-
-
 if(ENABLE_PULSE)
  LIST(APPEND COMMON_INCLUDE_DIRS
     ${PULSEAUDIO_INCLUDE_DIR}
@@ -503,6 +501,7 @@ set(LIBRARY_OUTPUT_PATH ${dir} CACHE PATH "Build directory" FORCE)
 # add each component
 
 add_subdirectory("external")
+add_subdirectory("external/sqlite")
 add_subdirectory("es-core")
 add_subdirectory("es-app")
 
