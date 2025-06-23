@@ -1150,7 +1150,7 @@ void SystemData::loadAdditionnalConfig(pugi::xml_node& srcSystems)
   CollectionSystemManager::get()->loadCollectionSystems();
   }
   
-// --- AMAZON GAMES SYSTEM CREATION (Blocco Corretto e Semplificato) ---
+// --- AMAZON GAMES SYSTEM CREATION (CON LOGICA DI INSTALL/UNINSTALL COMPLETA) ---
 LOG(LogInfo) << "[AmazonDynamic] Checking/Creating Amazon Games system...";
 
 if (Settings::getInstance()->getBool("EnableAmazonGames")) 
@@ -1159,6 +1159,7 @@ if (Settings::getInstance()->getBool("EnableAmazonGames"))
     bool amazonSystemWasNewlyCreated = false;
 
     if (amazonSystem == nullptr) {
+        // ... (la logica di creazione del sistema rimane invariata) ...
         LOG(LogInfo) << "[AmazonDynamic] Amazon Games system not found, creating dynamically...";
         SystemMetadata md_amazon;
         md_amazon.name = "amazon";
@@ -1166,25 +1167,20 @@ if (Settings::getInstance()->getBool("EnableAmazonGames"))
         md_amazon.themeFolder = "amazon";
         md_amazon.manufacturer = "Amazon";
         md_amazon.hardwareType = "pc";
-
         SystemEnvironmentData* envData_amazon = new SystemEnvironmentData();
         std::string exeDir = Utils::FileSystem::getParent(Paths::getExePath());
         std::string amazonGamelistDir = Utils::FileSystem::getGenericPath(exeDir + "/roms/amazon");
-        
         if (!Utils::FileSystem::exists(amazonGamelistDir)) {
             Utils::FileSystem::createDirectory(amazonGamelistDir);
         }
         envData_amazon->mStartPath = amazonGamelistDir;
         envData_amazon->mPlatformIds = {PlatformIds::PC};
         envData_amazon->mLaunchCommand = "";
-
         std::vector<EmulatorData> amazonEmulators_empty;
         amazonSystem = new SystemData(md_amazon, envData_amazon, &amazonEmulators_empty, false, false, true, true);
-
         if (amazonSystem) {
             amazonSystemWasNewlyCreated = true;
             sSystemVector.push_back(amazonSystem);
-            LOG(LogInfo) << "[AmazonDynamic] 'amazon' system created and added to sSystemVector.";
         } else {
             delete envData_amazon;
             LOG(LogError) << "[AmazonDynamic] Failed to create 'amazon' system object!";
@@ -1192,13 +1188,79 @@ if (Settings::getInstance()->getBool("EnableAmazonGames"))
     }
 
     if (amazonSystem != nullptr) {
-        // All'avvio, l'unica cosa da fare qui è caricare i giochi già presenti nel gamelist.xml (la cache).
-        // La sincronizzazione con i giochi installati/online avverrà tramite la UI che chiamerà AmazonGamesStore::syncGames().
+        // 1. Carica i giochi dalla cache (gamelist.xml)
         std::string gamelistPath = amazonSystem->getGamelistPath(false);
         if (Utils::FileSystem::exists(gamelistPath) && amazonSystem->getRootFolder()->getChildren().empty()) {
             LOG(LogInfo) << "[AmazonDynamic] Parsing cached Amazon gamelist: " << gamelistPath;
             std::unordered_map<std::string, FileData*> fileMap;
             parseGamelist(amazonSystem, fileMap);
+        }
+
+        // 2. Scansiona i giochi realmente installati
+        GameStoreManager* gsm = GameStoreManager::getInstance(nullptr);
+        AmazonGamesStore* amazonStore = nullptr;
+        if (gsm) {
+            GameStore* baseStore = gsm->getStore("amazon");
+            if (baseStore) amazonStore = dynamic_cast<AmazonGamesStore*>(baseStore);
+        }
+
+        if (amazonStore) {
+            LOG(LogInfo) << "[AmazonDynamic] Syncing installation status...";
+            auto installedGames = amazonStore->getScanner()->findInstalledGames();
+            FolderData* root = amazonSystem->getRootFolder();
+
+            // Crea una mappa degli ID dei giochi installati per una ricerca veloce
+            std::set<std::string> installedGameIds;
+            for (const auto& game : installedGames) {
+                installedGameIds.insert(game.id);
+            }
+
+            // 3. LOGICA DI FUSIONE (Installazione)
+            for (const auto& installedGame : installedGames) {
+                FileData* existingGame = nullptr;
+                for (auto child : root->getChildren()) {
+                    if (child->getMetadata().get("storeId") == installedGame.id) {
+                        existingGame = child;
+                        break;
+                    }
+                }
+
+                if (existingGame) { // Gioco trovato, era virtuale -> aggiorna a installato
+                    if (existingGame->getMetadata().get("Installed") == "false") {
+                        LOG(LogInfo) << "[AmazonDynamic] Updating '" << installedGame.title << "' to INSTALLED.";
+                        MetaDataList& mdl = existingGame->getMetadata();
+                        mdl.set(MetaDataId::Installed, "true");
+                        mdl.set(MetaDataId::Virtual, "false");
+                        existingGame->setPath("amazon_installed:/" + installedGame.id);
+                    }
+                } else { // Gioco non trovato -> crea una nuova voce per il gioco installato
+                    LOG(LogInfo) << "[AmazonDynamic] Creating new entry for installed game '" << installedGame.title << "'.";
+                    std::string path = "amazon_installed:/" + installedGame.id;
+                    FileData* fd = new FileData(FileType::GAME, path, amazonSystem);
+                    MetaDataList& mdl = fd->getMetadata();
+                    mdl.set(MetaDataId::Name, installedGame.title);
+                    mdl.set(MetaDataId::Installed, "true");
+                    mdl.set("storeId", installedGame.id);
+                    mdl.set(MetaDataId::LaunchCommand, "amazon-games://play/" + installedGame.id);
+                    root->addChild(fd, false);
+                }
+            }
+
+            // 4. LOGICA "VICEVERSA" (Disinstallazione)
+            auto currentGames = root->getChildren(); // Crea una copia per iterare in sicurezza
+            for (auto game : currentGames) {
+                if (game->getMetadata().get("Installed") == "true") {
+                    std::string storeId = game->getMetadata().get("storeId");
+                    // Se un gioco segnato come installato NON è nella lista dei giochi realmente installati...
+                    if (installedGameIds.find(storeId) == installedGameIds.end()) {
+                        LOG(LogInfo) << "[AmazonDynamic] Game '" << game->getName() << "' was uninstalled. Reverting to VIRTUAL.";
+                        MetaDataList& mdl = game->getMetadata();
+                        mdl.set(MetaDataId::Installed, "false");
+                        mdl.set(MetaDataId::Virtual, "true");
+                        game->setPath("amazon_virtual:/" + storeId);
+                    }
+                }
+            }
         }
         
         if (amazonSystemWasNewlyCreated) {
@@ -1206,7 +1268,8 @@ if (Settings::getInstance()->getBool("EnableAmazonGames"))
         }
 
         amazonSystem->updateDisplayedGameCount();
-        LOG(LogInfo) << "[AmazonDynamic] Amazon system is ready. Current cached games: " << amazonSystem->getGameCount();
+        ViewController::get()->reloadGameListView(amazonSystem);
+        LOG(LogInfo) << "[AmazonDynamic] Amazon system sync complete. Final game count: " << amazonSystem->getGameCount();
     }
 }
 // --- FINE BLOCCO AMAZON ---

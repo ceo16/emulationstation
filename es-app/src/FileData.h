@@ -99,6 +99,7 @@ public:
 	virtual const std::string getVideoPath();
 	virtual const std::string getMarqueePath();
 	virtual const std::string getImagePath();
+	void setPath(const std::string& newPath); // Add this line
 
 	virtual const std::string getCore(bool resolveDefault = true);
 	virtual const std::string getEmulator(bool resolveDefault = true);

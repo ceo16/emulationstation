@@ -86,6 +86,18 @@ const std::string FileData::getPath() const
 	return mPath;
 }
 
+void FileData::setPath(const std::string& newPath)
+{
+    if (mPath != newPath)
+    {
+        LOG(LogDebug) << "FileData path changed from '" << mPath << "' to '" << newPath << "'";
+        mPath = newPath;
+        // You might want to mark metadata dirty here if path changes should trigger a save,
+        // or ensure this is handled by the caller.
+        // For example: mMetadata.setDirty();
+    }
+}
+
 const std::string FileData::getBreadCrumbPath()
 {
 	std::vector<std::string> paths;

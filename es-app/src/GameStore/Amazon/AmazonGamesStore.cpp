@@ -1,82 +1,59 @@
 #include "AmazonGamesStore.h"
 #include "SystemData.h"
 #include "Log.h"
-#include "utils/Platform.h"       // Header per Utils::Platform::ProcessStartInfo
+#include "utils/Platform.h" // Header corretto per ProcessStartInfo
 #include "views/ViewController.h"
-#include "Window.h"               // Header per la classe Window
+#include "FileData.h"
 #include <future>
 #include <thread>
+#include <map>
 
-// Il costruttore ora è corretto per la tua classe base GameStore
 AmazonGamesStore::AmazonGamesStore(Window* window) : mWindow(window) {}
-
-AmazonGamesStore::~AmazonGamesStore() {
-    shutdown();
-}
+AmazonGamesStore::~AmazonGamesStore() {}
 
 bool AmazonGamesStore::init(Window* window) {
     mWindow = window;
     mAuth = std::make_unique<AmazonAuth>(mWindow);
-    
-    // --- MODIFICA CHIAVE ---
-    // Passiamo mWindow al costruttore di AmazonGamesAPI
     mApi = std::make_unique<AmazonGamesAPI>(mWindow, mAuth.get());
-
     mScanner = std::make_unique<AmazonGamesScanner>();
     _initialized = true; 
-    LOG(LogInfo) << "Amazon Games Store Initialized.";
     return true;
 }
 
-void AmazonGamesStore::shutdown() {
-    for (auto& game : mGames) {
-        delete game;
-    }
-    mGames.clear();
-}
+void AmazonGamesStore::shutdown() {}
 
-void AmazonGamesStore::showStoreUI(Window* window) {
-    LOG(LogInfo) << "showStoreUI for Amazon not implemented yet.";
-}
+void AmazonGamesStore::showStoreUI(Window* window) {}
 
 std::string AmazonGamesStore::getStoreName() const {
     return "amazon";
 }
 
 std::vector<FileData*> AmazonGamesStore::getGamesList() {
-    return mGames;
+    SystemData* sys = SystemData::getSystem("amazon");
+    if (sys) {
+        // CORREZIONE: Il metodo corretto per ottenere i figli è getChildren()
+        return sys->getRootFolder()->getChildren();
+    }
+    return std::vector<FileData*>();
 }
 
 bool AmazonGamesStore::launchGame(const std::string& gameId) {
     if (gameId.empty()) return false;
-    LOG(LogInfo) << "Launching Amazon game with ID: " << gameId;
     std::string launchCommand = "start amazon-games://play/" + gameId;
-    
-    // CORREZIONE: Usa la classe ProcessStartInfo corretta dal tuo platform.h
+    // CORREZIONE: Usiamo il metodo corretto dal tuo platform.h
     Utils::Platform::ProcessStartInfo(launchCommand).run();
     return true;
 }
 
 bool AmazonGamesStore::installGame(const std::string& gameId) {
-    LOG(LogInfo) << "installGame for Amazon not implemented yet.";
-    // CORREZIONE: Usa la classe ProcessStartInfo corretta
+    // CORREZIONE: Usiamo il metodo corretto dal tuo platform.h
     Utils::Platform::ProcessStartInfo("start ms-windows-store://pdp/?productid=9NFQ1K0M448T").run();
     return false;
 }
 
-bool AmazonGamesStore::uninstallGame(const std::string& gameId) {
-    LOG(LogInfo) << "uninstallGame for Amazon not implemented yet.";
-    return false;
-}
-
-bool AmazonGamesStore::updateGame(const std::string& gameId) {
-    LOG(LogInfo) << "updateGame for Amazon not implemented yet.";
-    return false;
-}
-
-bool AmazonGamesStore::isAuthenticated() const {
-    return mAuth && mAuth->isAuthenticated();
-}
+bool AmazonGamesStore::uninstallGame(const std::string& gameId) { return false; }
+bool AmazonGamesStore::updateGame(const std::string& gameId) { return false; }
+bool AmazonGamesStore::isAuthenticated() const { return mAuth && mAuth->isAuthenticated(); }
 
 void AmazonGamesStore::login(std::function<void(bool)> on_complete) {
     if (mAuth) {
@@ -93,10 +70,9 @@ void AmazonGamesStore::login(std::function<void(bool)> on_complete) {
 
 void AmazonGamesStore::logout() {
     if (mAuth) mAuth->logout();
-    shutdown(); 
     SystemData* sys = SystemData::getSystem("amazon");
     if (sys) {
-        // CORREZIONE: Usa il metodo corretto dal tuo ViewController.h
+        sys->getRootFolder()->clear();
         ViewController::get()->reloadGameListView(sys);
     }
 }
@@ -106,11 +82,9 @@ void AmazonGamesStore::syncGames(std::function<void(bool)> on_complete) {
         if (on_complete) on_complete(false);
         return;
     }
-
     LOG(LogInfo) << "Amazon Sync: Starting...";
     std::thread([this, on_complete]() {
         auto installedGames = mScanner->findInstalledGames();
-        
         mApi->getOwnedGames([this, installedGames, on_complete](std::vector<Amazon::GameEntitlement> onlineGames, bool success) {
             if (success) {
                 mWindow->postToUiThread([this, onlineGames, installedGames] {
@@ -132,13 +106,7 @@ void AmazonGamesStore::processGamesList(const std::vector<Amazon::GameEntitlemen
     }
 
     FolderData* root = sys->getRootFolder();
-    root->clear(); // Pulisce i giochi esistenti dalla vista
-
-    // Puliamo la nostra cache interna per evitare puntatori duplicati
-    for (auto game : mGames) {
-        // Non cancelliamo il FileData qui, perché ora è gestito da root->clear()
-    }
-    mGames.clear();
+    root->clear();
 
     std::map<std::string, std::string> installedMap;
     for (const auto& game : installedGames) {
@@ -161,15 +129,12 @@ void AmazonGamesStore::processGamesList(const std::vector<Amazon::GameEntitlemen
         mdl.set(MetaDataId::Installed, isInstalled ? "true" : "false");
         mdl.set(MetaDataId::Virtual, !isInstalled ? "true" : "false");
         mdl.set("storeId", onlineGame.id);
-		mdl.set(MetaDataId::LaunchCommand, "amazon-games://play/" + onlineGame.id);
-        
+        mdl.set(MetaDataId::LaunchCommand, "amazon-games://play/" + onlineGame.id);
         
         root->addChild(fd, false);
         processedCount++;
     }
     
-    // --- MODIFICA FINALE ---
-    // Chiamiamo la funzione con il numero corretto di argomenti (uno solo).
     ViewController::get()->reloadGameListView(sys);
 
     LOG(LogInfo) << "Amazon Sync: Processing complete. Total games processed: " << processedCount;

@@ -10,7 +10,7 @@
 #include "GameStore/Amazon/AmazonGamesScanner.h"
 
 class FileData;
-class Window; // Forward declaration
+class Window;
 
 class AmazonGamesStore : public GameStore
 {
@@ -18,7 +18,7 @@ public:
     AmazonGamesStore(Window* window);
     ~AmazonGamesStore() override;
 
-    // --- Implementazione dell'interfaccia GameStore ---
+    // --- Interfaccia GameStore ---
     bool init(Window* window) override;
     void shutdown() override;
     void showStoreUI(Window* window) override;
@@ -29,21 +29,22 @@ public:
     bool uninstallGame(const std::string& gameId) override;
     bool updateGame(const std::string& gameId) override;
 
-    // --- Metodi Pubblici Specifici per AmazonGamesStore ---
+    // --- Metodi Pubblici Specifici ---
     bool isAuthenticated() const;
     void login(std::function<void(bool)> on_complete);
     void logout();
     void syncGames(std::function<void(bool)> on_complete);
+	AmazonGamesScanner* getScanner() { return mScanner.get(); }
 
 private:
     void processGamesList(const std::vector<Amazon::GameEntitlement>& onlineGames, const std::vector<Amazon::InstalledGameInfo>& installedGames);
 
-    Window* mWindow; // <-- Variabile membro aggiunta
+    Window* mWindow;
     std::unique_ptr<AmazonAuth> mAuth;
     std::unique_ptr<AmazonGamesAPI> mApi;
     std::unique_ptr<AmazonGamesScanner> mScanner;
     
-    std::vector<FileData*> mGames;
+    // La cache mGames è stata rimossa per risolvere il problema di ownership
 };
 
 #endif // ES_APP_GAMESTORE_AMAZON_STORE_H
