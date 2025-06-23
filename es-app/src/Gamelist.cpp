@@ -31,10 +31,11 @@ static bool isPathActuallyVirtual(const std::string& path) {
            Utils::String::startsWith(path, "xbox_online_prodid:/") ||
            Utils::String::startsWith(path, "xbox_online_pfn:/") ||
            Utils::String::startsWith(path, "xbox:/pfn/") || // Se usi anche questo formato generale
-		   Utils::String::startsWith(path, "ea_virtual:/") ||		   // Aggiunto per i giochi virtuali EA
+		   Utils::String::startsWith(path, "ea_virtual:/") ||			   // Aggiunto per i giochi virtuali EA
 		   Utils::String::startsWith(path, "eaplay:/") ||
-           Utils::String::startsWith(path, "ea_installed:/");  // Aggiunto per i giochi installati EA
-		   
+           Utils::String::startsWith(path, "ea_installed:/") || // Aggiunto per i giochi installati EA  amazon_virtual:/
+	       Utils::String::startsWith(path, "amazon_virtual:/") || // Il tuo, corretto!
+           Utils::String::startsWith(path, "amazon_installed:/"); // Aggiunto per completezza
 }
 
 FileData* findOrCreateFile(SystemData* system, const std::string& path, FileType type, std::unordered_map<std::string, FileData*>& fileMap)
@@ -50,7 +51,9 @@ FileData* findOrCreateFile(SystemData* system, const std::string& path, FileType
         Utils::String::startsWith(path, "xbox:/pfn/")  ||    // Altro formato virtuale Xbox, se usato
 		Utils::String::startsWith(path, "ea_virtual:/") || 		// Aggiunto per i giochi virtuali EA
 		Utils::String::startsWith(path, "eaplay:/") ||
-        Utils::String::startsWith(path, "ea_installed:/"))  // Aggiunto per i giochi installati EA 
+        Utils::String::startsWith(path, "ea_installed:/") || // Aggiunto per i giochi installati EA  amazon_virtual:/
+	    Utils::String::startsWith(path, "amazon_virtual:/") || // Il tuo, corretto!
+        Utils::String::startsWith(path, "amazon_installed:/")) 
     {
         LOG(LogDebug) << "findOrCreateFile: Handling VIRTUAL path for system '" << system->getName() << "': " << path;
         FolderData* rootCheck = system->getRootFolder();
@@ -712,8 +715,13 @@ void updateGamelist(SystemData* system)
 				Utils::String::startsWith(nodePathText, "steam_online_appid:/") || 
                 Utils::String::startsWith(nodePathText, "xbox_online_prodid:/") ||
                 Utils::String::startsWith(nodePathText, "xbox_online_pfn:/") ||
-                Utils::String::startsWith(nodePathText, "xbox:/") || // General Xbox virtual path
-				Utils::String::startsWith(nodePathText, "ea:/"))   // <<< ADD THIS
+                Utils::String::startsWith(nodePathText, "xbox:/pfn/") ||
+                Utils::String::startsWith(nodePathText, "ea_virtual:/") ||
+                Utils::String::startsWith(nodePathText, "ea_installed:/") ||
+                Utils::String::startsWith(nodePathText, "eaplay:/") ||
+                Utils::String::startsWith(nodePathText, "amazon_virtual:/") || // Il tuo, corretto!
+                Utils::String::startsWith(nodePathText, "amazon_installed:/")) // Aggiunto per completezza
+
             {
                 lookupPath = nodePathText; // Use the raw path for all known virtual prefixes
             } else {
@@ -738,8 +746,13 @@ void updateGamelist(SystemData* system)
             Utils::String::startsWith(currentFilePath, "steam:/") ||
             Utils::String::startsWith(currentFilePath, "xbox_online_prodid:/") ||
             Utils::String::startsWith(currentFilePath, "xbox_online_pfn:/") ||
-            Utils::String::startsWith(currentFilePath, "xbox:/") || // General Xbox virtual path
-			Utils::String::startsWith(currentFilePath, "ea:/"))  // <<< ADD THIS
+           Utils::String::startsWith(currentFilePath, "xbox:/pfn/") ||
+           Utils::String::startsWith(currentFilePath, "ea_virtual:/") ||
+           Utils::String::startsWith(currentFilePath, "ea_installed:/") ||
+           Utils::String::startsWith(currentFilePath, "eaplay:/") ||
+           Utils::String::startsWith(currentFilePath, "amazon_virtual:/") || // Il tuo, corretto!
+           Utils::String::startsWith(currentFilePath, "amazon_installed:/")) // Aggiunto per completezza
+
         {
             lookupKey = currentFilePath; // Use the raw path for all known virtual prefixes
         } else {
