@@ -19,9 +19,12 @@ Paths* Paths::_instance = nullptr;
 // Costruttore Paths() (dal tuo file)
 Paths::Paths()
 {	
-    // LA TUA LOGICA DI INIZIALIZZAZIONE ESISTENTE per mRootPath, mUserEmulationStationPath, ecc.
-    // Assicurati che mUserEmulationStationPath sia inizializzato in modo affidabile qui,
-    // perché getGamelistRecoveryPath_impl lo userà.
+    #ifdef BATOCERAAdd commentMore actions
+	LOG(LogInfo) << "BATOCERA is defined";
+#else
+	LOG(LogInfo) << "BATOCERA is NOT defined";
+#endif
+
 	mEmulationStationPath = getExePath(); 
 	mUserEmulationStationPath = Utils::FileSystem::getCanonicalPath(getHomePath() + "/.emulationstation");
 	mRootPath = Utils::FileSystem::getParent(getHomePath()); 

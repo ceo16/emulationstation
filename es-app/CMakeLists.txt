@@ -103,6 +103,7 @@ set(ES_HEADERS
     ${CMAKE_CURRENT_SOURCE_DIR}/src/guis/GuiGameAchievements.h
     ${CMAKE_CURRENT_SOURCE_DIR}/src/guis/GuiSaveState.h
     ${CMAKE_CURRENT_SOURCE_DIR}/src/guis/GuiFileBrowser.h
+	${CMAKE_CURRENT_SOURCE_DIR}/src/guis/GuiFavoriteMusicSelector.h
     ${CMAKE_CURRENT_SOURCE_DIR}/src/guis/GuiBusyInfoPopup.h
     ${CMAKE_CURRENT_SOURCE_DIR}/src/guis/GuiNegoziOnlineMenu.h
 	${CMAKE_CURRENT_SOURCE_DIR}/src/guis/GuiWebViewAuthLogin.h
@@ -240,6 +241,7 @@ set(ES_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/src/guis/GuiGameAchievements.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/guis/GuiSaveState.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/guis/GuiFileBrowser.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/src/guis/GuiFavoriteMusicSelector.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/guis/GuiBusyInfoPopup.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/guis/GuiNegoziOnlineMenu.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/src/guis/GuiWebViewAuthLogin.cpp

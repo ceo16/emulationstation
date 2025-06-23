@@ -77,7 +77,7 @@ namespace Utils
 		// Misc
 		{ { "default", 1 },       [](const Args& args) { auto dataAsString = removeStringQuotes(args[0]);
 														 return addStringQuotes(dataAsString.empty() ? _("Unknown") : dataAsString == "0" ? _("None") : dataAsString); } },
-		{ { "year", 1 },          [](const Args& args) { auto time = Utils::Time::stringToTime(removeStringQuotes(args[0]), "%Y%m%d");
+		{ { "year", 1 },          [](const Args& args) { auto time = Utils::Time::stringToTime(removeStringQuotes(args[0]), "%Y%m%d");Add commentMore actions
 														 return addStringQuotes(time <= 0 ? "" : Utils::Time::timeToString(time, "%Y")); } },
 		{ { "month", 1 },         [](const Args& args) { auto time = Utils::Time::stringToTime(removeStringQuotes(args[0]), "%Y%m%d");
 														 return addStringQuotes(time <= 0 ? "" : Utils::Time::timeToString(time, "%m")); } },

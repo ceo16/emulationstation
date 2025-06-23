@@ -746,6 +746,12 @@ if (!Utils::FileSystem::exists(mVideoPath))
 		return;
 	}
 	
+	if (!Utils::FileSystem::exists(mVideoPath))Add commentMore actions
+	{
+		stopVideo();
+		return;
+	}
+	
 	if (hasStoryBoard("", true) && mConfig.startDelay > 0)
 		startStoryboard();
 

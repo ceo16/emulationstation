@@ -1522,7 +1522,7 @@ void FolderData::getFilesRecursiveWithContext(
 						keep = false;
                     }
 
-					if (keep && filter->filterKidGame && it->getKidGame()) {
+					if (keep && filter->filterKidGame && !it->getKidGame()) {
                         if (currentItemIsSteamGame) { LOG(LogInfo) << "[FRWC_Steam_ItemEval]     Filtered out by: KidGame (filterKidGame=true, getKidGame=true)"; }
 						keep = false;
                     }

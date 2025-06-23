@@ -157,12 +157,12 @@ ViewController::~ViewController()
   LOG(LogDebug) << "ViewController::goToStart - END";
  }
 
-void ViewController::ReloadAndGoToStart()
+void ViewController::ReloadAndGoToStart()Add commentMore actions
 {
-	mWindow->renderSplashScreen(_("Loading..."));
-	ViewController::get()->reloadAll();
+	ViewController::reloadAllGames(mWindow, true);
+
 	ViewController::get()->goToStart(true);
-	mWindow->closeSplashScreen();
+
 }
 
 int ViewController::getSystemId(SystemData* system)

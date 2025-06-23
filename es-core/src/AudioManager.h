@@ -27,11 +27,11 @@ private:
 	void playMusic(std::string path);
 	static void musicEnd_callback();	
 
-	std::string mSystemName;			// per system music folder
-	std::string mCurrentSong;			// pop-up for SongName.cpp
+	std::string mSystemName;			// Per system music folderAdd commentMore actions
+	std::string mCurrentSong;			// Song name displayed in pop-ups
 	std::string mCurrentThemeMusicDirectory;
-	std::string mCurrentMusicPath;
-	std::deque<std::string> mLastPlayed;    // batocera
+	std::string mCurrentMusicPath;                  //  Stores the full path of the currently playing song
+	std::deque<std::string> mLastPlayed;            // Stores recently played songs
 
 	bool		mInitialized;
 	std::string	mPlayingSystemThemeSong;
@@ -47,6 +47,7 @@ public:
 	void unregisterSound(std::shared_ptr<Sound> & sound);
 
 	void play();
+	std::string getCurrentSongPath() const;
 	void stop();
 
 	void playRandomMusic(bool continueIfPlaying = true);
