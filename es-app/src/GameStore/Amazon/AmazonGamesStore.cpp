@@ -161,6 +161,8 @@ void AmazonGamesStore::processGamesList(const std::vector<Amazon::GameEntitlemen
         mdl.set(MetaDataId::Installed, isInstalled ? "true" : "false");
         mdl.set(MetaDataId::Virtual, !isInstalled ? "true" : "false");
         mdl.set("storeId", onlineGame.id);
+		mdl.set(MetaDataId::LaunchCommand, "amazon-games://play/" + onlineGame.id);
+        
         
         root->addChild(fd, false);
         processedCount++;
