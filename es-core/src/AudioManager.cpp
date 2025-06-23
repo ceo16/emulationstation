@@ -274,9 +274,10 @@ void AudioManager::playRandomMusic(bool continueIfPlaying)
         return;
 
     playMusic(musics.at(randomIndex));
-    playSong(musics.at(randomIndex));Add commentMore actions
+    playSong(musics.at(randomIndex));
     addLastPlayed(musics.at(randomIndex), musics.size());
     mPlayingSystemThemeSong = "";
+    
 }
 
 void AudioManager::playMusic(std::string path)
@@ -341,7 +342,7 @@ void AudioManager::stopMusic(bool fadeOut)
 
 std::string AudioManager::getCurrentSongPath() const
 {
-    return mCurrentMusicPath;  Add commentMore actions
+    return mCurrentMusicPath;  
 }
 
 // Fast string hash in order to use strings in switch/case

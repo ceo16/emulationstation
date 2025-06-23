@@ -377,7 +377,7 @@ class ExitKidModeMsgBox : public GuiSettings
 	bool input(InputConfig* config, Input input) override
 	{
 		Window* window = mWindow;
-		if (UIModeController::getInstance()->listen(config, input))Add commentMore actions
+		if (UIModeController::getInstance()->listen(config, input))
 		{
 			// window->pushGui(new GuiMsgBox(window, _("THE USER INTERFACE MODE IS NOW UNLOCKED"), _("OK")));
 	
@@ -391,7 +391,7 @@ class ExitKidModeMsgBox : public GuiSettings
 
 void GuiMenu::exitKidMode()
 {
-	if (Settings::getInstance()->getString("UIMode") == "Basic")Add commentMore actions
+	if (Settings::getInstance()->getString("UIMode") == "Basic")
 
 		Settings::getInstance()->setString("UIMode", "Full");
 
@@ -3983,12 +3983,12 @@ void GuiMenu::openSoundSettings()
             useFavorite = false;
         }
         Settings::getInstance()->setBool("audio.useFavoriteMusic", useFavorite);
-        Settings::getInstance()->saveFile();Add commentMore actions
+        Settings::getInstance()->saveFile();
         AudioManager::getInstance()->playRandomMusic(useFavorite);
     });
 
 	
-	s->addEntry(_("SELECTION OF FAVORITE SONGS"), true, [this] {Add commentMore actions
+	s->addEntry(_("SELECTION OF FAVORITE SONGS"), true, [this] {
         GuiFavoriteMusicSelector::openSelectFavoriteSongs(mWindow, false, true);
     });
 
@@ -4122,7 +4122,7 @@ void GuiMenu::openQuitMenu_static(Window *window, bool quickAccessMenu, bool ani
 	auto s = new GuiSettings(window, (quickAccessMenu ? _("QUICK ACCESS") : _("QUIT")).c_str());
 	s->setCloseButton("select");
 
-	if (quickAccessMenu)Add commentMore actions
+	if (quickAccessMenu)
 	{
     		s->addGroup(_("QUICK ACCESS"));
             if (AudioManager::getInstance()->isSongPlaying())

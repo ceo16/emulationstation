@@ -157,7 +157,7 @@ ViewController::~ViewController()
   LOG(LogDebug) << "ViewController::goToStart - END";
  }
 
-void ViewController::ReloadAndGoToStart()Add commentMore actions
+void ViewController::ReloadAndGoToStart()
 {
 	ViewController::reloadAllGames(mWindow, true);
 
