@@ -148,6 +148,54 @@ void AmazonAuth::exchangeInitialToken(const std::string& initialToken, std::func
     }
 }
 
+bool AmazonAuth::refreshTokens() {
+    if (mRefreshToken.empty()) {
+        LOG(LogError) << "Amazon Auth: Nessun refresh token disponibile per il refresh.";
+        return false;
+    }
+
+    LOG(LogInfo) << "Amazon Auth: Access token scaduto. Tento il refresh...";
+
+    HttpReqOptions options;
+    options.customHeaders.push_back("User-Agent: com.amazon.agslauncher.win/1.1.133.2-9e2c3a3");
+    options.customHeaders.push_back("Content-Type: application/json");
+    options.customHeaders.push_back("Expect: 100-continue");
+
+    Amazon::TokenRefreshRequest reqData;
+    reqData.source_token = mRefreshToken;
+
+    nlohmann::json jsonBody;
+    Amazon::to_json(jsonBody, reqData);
+    options.dataToPost = jsonBody.dump();
+
+    HttpReq request("https://api.amazon.com/auth/token", &options);
+    request.wait(); // Eseguiamo la richiesta in modo sincrono
+
+    if (request.status() == HttpReq::Status::REQ_SUCCESS) {
+        try {
+            // La risposta qui è direttamente il token, non un oggetto complesso
+            auto responseJson = nlohmann::json::parse(request.getContent());
+            std::string newAccessToken = responseJson.value("access_token", "");
+            
+            if (!newAccessToken.empty()) {
+                mAccessToken = newAccessToken;
+                // Amazon potrebbe restituire un nuovo refresh token, ma di solito non lo fa.
+                // Se lo facesse, dovremmo aggiornare anche mRefreshToken. Per ora, aggiorniamo solo l'access token.
+                saveTokens(); // Salva i nuovi token (o almeno il nuovo access token)
+                LOG(LogInfo) << "Amazon Auth: Token rinfrescato con successo.";
+                return true;
+            }
+        } catch (const std::exception& e) {
+            LOG(LogError) << "Amazon Auth: Errore parsing risposta refresh: " << e.what();
+        }
+    }
+    
+    LOG(LogError) << "Amazon Auth: Refresh del token fallito. Status: " << request.status() << " Body: " << request.getErrorMsg();
+    // Se il refresh fallisce, probabilmente il refresh token è scaduto -> bisogna rifare il login
+    logout();
+    return false;
+}
+
 // ... (Il resto delle funzioni: logout, isAuthenticated, load/save/clearTokens rimangono invariate) ...
 
 void AmazonAuth::logout() {

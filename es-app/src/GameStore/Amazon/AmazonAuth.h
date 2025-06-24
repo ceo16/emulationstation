@@ -17,6 +17,7 @@ public:
 
     bool isAuthenticated() const;
     std::string getAccessToken() const;
+	bool refreshTokens(); // <-- NUOVA FUNZIONE PUBBLICA
 
 private:
     void loadTokens();

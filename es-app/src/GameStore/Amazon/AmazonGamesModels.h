@@ -50,6 +50,25 @@ namespace Amazon
             {"requested_token_type", p.requested_token_type}
         };
     }
+	
+	struct TokenRefreshRequest
+{
+    std::string source_token_type = "refresh_token";
+    std::string requested_token_type = "access_token";
+    std::string source_token; // Qui andrà il nostro refresh_token
+    std::string app_name = "AGSLauncher";
+    std::string app_version = "1.1.133.2-9e2c3a3";
+};
+
+inline void to_json(nlohmann::json& j, const TokenRefreshRequest& p) {
+    j = nlohmann::json{
+        {"source_token_type", p.source_token_type},
+        {"requested_token_type", p.requested_token_type},
+        {"source_token", p.source_token},
+        {"app_name", p.app_name},
+        {"app_version", p.app_version}
+    };
+}
 
     // --- EntitlementsRequest (RISCRITTO DA ZERO PER CORRISPONDERE A PLAYNITE) ---
     struct EntitlementsRequest {
@@ -109,5 +128,6 @@ namespace Amazon
         std::string installDirectory;
     };
 }
+
 
 #endif

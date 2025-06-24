@@ -20,6 +20,7 @@ public:
 private:
     Window* mWindow; // Memorizziamo qui il puntatore alla finestra
     AmazonAuth* mAuth;
+	std::pair<long, std::vector<Amazon::GameEntitlement>> makeApiRequest(); 
 };
 
 #endif // ES_APP_GAMESTORE_AMAZON_API_H
