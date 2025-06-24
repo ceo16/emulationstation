@@ -54,6 +54,12 @@ namespace GOG
         p.isLoggedIn = j.value("isLoggedIn", false);
         p.username = j.value("username", "");
     }
+	inline void to_json(nlohmann::json& j, const AccountInfo& p) {
+        j = nlohmann::json{
+            {"isLoggedIn", p.isLoggedIn},
+            {"username", p.username}
+        };
+    }
 
     // --- Struttura per i giochi installati ---
     struct InstalledGameInfo {

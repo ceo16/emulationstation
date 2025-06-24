@@ -4,15 +4,46 @@
 #include "HttpReq.h"
 #include "Window.h"
 #include <thread>
+#include "Paths.h"
+#include "utils/FileSystemUtil.h"
+#include <fstream>
 
+// Aggiungi l'implementazione della nuova funzione privata
+std::string GogAuth::getAuthFilePath() const {
+    return Paths::getHomePath() + "/.emulationstation/gog_auth.json";
+}
+
+
+// SOSTITUISCI IL TUO COSTRUTTORE ATTUALE CON QUESTO
 GogAuth::GogAuth(Window* window) 
     : mWindow(window), 
-      mIsAuthenticated(false),                      // Inizializza a 'false' di default.
-      mLoginState(GogLoginState::NOT_LOGGED_IN),     // Inizializza lo stato del login.
-	  mInitialNavigationDone(false) // Inizializza qui
+      mIsAuthenticated(false),
+      mLoginState(GogLoginState::NOT_LOGGED_IN),
+      mInitialNavigationDone(false)
 {
     LOG(LogInfo) << "[GOG Auth] Istanza di GogAuth creata.";
-    // NON chiamare checkAuthentication_Sync() qui!
+    
+    // --- INIZIO LOGICA DI CARICAMENTO ---
+    const std::string authFile = getAuthFilePath();
+    if (Utils::FileSystem::exists(authFile)) {
+        LOG(LogInfo) << "[GOG Auth] Trovato file di autenticazione. Tento di caricare la sessione.";
+        try {
+            std::ifstream file(authFile);
+            nlohmann::json data = nlohmann::json::parse(file);
+            mAccountInfo = data.get<GOG::AccountInfo>();
+            
+            if (mAccountInfo.isLoggedIn) {
+                mIsAuthenticated = true;
+                LOG(LogInfo) << "[GOG Auth] Sessione ripristinata con successo per l'utente: " << mAccountInfo.username;
+            }
+        } catch (const std::exception& e) {
+            LOG(LogError) << "[GOG Auth] Errore nel caricare la sessione salvata: " << e.what();
+            // In caso di errore, assicurati che lo stato sia pulito.
+            mIsAuthenticated = false;
+            mAccountInfo = GOG::AccountInfo();
+        }
+    }
+    // --- FINE LOGICA DI CARICAMENTO ---
 }
 
 GogAuth::~GogAuth() {
@@ -66,6 +97,12 @@ void GogAuth::login(std::function<void(bool success)> on_complete) {
                         mAccountInfo = accountInfo;
                         mIsAuthenticated = true;
                         loggedIn = true;
+						LOG(LogInfo) << "[GOG Auth] Salvo la sessione su disco...";
+                nlohmann::json dataToSave = accountInfo;
+                std::ofstream file(getAuthFilePath());
+                file << dataToSave.dump(4); // dump(4) per un file leggibile
+                file.close();
+                LOG(LogInfo) << "[GOG Auth] Sessione salvata con successo.";
                     } else {
                         LOG(LogWarning) << "[GOG Auth] API dice che l'utente non è loggato. Torno in attesa.";
                         mLoginState = GogLoginState::WAITING_FOR_ACCOUNT_PAGE;
@@ -91,7 +128,14 @@ void GogAuth::login(std::function<void(bool success)> on_complete) {
 void GogAuth::logout() {
     mIsAuthenticated = false;
     mAccountInfo = GOG::AccountInfo();
-    LOG(LogInfo) << "[GOG Auth] Logout eseguito.";
+
+    const std::string authFile = getAuthFilePath();
+    if (Utils::FileSystem::exists(authFile)) {
+        Utils::FileSystem::removeFile(authFile);
+        LOG(LogInfo) << "[GOG Auth] File di autenticazione rimosso. Logout completato.";
+    } else {
+        LOG(LogInfo) << "[GOG Auth] Logout eseguito (nessuna sessione salvata da rimuovere).";
+    }
 }
 
 bool GogAuth::isAuthenticated() {

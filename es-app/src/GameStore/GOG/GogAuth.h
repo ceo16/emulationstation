@@ -32,7 +32,7 @@ public:
 
 private:
     // --- CORREZIONE: Funzioni separate per controlli sincroni e asincroni ---
-
+     std::string getAuthFilePath() const;
     
     // CORREZIONE CHIAVE: mLoginState è ora un membro della classe
     GogLoginState mLoginState; 
