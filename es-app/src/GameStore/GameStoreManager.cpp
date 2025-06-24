@@ -9,6 +9,7 @@
 #include "GameStore/Steam/SteamAuth.h"       
 #include "GameStore/Xbox/XboxAuth.h"    
 #include "GameStore/Amazon/AmazonGamesStore.h"     
+#include "GameStore/GOG/GogGamesStore.h"
 // EAGamesAuth è gestito internamente da EAGamesStore
 
 #include "guis/GuiMenu.h" // Necessario per GuiMenu::openQuitMenu_static (se showStoreSelectionUI usa una logica simile)
@@ -68,6 +69,14 @@ GameStoreManager::GameStoreManager(Window* window) : mWindow(window) {
         SteamAuth* steamAuth = new SteamAuth(/* params per SteamAuth? */);
         mStores["SteamStore"] = new SteamStore(steamAuth, mWindow); // CORREZIONE: Assumendo che prenda solo SteamAuth*
         LOG(LogInfo) << "GameStoreManager: SteamStore registered successfully.";
+    }
+	
+	    if (Settings::getInstance()->getBool("EnableGogStore")) {
+        LOG(LogDebug) << "GameStoreManager: Attempting to register GogGamesStore.";
+        auto store = new GogGamesStore(mWindow);
+        // La chiave "gog" deve corrispondere a getStoreName() in GogGamesStore.cpp
+        mStores[store->getStoreName()] = store; 
+        LOG(LogInfo) << "GameStoreManager: GOG.com Store registered.";
     }
     
     if (Settings::getInstance()->getBool("EnableXboxStore")) {

@@ -61,6 +61,12 @@ set(ES_HEADERS
 	${CMAKE_CURRENT_SOURCE_DIR}/src/GameStore/Amazon/AmazonGamesHelper.h
 	${CMAKE_CURRENT_SOURCE_DIR}/src/GameStore/Amazon/AmazonGamesModels.h
 	 ${CMAKE_CURRENT_SOURCE_DIR}/src/GameStore/Amazon/AmazonUI.h
+	 ${CMAKE_CURRENT_SOURCE_DIR}/src/GameStore/GOG/GogAuth.h
+	 ${CMAKE_CURRENT_SOURCE_DIR}/src/GameStore/GOG/GogScanner.h
+	 ${CMAKE_CURRENT_SOURCE_DIR}/src/GameStore/GOG/GogModels.h 
+	 ${CMAKE_CURRENT_SOURCE_DIR}/src/GameStore/GOG/GogGamesAPI.h
+	 ${CMAKE_CURRENT_SOURCE_DIR}/src/GameStore/GOG/GogGamesStore.h
+	 ${CMAKE_CURRENT_SOURCE_DIR}/src/GameStore/GOG/GogUI.h
     # GuiComponents
     ${CMAKE_CURRENT_SOURCE_DIR}/src/components/ScraperSearchComponent.h
 
@@ -209,6 +215,11 @@ set(ES_SOURCES
 	${CMAKE_CURRENT_SOURCE_DIR}/src/GameStore/Amazon/AmazonGamesScanner.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/src/GameStore/Amazon/AmazonGamesStore.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/GameStore/Amazon/AmazonUI.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/GameStore/GOG/GogAuth.cpp
+	 ${CMAKE_CURRENT_SOURCE_DIR}/src/GameStore/GOG/GogScanner.cpp
+	 ${CMAKE_CURRENT_SOURCE_DIR}/src/GameStore/GOG/GogGamesAPI.cpp
+     ${CMAKE_CURRENT_SOURCE_DIR}/src/GameStore/GOG/GogGamesStore.cpp	
+	 ${CMAKE_CURRENT_SOURCE_DIR}/src/GameStore/GOG/GogUI.cpp
 
     # GuiComponents
     ${CMAKE_CURRENT_SOURCE_DIR}/src/components/ScraperSearchComponent.cpp

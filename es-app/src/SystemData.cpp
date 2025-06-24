@@ -48,6 +48,8 @@
 #include "GameStore/EAGames/EAGamesModels.h"
 #include "GameStore/EAGames/EAGamesScanner.h"
 #include "GameStore/Amazon/AmazonGamesStore.h"
+#include "GameStore/GOG/GogGamesStore.h"
+#include "GameStore/GOG/GogScanner.h"
 
 #if WIN32
 #include "Win32ApiSystem.h"
@@ -1242,7 +1244,14 @@ if (Settings::getInstance()->getBool("EnableAmazonGames"))
                     mdl.set(MetaDataId::Installed, "true");
                     mdl.set("storeId", installedGame.id);
                     mdl.set(MetaDataId::LaunchCommand, "amazon-games://play/" + installedGame.id);
-                    root->addChild(fd, false);
+        
+        // --- MODIFICA CHIAVE: Aggiungiamo la lingua del sistema ---
+        std::string esSystemLanguage = Settings::getInstance()->getString("Language");
+        if (!esSystemLanguage.empty()) {
+            mdl.set(MetaDataId::Language, esSystemLanguage);
+        }
+        
+        root->addChild(fd, false);
                 }
             }
 
@@ -1273,6 +1282,114 @@ if (Settings::getInstance()->getBool("EnableAmazonGames"))
     }
 }
 // --- FINE BLOCCO AMAZON ---
+
+// --- GOG GAMES SYSTEM CREATION (CON SCANSIONE ALL'AVVIO) ---
+LOG(LogInfo) << "[GogDynamic] Checking/Creating GOG.com system...";
+
+if (Settings::getInstance()->getBool("EnableGogStore")) 
+{
+    SystemData* gogSystem = SystemData::getSystem("gog");
+    bool gogSystemWasNewlyCreated = false;
+
+    if (gogSystem == nullptr) {
+        LOG(LogInfo) << "[GogDynamic] GOG.com system not found, creating dynamically...";
+        SystemMetadata md_gog;
+        md_gog.name = "gog";
+        md_gog.fullName = "GOG.com";
+        md_gog.themeFolder = "gog";
+        md_gog.manufacturer = "CD Projekt";
+        md_gog.hardwareType = "pc";
+        
+        SystemEnvironmentData* envData_gog = new SystemEnvironmentData();
+        std::string romPath = Utils::FileSystem::getParent(Paths::getExePath()) + "/roms/gog";
+        Utils::FileSystem::createDirectory(romPath);
+        envData_gog->mStartPath = romPath;
+        
+        std::vector<EmulatorData> gogEmulators_empty;
+        gogSystem = new SystemData(md_gog, envData_gog, &gogEmulators_empty, false, false, true, true);
+
+        if (gogSystem) {
+            gogSystemWasNewlyCreated = true;
+            sSystemVector.push_back(gogSystem);
+        } else {
+            delete envData_gog;
+        }
+    }
+
+    if (gogSystem != nullptr) {
+        // Carica gamelist.xml se esiste
+        std::string gamelistPath = gogSystem->getGamelistPath(false);
+        if (Utils::FileSystem::exists(gamelistPath) && gogSystem->getRootFolder()->getChildren().empty()) {
+            std::unordered_map<std::string, FileData*> fileMap;
+            parseGamelist(gogSystem, fileMap);
+        }
+
+        // Scansiona e unisce i giochi installati
+        GameStoreManager* gsm = GameStoreManager::getInstance(nullptr);
+        GogGamesStore* gogStore = nullptr;
+        if (gsm) {
+            GameStore* baseStore = gsm->getStore("gog");
+            if (baseStore) gogStore = dynamic_cast<GogGamesStore*>(baseStore);
+        }
+
+        if (gogStore) {
+            LOG(LogInfo) << "[GogDynamic] Scanning and merging INSTALLED GOG games at startup...";
+            auto installedGames = gogStore->getScanner()->findInstalledGames();
+            FolderData* root = gogSystem->getRootFolder();
+            std::set<std::string> installedGameIds;
+            for(const auto& game : installedGames) installedGameIds.insert(game.id);
+
+            // Logica "viceversa" per giochi disinstallati
+            auto currentGames = root->getChildren();
+            for (auto game : currentGames) {
+                if (game->getMetadata().get("Installed") == "true") {
+                    std::string storeId = game->getMetadata().get("storeId");
+                    if (installedGameIds.find(storeId) == installedGameIds.end()) {
+                        LOG(LogInfo) << "[GogDynamic] Game '" << game->getName() << "' was uninstalled. Reverting to VIRTUAL.";
+                        MetaDataList& mdl = game->getMetadata();
+                        mdl.set(MetaDataId::Installed, "false");
+                        mdl.set(MetaDataId::Virtual, "true");
+                        game->setPath("gog_virtual:/" + storeId);
+                    }
+                }
+            }
+
+            // Logica di fusione per giochi installati
+            for (const auto& game : installedGames) {
+                FileData* existingGame = nullptr;
+                for (auto child : root->getChildren()) {
+                    if (child->getMetadata().get("storeId") == game.id) {
+                        existingGame = child;
+                        break;
+                    }
+                }
+
+                if (existingGame) { // Gioco trovato, aggiorna a installato
+                    if (existingGame->getMetadata().get("Installed") == "false") {
+                        LOG(LogInfo) << "[GogDynamic] Updating '" << game.name << "' to INSTALLED.";
+                        MetaDataList& mdl = existingGame->getMetadata();
+                        mdl.set(MetaDataId::Installed, "true");
+                        mdl.set(MetaDataId::Virtual, "false");
+                        existingGame->setPath("gog_installed:/" + game.id);
+                    }
+                } else { // Gioco non trovato, crea nuova voce
+                    LOG(LogInfo) << "[GogDynamic] Creating new entry for installed game '" << game.name << "'.";
+                    std::string path = "gog_installed:/" + game.id;
+                    FileData* fd = new FileData(FileType::GAME, path, gogSystem);
+                    MetaDataList& mdl = fd->getMetadata();
+                    mdl.set(MetaDataId::Name, game.name);
+                    mdl.set(MetaDataId::Installed, "true");
+                    mdl.set("storeId", game.id);
+                    root->addChild(fd, false);
+                }
+            }
+        }
+        
+        if (gogSystemWasNewlyCreated) gogSystem->loadTheme();
+        gogSystem->updateDisplayedGameCount();
+    }
+}
+// --- FINE BLOCCO GOG ---
   
 // --- All'interno di SystemData::loadConfig() o funzione equivalente ---
 // Questo è l'inizio della sezione di codice che gestisce il sistema 'epicgamestore'

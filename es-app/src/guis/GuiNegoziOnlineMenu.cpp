@@ -8,6 +8,7 @@
 #include "guis/GuiMsgBox.h"
 #include "Log.h"
 #include "GameStore/Amazon/AmazonUI.h"
+#include "GameStore/GOG/GogUI.h"
 
 GuiNegoziOnlineMenu::GuiNegoziOnlineMenu(Window* window) 
 	: GuiSettings(window, _("IMPOSTAZIONI NEGOZI ONLINE")) // Titolo della finestra
@@ -21,7 +22,7 @@ GuiNegoziOnlineMenu::GuiNegoziOnlineMenu(Window* window)
     enable_amazon_games->setState(Settings::getInstance()->getBool("EnableAmazonGames"));
     addWithLabel(_("VISUALIZZA AMAZON GAMES STORE"), enable_amazon_games);
     addSaveFunc([enable_amazon_games] {
-        Settings::getInstance()->setBool("EnableAmazonGames", enable_amazon_games->getState());
+    Settings::getInstance()->setBool("EnableAmazonGames", enable_amazon_games->getState());
     });
 
 	// --- EA Games Store Switch ---
@@ -39,6 +40,14 @@ GuiNegoziOnlineMenu::GuiNegoziOnlineMenu(Window* window)
 	addSaveFunc([enable_epic_games] {
 		Settings::getInstance()->setBool("EnableEpicGamesStore", enable_epic_games->getState());
 	});
+	
+	// --- GOG.com Store Switch --- (NUOVO BLOCCO)
+    auto enable_gog = std::make_shared<SwitchComponent>(mWindow);
+    enable_gog->setState(Settings::getInstance()->getBool("EnableGogStore"));
+    addWithLabel(_("VISUALIZZA GOG.COM STORE"), enable_gog);
+    addSaveFunc([enable_gog] {
+        Settings::getInstance()->setBool("EnableGogStore", enable_gog->getState());
+    });
 
 	// --- Steam Store Switch ---
 	auto enable_steam = std::make_shared<SwitchComponent>(mWindow);
@@ -66,9 +75,9 @@ GuiNegoziOnlineMenu::GuiNegoziOnlineMenu(Window* window)
 	// =======================================================================
 
      // Voce per AMAZON GAMES STORE (NUOVO BLOCCO)
-    addEntry(_("GESTISCI AMAZON GAMES"), true, [this] {
-        auto amazonUI = new AmazonUI(mWindow);
-        amazonUI->openAmazonStoreMenu();
+    addEntry(_("APRI AMAZON GAMES STORE"), true, [this] {
+        // Ora creiamo e apriamo la nostra nuova classe di menu
+        mWindow->pushGui(new AmazonUI(mWindow));
     }, "iconGames");
 
 	// Voce per EPIC GAMES STORE
@@ -83,6 +92,11 @@ GuiNegoziOnlineMenu::GuiNegoziOnlineMenu(Window* window)
 			}
 		}
 	}, "iconGames");
+	
+	 // Voce per GOG.COM STORE (NUOVO BLOCCO)
+    addEntry(_("APRI GOG.COM STORE"), true, [this] {
+        mWindow->pushGui(new GogUI(mWindow));
+    }, "iconGames");
 
 	// Voce per STEAM STORE
 	addEntry(_("APRI STEAM STORE"), true, [this] {

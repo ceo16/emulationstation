@@ -2,17 +2,22 @@
 #ifndef ES_APP_GAMESTORE_AMAZON_UI_H
 #define ES_APP_GAMESTORE_AMAZON_UI_H
 
-class Window;
+#include "guis/GuiSettings.h" // <-- Ereditiamo da GuiSettings
+
 class AmazonGamesStore;
 
-class AmazonUI
+// La classe AmazonUI ora è un vero e proprio menu
+class AmazonUI : public GuiSettings
 {
 public:
     AmazonUI(Window* window);
-    void openAmazonStoreMenu();
 
 private:
-    Window* mWindow;
+    void buildMenu(); // Funzione per costruire/ricostruire le voci del menu
+    void syncGames();
+    void performLogin();
+    void performLogout();
+
     AmazonGamesStore* mStore;
 };
 

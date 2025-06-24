@@ -42,8 +42,10 @@ public:
         FETCH_STEAM_COOKIE,
 		 FETCH_STEAM_GAMES_JSON, // <-- AGGIUNGI QUESTA RIGA
 		  OAUTH_CODE_IN_QUERY,    // Standard: cerca ?code=...
-        AMAZON_OAUTH_FRAGMENT  // Per Amazon: cerca #...access_token=...
+        AMAZON_OAUTH_FRAGMENT,  // Per Amazon: cerca #...access_token=...
+        GOG_LOGIN_POLLING
     };
+
 
 
         GuiWebViewAuthLogin(Window* window, const std::string& initialUrl, const std::string& storeNameForLogging, const std::string& watchRedirectPrefix = "", AuthMode mode = AuthMode::DEFAULT, bool visible = true, const std::string& fragmentIdentifier = "");

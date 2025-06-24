@@ -105,9 +105,8 @@ void AmazonGamesStore::processGamesList(const std::vector<Amazon::GameEntitlemen
         return;
     }
 
-    FolderData* root = sys->getRootFolder();
-    root->clear();
-
+    // Crea la nuova lista di giochi in un vettore temporaneo
+    std::vector<FileData*> newGameList;
     std::map<std::string, std::string> installedMap;
     for (const auto& game : installedGames) {
         installedMap[game.id] = game.installDirectory;
@@ -115,9 +114,7 @@ void AmazonGamesStore::processGamesList(const std::vector<Amazon::GameEntitlemen
 
     int processedCount = 0;
     for (const auto& onlineGame : onlineGames) {
-        if (onlineGame.product_productLine == "Twitch:FuelEntitlement") {
-            continue;
-        }
+        if (onlineGame.product_productLine == "Twitch:FuelEntitlement") continue;
 
         bool isInstalled = (installedMap.find(onlineGame.id) != installedMap.end());
         std::string path = isInstalled ? "amazon_installed:/" + onlineGame.id : "amazon_virtual:/" + onlineGame.id;
@@ -131,10 +128,22 @@ void AmazonGamesStore::processGamesList(const std::vector<Amazon::GameEntitlemen
         mdl.set("storeId", onlineGame.id);
         mdl.set(MetaDataId::LaunchCommand, "amazon-games://play/" + onlineGame.id);
         
-        root->addChild(fd, false);
+		std::string esSystemLanguage = Settings::getInstance()->getString("Language");
+    if (!esSystemLanguage.empty()) {
+        mdl.set(MetaDataId::Language, esSystemLanguage);
+    }
+        newGameList.push_back(fd);
         processedCount++;
     }
     
+    // Ora che la nuova lista è pronta, aggiorniamo il sistema in modo "atomico"
+    // Questo previene che la UI acceda a dati mentre vengono cancellati.
+    sys->getRootFolder()->clear(); // Pulisce la vecchia lista
+    for (auto game : newGameList) {
+        sys->getRootFolder()->addChild(game, false); // Aggiunge i nuovi giochi
+    }
+    
+    // Infine, notifichiamo alla UI che può ricaricare la vista in sicurezza
     ViewController::get()->reloadGameListView(sys);
 
     LOG(LogInfo) << "Amazon Sync: Processing complete. Total games processed: " << processedCount;

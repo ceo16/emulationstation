@@ -33,9 +33,9 @@ static bool isPathActuallyVirtual(const std::string& path) {
            Utils::String::startsWith(path, "xbox:/pfn/") || // Se usi anche questo formato generale
 		   Utils::String::startsWith(path, "ea_virtual:/") ||			   // Aggiunto per i giochi virtuali EA
 		   Utils::String::startsWith(path, "eaplay:/") ||
-           Utils::String::startsWith(path, "ea_installed:/") || // Aggiunto per i giochi installati EA  amazon_virtual:/
-	       Utils::String::startsWith(path, "amazon_virtual:/") || // Il tuo, corretto!
-           Utils::String::startsWith(path, "amazon_installed:/"); // Aggiunto per completezza
+           Utils::String::startsWith(path, "amazon_installed:/") ||
+           Utils::String::startsWith(path, "gog_virtual:/") || // <-- AGGIUNGI
+           Utils::String::startsWith(path, "gog_installed:/");  // <-- AGGIUNGI
 }
 
 FileData* findOrCreateFile(SystemData* system, const std::string& path, FileType type, std::unordered_map<std::string, FileData*>& fileMap)
@@ -51,9 +51,9 @@ FileData* findOrCreateFile(SystemData* system, const std::string& path, FileType
         Utils::String::startsWith(path, "xbox:/pfn/")  ||    // Altro formato virtuale Xbox, se usato
 		Utils::String::startsWith(path, "ea_virtual:/") || 		// Aggiunto per i giochi virtuali EA
 		Utils::String::startsWith(path, "eaplay:/") ||
-        Utils::String::startsWith(path, "ea_installed:/") || // Aggiunto per i giochi installati EA  amazon_virtual:/
-	    Utils::String::startsWith(path, "amazon_virtual:/") || // Il tuo, corretto!
-        Utils::String::startsWith(path, "amazon_installed:/")) 
+        Utils::String::startsWith(path, "amazon_installed:/") ||
+           Utils::String::startsWith(path, "gog_virtual:/") || // <-- AGGIUNGI
+           Utils::String::startsWith(path, "gog_installed:/"))  // <-- AGGIUNGI
     {
         LOG(LogDebug) << "findOrCreateFile: Handling VIRTUAL path for system '" << system->getName() << "': " << path;
         FolderData* rootCheck = system->getRootFolder();
@@ -720,7 +720,9 @@ void updateGamelist(SystemData* system)
                 Utils::String::startsWith(nodePathText, "ea_installed:/") ||
                 Utils::String::startsWith(nodePathText, "eaplay:/") ||
                 Utils::String::startsWith(nodePathText, "amazon_virtual:/") || // Il tuo, corretto!
-                Utils::String::startsWith(nodePathText, "amazon_installed:/")) // Aggiunto per completezza
+                Utils::String::startsWith(nodePathText, "amazon_installed:/") || // Aggiunto per completezza
+		        Utils::String::startsWith(nodePathText, "gog_virtual:/") || // <-- AGGIUNGI
+                Utils::String::startsWith(nodePathText, "gog_installed:/"))  // <-- AGGIUNGI
 
             {
                 lookupPath = nodePathText; // Use the raw path for all known virtual prefixes
@@ -751,7 +753,9 @@ void updateGamelist(SystemData* system)
            Utils::String::startsWith(currentFilePath, "ea_installed:/") ||
            Utils::String::startsWith(currentFilePath, "eaplay:/") ||
            Utils::String::startsWith(currentFilePath, "amazon_virtual:/") || // Il tuo, corretto!
-           Utils::String::startsWith(currentFilePath, "amazon_installed:/")) // Aggiunto per completezza
+           Utils::String::startsWith(currentFilePath, "amazon_installed:/") || // Aggiunto per completezza
+		   Utils::String::startsWith(currentFilePath, "gog_virtual:/") || // <-- AGGIUNGI
+           Utils::String::startsWith(currentFilePath, "gog_installed:/"))  // <-- AGGIUNGI
 
         {
             lookupKey = currentFilePath; // Use the raw path for all known virtual prefixes

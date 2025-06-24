@@ -8,9 +8,9 @@
 #include "Log.h"
 #include "LocaleES.h"
 
-AmazonUI::AmazonUI(Window* window) : mWindow(window)
+AmazonUI::AmazonUI(Window* window) 
+    : GuiSettings(window, "AMAZON GAMES STORE")
 {
-    // Otteniamo un puntatore allo store di Amazon
     GameStoreManager* gsm = GameStoreManager::getInstance(mWindow);
     mStore = nullptr;
     if (gsm) {
@@ -19,70 +19,68 @@ AmazonUI::AmazonUI(Window* window) : mWindow(window)
             mStore = dynamic_cast<AmazonGamesStore*>(baseStore);
         }
     }
-}
 
-void AmazonUI::openAmazonStoreMenu()
-{
     if (!mStore) {
         LOG(LogError) << "AmazonUI: Impossibile ottenere l'istanza di AmazonGamesStore.";
-        // CORREZIONE: Usa il costruttore corretto (testo, bottone1, funzione1)
-        mWindow->pushGui(new GuiMsgBox(mWindow, _("LO STORE AMAZON NON E' STATO INIZIALIZZATO."), _("OK"), nullptr));
+        mWindow->pushGui(new GuiMsgBox(mWindow, _("ERRORE"), _("OK"), nullptr));
+        close();
         return;
     }
+    
+    buildMenu();
+}
 
-    auto s = new GuiSettings(mWindow, "AMAZON GAMES STORE");
+void AmazonUI::buildMenu()
+{
+    mMenu.clear();
 
-    if (mStore->isAuthenticated()) {
-        // --- Utente Autenticato ---
-        
-        s->addEntry(_("DISCONNETTI ACCOUNT"), true, [this, s] {
-            mStore->logout();
-            // CORREZIONE: Usa il costruttore corretto
-            mWindow->pushGui(new GuiMsgBox(mWindow, _("ACCOUNT DISCONNESSO CORRETTAMENTE."), _("OK"), [this, s] {
-                delete s; 
-                auto new_ui = new AmazonUI(mWindow);
-                new_ui->openAmazonStoreMenu();
-                delete new_ui;
-            }));
-        });
-
-        s->addEntry(_("SINCRONIZZA LIBRERIA"), true, [this] {
-            GuiComponent* msgBox = new GuiMsgBox(mWindow, _("SINCRONIZZAZIONE IN CORSO..."), _("ANNULLA"), nullptr, GuiMsgBoxIcon::ICON_INFORMATION);
-            mWindow->pushGui(msgBox);
-
-            mStore->syncGames([this, msgBox](bool success) {
-                delete msgBox; 
-                
-                if (success) {
-                    // CORREZIONE: Usa il costruttore corretto
-                    mWindow->pushGui(new GuiMsgBox(mWindow, _("LIBRERIA SINCRONIZZATA CORRETTAMENTE."), _("OK"), nullptr, GuiMsgBoxIcon::ICON_INFORMATION));
-                } else {
-                    // CORREZIONE: Usa il costruttore corretto - QUESTA ERA LA RIGA DELL'ERRORE
-                    mWindow->pushGui(new GuiMsgBox(mWindow, _("IMPOSSIBILE SINCRONIZZARE LA LIBRERIA."), _("OK"), nullptr, GuiMsgBoxIcon::ICON_ERROR));
-                }
-            });
-        });
-
-    } else {
-        // --- Utente NON Autenticato ---
-
-        s->addEntry(_("ACCEDI ALL'ACCOUNT"), true, [this, s] {
-            mStore->login([this, s](bool success) {
-                if (success) {
-                    // CORREZIONE: Usa il costruttore corretto
-                    mWindow->pushGui(new GuiMsgBox(mWindow, _("LOGIN EFFETTUATO CORRETTAMENTE."), _("OK"), [this, s] {
-                        delete s;
-                        auto new_ui = new AmazonUI(mWindow);
-                        new_ui->openAmazonStoreMenu();
-                        delete new_ui;
-                    }, GuiMsgBoxIcon::ICON_INFORMATION));
-                } else {
-                    // CORREZIONE: Usa il costruttore corretto
-                    mWindow->pushGui(new GuiMsgBox(mWindow, _("IMPOSSIBILE EFFETTUARE IL LOGIN."), _("OK"), nullptr, GuiMsgBoxIcon::ICON_ERROR));
-                }
-            });
-        });
+    if (mStore->isAuthenticated())
+    {
+        addEntry(_("DISCONNETTI ACCOUNT"), false, [this] { performLogout(); });
+        addEntry(_("SINCRONIZZA LIBRERIA"), false, [this] { syncGames(); });
     }
+    else
+    {
+        addEntry(_("ACCEDI ALL'ACCOUNT"), false, [this] { performLogin(); });
+    }
+}
 
-    mWindow->pushGui(s);
+void AmazonUI::performLogout()
+{
+    mStore->logout();
+    buildMenu(); 
+}
+
+void AmazonUI::performLogin()
+{
+    GuiComponent* msgBox = new GuiMsgBox(mWindow, _("ATTENDERE..."), _("ANNULLA"), nullptr, GuiMsgBoxIcon::ICON_INFORMATION);
+    mWindow->pushGui(msgBox);
+
+    mStore->login([this, msgBox](bool success) {
+        delete msgBox;
+        if (success) {
+            // --- CORREZIONE: Usa ICON_INFORMATION invece di ICON_SUCCESS ---
+            mWindow->pushGui(new GuiMsgBox(mWindow, _("LOGIN EFFETTUATO"), _("OTTIMO!"), [this] {
+                buildMenu();
+            }, GuiMsgBoxIcon::ICON_INFORMATION)); 
+        } else {
+            mWindow->pushGui(new GuiMsgBox(mWindow, _("LOGIN FALLITO"), _("OK"), nullptr, GuiMsgBoxIcon::ICON_ERROR));
+        }
+    });
+}
+
+void AmazonUI::syncGames()
+{
+    GuiComponent* msgBox = new GuiMsgBox(mWindow, _("SINCRONIZZAZIONE IN CORSO..."), _("ANNULLA"), nullptr, GuiMsgBoxIcon::ICON_INFORMATION);
+    mWindow->pushGui(msgBox);
+
+    mStore->syncGames([this, msgBox](bool success) {
+        delete msgBox;
+        if (success) {
+            // --- CORREZIONE: Usa ICON_INFORMATION invece di ICON_SUCCESS ---
+             mWindow->pushGui(new GuiMsgBox(mWindow, _("SINCRONIZZAZIONE COMPLETATA"), _("OK"), nullptr, GuiMsgBoxIcon::ICON_INFORMATION));
+        } else {
+            mWindow->pushGui(new GuiMsgBox(mWindow, _("ERRORE DI SINCRONIZZAZIONE"), _("OK"), nullptr, GuiMsgBoxIcon::ICON_ERROR));
+        }
+    });
 }

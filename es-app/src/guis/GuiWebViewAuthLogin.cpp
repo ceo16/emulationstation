@@ -385,32 +385,50 @@ this->mWebView->add_NavigationStarting(Microsoft::WRL::Callback<ICoreWebView2Nav
         if (this->mRedirectSuccessfullyHandled)
             return S_OK;
 
+        // --- NUOVA LOGICA PER GOG ---
+        // GOG ha un flusso diverso. Non cerchiamo un token, ma aspettiamo
+        // che l'utente arrivi alla pagina dell'account.
+        if (mAuthMode == AuthMode::GOG_LOGIN_POLLING && uriA.rfind(this->mWatchRedirectPrefix, 0) == 0)
+        {
+            LOG(LogInfo) << "[" << this->mStoreNameForLogging << "] Rilevato URL di redirect GOG. Avvio controllo autenticazione.";
+            // Non chiudiamo la finestra qui. Invochiamo il callback.
+            // Sarà GogAuth a fare il controllo API e a decidere quando chiudere.
+            if (this->mOnLoginFinishedCallback) {
+                this->mWindow->postToUiThread([this, uriA] {
+                    if (this->mOnLoginFinishedCallback) this->mOnLoginFinishedCallback(true, uriA);
+                });
+            }
+            // Non impostiamo mRedirectSuccessfullyHandled = true perché il controllo potrebbe ripetersi
+            // Non chiudiamo la finestra. Lasciamo che l'utente continui a navigare.
+            return S_OK;
+        }
+
+
+        // --- LOGICA ESISTENTE PER AMAZON E ALTRI ---
+        // Questo blocco viene eseguito solo se NON siamo in modalità GOG.
         if (!this->mWatchRedirectPrefix.empty() && uriA.rfind(this->mWatchRedirectPrefix, 0) == 0)
         {
             std::string resultData;
             bool success = false;
 
-            // --- NUOVA LOGICA CORRETTA PER AMAZON ---
-            if (mAuthMode == AuthMode::AMAZON_OAUTH_FRAGMENT) // Lasciamo il nome dell'enum per compatibilità
+            if (mAuthMode == AuthMode::AMAZON_OAUTH_FRAGMENT)
             {
-                // Cerchiamo il token direttamente nei parametri dell'URL (?...)
                 std::string accessToken = Utils::String::getUrlParam(uriA, "openid.oa2.access_token");
                 if (!accessToken.empty())
                 {
                     LOG(LogInfo) << "[" << this->mStoreNameForLogging << "] Rilevato redirect con access_token per Amazon.";
-                    resultData = uriA; // Passiamo l'intero URL al callback
+                    resultData = uriA;
                     success = true;
                 }
             }
-            // --- LOGICA ESISTENTE PER GLI ALTRI STORE ---
-            else // La modalità è DEFAULT
+            else // Modalità DEFAULT per ?code=...
             {
                 std::string code = Utils::String::getUrlParam(uriA, "code");
                 if (!code.empty())
                 {
                     LOG(LogInfo) << "[" << this->mStoreNameForLogging << "] Rilevato redirect con parametro 'code'.";
                     this->mAuthCode = code;
-                    resultData = uriA; // Passiamo l'intero URL
+                    resultData = uriA;
                     success = true;
                 }
             }
