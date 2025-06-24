@@ -104,6 +104,50 @@ void GuiWebViewAuthLogin::init()
 #endif
 }
 
+// Aggiungi queste nuove funzioni al file
+void GuiWebViewAuthLogin::setOnNavigationCompletedCallback(const std::function<void(const std::string&)>& callback) {
+    mOnNavigationCompletedCallback = callback;
+}
+
+
+void GuiWebViewAuthLogin::getHtmlContent(std::function<void(const std::string&)> callback) {
+    if (!mWebView) {
+        if (callback) { callback(""); }
+        return;
+    }
+
+    // Usiamo lo script 'document.body.innerText' per ottenere il contenuto JSON.
+    mWebView->ExecuteScript(L"document.body.innerText", Microsoft::WRL::Callback<ICoreWebView2ExecuteScriptCompletedHandler>(
+        [this, callback](HRESULT error, LPCWSTR result) -> HRESULT {
+            if (SUCCEEDED(error) && result) {
+                // --- INIZIO BLOCCO DI PULIZIA ---
+                std::string rawString = Utils::String::convertFromWideString(result);
+                
+                // 1. Rimuovi le virgolette esterne se presenti.
+                // Il risultato da ExecuteScript è una stringa JSON, che a sua volta è racchiusa in virgolette.
+                if (rawString.length() >= 2 && rawString.front() == '"' && rawString.back() == '"') {
+                    rawString = rawString.substr(1, rawString.length() - 2);
+                }
+
+                // 2. Sostituisci i caratteri di escape.
+                // Le virgolette interne al JSON sono precedute da '\', quindi \" diventa ".
+                rawString = Utils::String::replace(rawString, "\\\"", "\"");
+                // La barra rovesciata stessa è preceduta da '\', quindi \\ diventa \.
+                rawString = Utils::String::replace(rawString, "\\\\", "\\");
+
+                // --- FINE BLOCCO DI PULIZIA ---
+                
+                LOG(LogDebug) << "[GOG Auth] JSON Pulito pronto per il parsing: " << rawString;
+                callback(rawString);
+
+            } else {
+                LOG(LogError) << "[GOG Auth] Impossibile ottenere il contenuto HTML dalla WebView.";
+                callback("");
+            }
+            return S_OK;
+        }).Get());
+}
+
 void GuiWebViewAuthLogin::setOnLoginFinishedCallback(const std::function<void(bool success, const std::string& tokenOrError)>& callback)
 {
     mOnLoginFinishedCallback = callback;
@@ -382,24 +426,22 @@ this->mWebView->add_NavigationStarting(Microsoft::WRL::Callback<ICoreWebView2Nav
 
         LOG(LogInfo) << "[" << this->mStoreNameForLogging << "] WebView NavigationStarting: " << uriA;
 
-        if (this->mRedirectSuccessfullyHandled)
-            return S_OK;
+       if (mOnNavigationCompletedCallback) {
+            mOnNavigationCompletedCallback(uriA);
+        }
 
-        // --- NUOVA LOGICA PER GOG ---
-        // GOG ha un flusso diverso. Non cerchiamo un token, ma aspettiamo
-        // che l'utente arrivi alla pagina dell'account.
-        if (mAuthMode == AuthMode::GOG_LOGIN_POLLING && uriA.rfind(this->mWatchRedirectPrefix, 0) == 0)
+        // --- GESTIONE SPECIFICA PER GOG ---
+        // Questa logica si attiva solo per GOG e non chiude la finestra.
+        // Chiama il callback ad ogni navigazione sulla pagina dell'account.
+        if (mAuthMode == AuthMode::GOG_LOGIN_POLLING && !this->mWatchRedirectPrefix.empty() && uriA.rfind(this->mWatchRedirectPrefix, 0) == 0)
         {
-            LOG(LogInfo) << "[" << this->mStoreNameForLogging << "] Rilevato URL di redirect GOG. Avvio controllo autenticazione.";
-            // Non chiudiamo la finestra qui. Invochiamo il callback.
-            // Sarà GogAuth a fare il controllo API e a decidere quando chiudere.
+            LOG(LogInfo) << "[" << this->mStoreNameForLogging << "] Rilevato URL di GOG. Eseguo controllo autenticazione...";
             if (this->mOnLoginFinishedCallback) {
                 this->mWindow->postToUiThread([this, uriA] {
                     if (this->mOnLoginFinishedCallback) this->mOnLoginFinishedCallback(true, uriA);
                 });
             }
-            // Non impostiamo mRedirectSuccessfullyHandled = true perché il controllo potrebbe ripetersi
-            // Non chiudiamo la finestra. Lasciamo che l'utente continui a navigare.
+            // Ritorna S_OK senza chiudere la finestra, per permettere all'utente di continuare.
             return S_OK;
         }
 
@@ -467,6 +509,8 @@ LOG(LogDebug) << "[" << this->mStoreNameForLogging << "] Gestore NavigationStart
         CoTaskMemFree(srcUriRaw);
 
         LOG(LogInfo) << "[" << mStoreNameForLogging << "] WebView NavigationCompleted. URI: " << srcUri << ", Success: " << (isSuccess ? "true" : "false");
+		
+
 
         // Assicurati che la navigazione sia avvenuta con successo per continuare con l'analisi della pagina.
         if (!isSuccess) {

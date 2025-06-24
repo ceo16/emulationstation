@@ -60,6 +60,8 @@ public:
 
     void init(); 
     void setOnLoginFinishedCallback(const std::function<void(bool success, const std::string& dataOrError)>& callback);
+	void setOnNavigationCompletedCallback(const std::function<void(const std::string&)>& callback);
+    void getHtmlContent(std::function<void(const std::string&)> callback);
 	void getTextAsync(const std::function<void(const std::string& text)>& callback);
 	void setNavigationCompletedCallback(const std::function<void(bool isSuccess, const std::string& url)>& callback);
 	void navigate(const std::string& url);
@@ -104,6 +106,7 @@ private:
 	 std::string mFragmentIdentifier; 
     std::string mSteamCookieDomain;
 	bool mIsVisible;
+	std::function<void(const std::string&)> mOnNavigationCompletedCallback; 
 
 #ifdef _WIN32
     void getSteamCookies(); // Funzione helper solo per Steam

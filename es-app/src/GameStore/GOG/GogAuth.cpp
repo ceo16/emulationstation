@@ -5,92 +5,103 @@
 #include "Window.h"
 #include <thread>
 
-GogAuth::GogAuth(Window* window) : mWindow(window) {
-    mIsAuthenticated = checkAuthentication();
+GogAuth::GogAuth(Window* window) 
+    : mWindow(window), 
+      mIsAuthenticated(false),                      // Inizializza a 'false' di default.
+      mLoginState(GogLoginState::NOT_LOGGED_IN),     // Inizializza lo stato del login.
+	  mInitialNavigationDone(false) // Inizializza qui
+{
+    LOG(LogInfo) << "[GOG Auth] Istanza di GogAuth creata.";
+    // NON chiamare checkAuthentication_Sync() qui!
+}
+
+GogAuth::~GogAuth() {
+    if (mWebView) {
+        mWebView->close();
+    }
 }
 
 void GogAuth::login(std::function<void(bool success)> on_complete) {
     const std::string loginUrl = "https://www.gog.com/account/";
-    const std::string watchUrl = "https://www.gog.com/account"; 
+    const std::string apiUrl = "https://menu.gog.com/v1/account/basic";
 
-    if (mWebView != nullptr) {
-        LOG(LogWarning) << "GOG Auth: Tentativo di avviare un nuovo login mentre uno è già in corso.";
-        return;
-    }
+    if (mWebView != nullptr) { return; }
 
-    // --- CHIAMATA CORRETTA AL COSTRUTTORE ---
-    // Usiamo la firma esatta, passando una stringa vuota per l'ultimo parametro che non ci serve.
-    mWebView = new GuiWebViewAuthLogin(mWindow, loginUrl, "GOG.com", watchUrl, 
-                                       GuiWebViewAuthLogin::AuthMode::GOG_LOGIN_POLLING, 
-                                       true, ""); // visible = true, fragmentIdentifier = ""
+    mInitialNavigationDone = false; // Resetta la bandierina all'inizio di ogni tentativo
+    mWebView = new GuiWebViewAuthLogin(mWindow, loginUrl, "GOG.com", "", GuiWebViewAuthLogin::AuthMode::GOG_LOGIN_POLLING);
     
-    mWebView->setOnLoginFinishedCallback([this, on_complete](bool, const std::string&) {
-        if (mIsCheckingAuth) {
+    mLoginState = GogLoginState::WAITING_FOR_ACCOUNT_PAGE;
+
+    mWebView->setNavigationCompletedCallback([this, on_complete, apiUrl](bool isSuccess, const std::string& url) {
+        if (!isSuccess) { return; }
+
+        LOG(LogDebug) << "[GOG Auth] Navigazione completata a: " << url;
+
+        // --- NUOVA LOGICA CON BANDIERINA ---
+        // Se questa è la prima navigazione in assoluto, la ignoriamo e alziamo la bandierina.
+        if (!mInitialNavigationDone) {
+            LOG(LogInfo) << "[GOG Auth] Caricamento pagina di login iniziale completato. In attesa dell'input dell'utente.";
+            mInitialNavigationDone = true;
+            return;
+        }
+        
+        // D'ora in poi, agiamo solo sulle navigazioni successive alla prima.
+        if (mLoginState == GogLoginState::WAITING_FOR_ACCOUNT_PAGE) {
+            LOG(LogInfo) << "[GOG Auth] Rilevata azione utente. Verifico lo stato API...";
+            mLoginState = GogLoginState::FETCHING_ACCOUNT_INFO;
+            mWebView->navigate(apiUrl);
             return;
         }
 
-        mIsCheckingAuth = true;
-        std::thread([this, on_complete] {
-            bool isLoggedIn = checkAuthentication();
-            if (isLoggedIn) {
-                mWindow->postToUiThread([this, on_complete] {
-                    if (mWebView) {
-                        mWebView->close();
-                        mWebView = nullptr;
+        if (mLoginState == GogLoginState::FETCHING_ACCOUNT_INFO && url.rfind(apiUrl, 0) == 0) {
+            LOG(LogInfo) << "[GOG Auth] Raggiunto endpoint API. Estraggo JSON...";
+            
+            mWebView->getHtmlContent([this, on_complete](const std::string& pageContent) {
+                bool loggedIn = false;
+                try {
+                    auto accountInfo = nlohmann::json::parse(pageContent).get<GOG::AccountInfo>();
+                    
+                    if (accountInfo.isLoggedIn) {
+                        LOG(LogInfo) << "[GOG Auth] SUCCESSO! Login confermato: " << accountInfo.username;
+                        mAccountInfo = accountInfo;
+                        mIsAuthenticated = true;
+                        loggedIn = true;
+                    } else {
+                        LOG(LogWarning) << "[GOG Auth] API dice che l'utente non è loggato. Torno in attesa.";
+                        mLoginState = GogLoginState::WAITING_FOR_ACCOUNT_PAGE;
                     }
-                    if (on_complete) on_complete(true);
-                });
-            }
-            mIsCheckingAuth = false;
-        }).detach();
+                } catch (const std::exception& e) {
+                    LOG(LogError) << "[GOG Auth] Errore parsing JSON: " << e.what();
+                    mLoginState = GogLoginState::WAITING_FOR_ACCOUNT_PAGE;
+                }
+
+                if (loggedIn) {
+                    mWindow->postToUiThread([this, on_complete] {
+                        if (mWebView) { mWebView->close(); mWebView = nullptr; }
+                        if (on_complete) { on_complete(true); }
+                    });
+                }
+            });
+        }
     });
 
     mWindow->pushGui(mWebView);
 }
 
 void GogAuth::logout() {
-    // Il logout di GOG è complesso perché si basa sui cookie.
-    // Il modo più sicuro per non causare crash è semplicemente resettare lo stato
-    // e informare l'utente. I cookie verranno cancellati al prossimo avvio/login.
     mIsAuthenticated = false;
     mAccountInfo = GOG::AccountInfo();
-    LOG(LogInfo) << "[GOG Auth] Logout eseguito. I cookie verranno cancellati al prossimo login.";
+    LOG(LogInfo) << "[GOG Auth] Logout eseguito.";
 }
 
 bool GogAuth::isAuthenticated() {
+    // Semplicemente restituisce lo stato che abbiamo salvato durante il login.
     return mIsAuthenticated;
 }
 
 GOG::AccountInfo GogAuth::getAccountInfo() {
-    if (!mIsAuthenticated) {
-        checkAuthentication();
-    }
+    // Semplicemente restituisce le info dell'account salvate durante il login.
     return mAccountInfo;
 }
 
-bool GogAuth::checkAuthentication() {
-    LOG(LogDebug) << "[GOG Auth] Controllo stato autenticazione tramite API...";
-    
-    HttpReqOptions options;
-    options.useCookieManager = true; 
-    HttpReq req("https://menu.gog.com/v1/account/basic", &options);
-    req.wait();
-
-    if (req.status() == HttpReq::Status::REQ_SUCCESS) {
-        try {
-            auto accountInfo = nlohmann::json::parse(req.getContent()).get<GOG::AccountInfo>();
-            if (accountInfo.isLoggedIn) {
-                LOG(LogInfo) << "[GOG Auth] SUCCESSO. Utente autenticato: " << accountInfo.username;
-                mAccountInfo = accountInfo;
-                mIsAuthenticated = true;
-                return true;
-            }
-        } catch (const std::exception& e) {
-            LOG(LogDebug) << "[GOG Auth] Errore parsing (normale se non loggati): " << e.what();
-        }
-    }
-    
-    mIsAuthenticated = false;
-    mAccountInfo.username = "";
-    return false;
-}
+// --- NUOVA VERSIONE SINCRONA (per controlli rapidi) ---
