@@ -44,76 +44,47 @@ GameStore* GameStoreManager::getStore(const std::string& storeName) {
 GameStoreManager::GameStoreManager(Window* window) : mWindow(window) {
     LOG(LogDebug) << "GameStoreManager: Constructor";
 
-    // Rimuovi HttpReq::Manager* httpManager e Settings::getInstance()->getHttpManager()
-    // poiché non esistono e non sono più passati.
-	
-	if (Settings::getInstance()->getBool("EnableAmazonGames")) { // Usa un'impostazione per abilitarlo
-    auto store = new AmazonGamesStore(mWindow);
-    store->init(mWindow);
-    mStores[store->getStoreName()] = store;
-    LOG(LogInfo) << "GameStoreManager: Amazon Games Store registrato.";
-}
+    // Modello per la registrazione di ogni store
+    auto registerStore = [&](GameStore* store) {
+        if (store && store->init(mWindow)) {
+            mStores[store->getStoreName()] = store;
+            LOG(LogInfo) << "GameStoreManager: " << store->getStoreName() << " registrato con successo.";
+        } else {
+            LOG(LogError) << "GameStoreManager: Impossibile inizializzare lo store " << (store ? store->getStoreName() : "sconosciuto");
+            if (store) {
+                delete store;
+            }
+        }
+    };
+
+    if (Settings::getInstance()->getBool("EnableAmazonGames")) {
+        registerStore(new AmazonGamesStore(mWindow));
+    }
 
     if (Settings::getInstance()->getBool("EnableEpicGamesStore")) {
-        LOG(LogDebug) << "GameStoreManager: Attempting to register EpicGamesStore.";
-        // Il tuo EpicGamesStore.h ha EpicGamesStore(EpicGamesAuth* auth);
-        EpicGamesAuth* epicAuth = new EpicGamesAuth(/* parametri per EpicGamesAuth? */); 
-        mStores["EpicGamesStore"] = new EpicGamesStore(epicAuth); 
-        LOG(LogInfo) << "GameStoreManager: Epic Games Store registered.";
+        EpicGamesAuth* epicAuth = new EpicGamesAuth();
+        registerStore(new EpicGamesStore(epicAuth));
+    }
+
+    if (Settings::getInstance()->getBool("EnableGogStore")) {
+        registerStore(new GogGamesStore(mWindow));
     }
 
     if (Settings::getInstance()->getBool("EnableSteamStore")) {
-        LOG(LogDebug) << "GameStoreManager: Attempting to register SteamStore.";
-        // Il tuo SteamStore.h ha SteamStore(SteamAuth* auth); e uno che prendeva HttpManager.
-        // Usa quello che prende solo SteamAuth*.
-        SteamAuth* steamAuth = new SteamAuth(/* params per SteamAuth? */);
-        mStores["SteamStore"] = new SteamStore(steamAuth, mWindow); // CORREZIONE: Assumendo che prenda solo SteamAuth*
-        LOG(LogInfo) << "GameStoreManager: SteamStore registered successfully.";
-    }
-	
-	    if (Settings::getInstance()->getBool("EnableGogStore")) {
-        LOG(LogDebug) << "GameStoreManager: Attempting to register GogGamesStore.";
-        auto store = new GogGamesStore(mWindow);
-        // La chiave "gog" deve corrispondere a getStoreName() in GogGamesStore.cpp
-        mStores[store->getStoreName()] = store; 
-        LOG(LogInfo) << "GameStoreManager: GOG.com Store registered.";
+        SteamAuth* steamAuth = new SteamAuth();
+        registerStore(new SteamStore(steamAuth, mWindow));
     }
     
     if (Settings::getInstance()->getBool("EnableXboxStore")) {
-        LOG(LogDebug) << "GameStoreManager: Attempting to register XboxStore.";
-        // Il tuo XboxStore.h ha XboxStore(XboxAuth* auth, Window* window);
         std::function<void(const std::string&)> xboxStateCb = [](const std::string&){ /*...*/ };
-        XboxAuth* xboxAuth = new XboxAuth(xboxStateCb); 
-        mStores["XboxStore"] = new XboxStore(xboxAuth, mWindow); // CORREZIONE
-        LOG(LogInfo) << "GameStoreManager: XboxStore registered.";
+        XboxAuth* xboxAuth = new XboxAuth(xboxStateCb);
+        registerStore(new XboxStore(xboxAuth, mWindow));
     }
 
-if (Settings::getInstance()->getBool("EnableEAGamesStore")) {
-    LOG(LogDebug) << "GameStoreManager: Attempting to register EAGamesStore.";
-    // USA LA COSTANTE STORE_ID PER LA CHIAVE
-    mStores[EAGamesStore::STORE_ID] = new EAGamesStore(mWindow); 
-    LOG(LogInfo) << "GameStoreManager: EAGamesStore registered successfully with ID: " << EAGamesStore::STORE_ID; // Log più preciso
-}
-}
-// ... (destructor e altri metodi come getStore, registerStore come nel tuo file) ...
-// Rimuovi showStoreSelectionUI e showIndividualStoreUI se sono state spostate o sono obsolete
-// La logica di GuiMenu era problematica (errore C2061, C3536, C2664).
-// Se devi mantenerle, la creazione del menu e l'aggiunta di entry va corretta.
-// Esempio di come potrebbe essere (ma va adattato):
-/*
-void GameStoreManager::showStoreSelectionUI(Window* window) {
-    auto s = new GuiSettings(window, _("NEGOZI ONLINE")); // Esempio, usa una GUI appropriata
-
-    for (auto const& [storeName, storeInstance] : mStores) {
-        if (storeInstance) {
-            s->addEntry(storeInstance->getStoreName(), true, [window, storeInstance]() {
-                storeInstance->showStoreUI(window);
-            });
-        }
+    if (Settings::getInstance()->getBool("EnableEAGamesStore")) {
+        registerStore(new EAGamesStore(mWindow));
     }
-    window->pushGui(s);
 }
-*/
 
 // CORREZIONE: initAllStores non prende argomenti (usa mWindow membro)
 // Assicurati che la dichiarazione in GameStoreManager.h sia void initAllStores();

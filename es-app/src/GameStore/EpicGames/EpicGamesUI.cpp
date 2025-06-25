@@ -30,6 +30,11 @@ void EpicGamesUI::showMainMenu(Window* window, EpicGamesStore* store) {
         if (menu && window->peekGui() == menu) menu->close();
         ViewController::get()->reloadAll(window);
     };
+	
+	auto refreshEpicMenu = [this, window, store, menu] {
+        if (menu) menu->close();
+        this->showMainMenu(window, store); // Riapre il menu, che si aggiornerà
+    };
     
     std::string status = auth->isAuthenticated() ? "Autenticato: " + auth->getDisplayName() : "Non autenticato";
     menu->addEntry(status, false, nullptr);
@@ -37,7 +42,7 @@ void EpicGamesUI::showMainMenu(Window* window, EpicGamesStore* store) {
 
     if (!auth->isAuthenticated()) {
         menu->addEntry("ACCEDI CON EPIC GAMES", true,
-            [window, auth, reloadSystemView]() {
+            [window, auth, refreshEpicMenu]() {
                 const std::string initialLoginUrl = "https://www.epicgames.com/id/login";
                 const std::string personalUrlPart = "epicgames.com/account/personal";
                 const std::string finalRedirectUrlPart = "id/api/redirect?clientId=";
@@ -81,7 +86,7 @@ void EpicGamesUI::showMainMenu(Window* window, EpicGamesStore* store) {
         std::string code = nlohmann::json::parse(innerJsonString).value("authorizationCode", "");
 
         if (!code.empty() && auth->exchangeAuthCodeForToken(code)) {
-            window->pushGui(new GuiMsgBox(window, "LOGIN COMPLETATO!", "OK", reloadSystemView));
+            window->pushGui(new GuiMsgBox(window, "LOGIN COMPLETATO!", "OK", refreshEpicMenu));
         } else {
             throw std::runtime_error("Codice non trovato nel JSON o scambio fallito.");
         }

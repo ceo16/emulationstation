@@ -14,6 +14,7 @@ public:
 
 private:
     void initializeMenu();
+	void rebuildMenu();
     
     void onLoginFinished(bool success, const std::string& message);
     void processLogout();

@@ -124,7 +124,7 @@ void EAGamesStore::showStoreUI(Window* window) {
 }
 
 std::string EAGamesStore::getStoreName() const {
-    return "EA Games";
+    return STORE_ID;
 }
 
 bool EAGamesStore::launchGame(const std::string& gameId) {

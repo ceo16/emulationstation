@@ -80,6 +80,20 @@ GuiNegoziOnlineMenu::GuiNegoziOnlineMenu(Window* window)
         mWindow->pushGui(new AmazonUI(mWindow));
     }, "iconGames");
 
+    // Voce per EA GAMES STORE
+	addEntry(_("APRI EA GAMES STORE"), true, [this] {
+		GameStoreManager* gsm = GameStoreManager::getInstance(mWindow);
+		if (gsm) {
+			GameStore* store = gsm->getStore(EAGamesStore::STORE_ID);
+			if (store) {
+				store->showStoreUI(mWindow);
+			} else {
+				LOG(LogError) << "EAGamesStore con ID '" << EAGamesStore::STORE_ID << "' non registrato nel GameStoreManager!";
+				mWindow->pushGui(new GuiMsgBox(mWindow, _("ERRORE"), _("EAGame STORE NON ANCORA IMPLEMENTATO CORRETTAMENTE.")));
+			}
+		}
+	}, "iconGames");
+
 	// Voce per EPIC GAMES STORE
 	addEntry(_("APRI EPIC GAMES STORE"), true, [this] {
 		GameStoreManager* gsm = GameStoreManager::getInstance(mWindow);
@@ -126,19 +140,7 @@ GuiNegoziOnlineMenu::GuiNegoziOnlineMenu(Window* window)
 		}
 	}, "iconGames");
 
-	// Voce per EA GAMES STORE
-	addEntry(_("APRI EA GAMES STORE"), true, [this] {
-		GameStoreManager* gsm = GameStoreManager::getInstance(mWindow);
-		if (gsm) {
-			GameStore* store = gsm->getStore(EAGamesStore::STORE_ID);
-			if (store) {
-				store->showStoreUI(mWindow);
-			} else {
-				LOG(LogError) << "EAGamesStore con ID '" << EAGamesStore::STORE_ID << "' non registrato nel GameStoreManager!";
-				mWindow->pushGui(new GuiMsgBox(mWindow, _("ERRORE"), _("EAGame STORE NON ANCORA IMPLEMENTATO CORRETTAMENTE.")));
-			}
-		}
-	}, "iconGames");
+	
 
 
 }

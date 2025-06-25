@@ -120,21 +120,30 @@ void EAGamesUI::onLoginFinished(bool success, const std::string& message)
         finalMessage = success ? _("Login process completed successfully.") : _("Login process failed or was cancelled.");
     }
     
-    mWindow->pushGui(new GuiMsgBox(mWindow, finalMessage, std::string(_("OK")), nullptr));
-    
-    delete this;
-    mWindow->pushGui(new EAGamesUI(mWindow));
+    // Mostra un messaggio e, quando l'utente preme OK, ricarica il menu attuale
+    // invece di distruggere l'oggetto, risolvendo il crash.
+    mWindow->pushGui(new GuiMsgBox(mWindow, finalMessage, _("OK"), [this] {
+        rebuildMenu();
+    }));
 }
 
 void EAGamesUI::processLogout()
 {
     if (!mStore) return;
+
+    // mStore->Logout() è una chiamata sincrona che già mostra una notifica.
     mStore->Logout(); 
-    mWindow->pushGui(new GuiMsgBox(mWindow, _("You have been logged out."), std::string(_("OK")), 
-        [this] {
-            delete this;
-            mWindow->pushGui(new EAGamesUI(mWindow));
-        }));
+    
+    // Dopo il logout, ricarica semplicemente il menu per mostrare lo stato "non loggato".
+    // Questo evita completamente il pattern pericoloso che causava il crash.
+    rebuildMenu();
+}
+
+void EAGamesUI::rebuildMenu()
+{
+    // La chiamata corretta è a mMenu, il componente interno di GuiSettings
+    mMenu.clear();
+    initializeMenu();
 }
 
 void EAGamesUI::processImportGames()

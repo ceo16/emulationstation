@@ -6,6 +6,7 @@
 #include "Window.h"
 #include "Log.h"
 #include "LocaleES.h"
+#include "views/ViewController.h"
 
 GogUI::GogUI(Window* window) 
     : GuiSettings(window, "GOG.COM STORE")
@@ -36,7 +37,7 @@ void GogUI::buildMenu()
 
     if (mStore->isAuthenticated())
     {
-        addEntry(_("DISCONNETTI ACCOUNT (RICHIEDE RIAVVIO)"), false, [this] { performLogout(); });
+        addEntry(_("DISCONNETTI ACCOUNT"), false, [this] { performLogout(); });
         addEntry(_("SINCRONIZZA LIBRERIA ONLINE"), false, [this] { syncGames(); });
     }
     else
@@ -47,19 +48,31 @@ void GogUI::buildMenu()
 
 void GogUI::performLogout()
 {
+    // Chiamiamo la funzione originale, che come abbiamo visto nel log, 
+    // si limita a scrivere un messaggio informativo e non fa un vero logout.
     mStore->logout();
-    buildMenu();
-    // CORREZIONE: Usa il costruttore corretto
-    mWindow->pushGui(new GuiMsgBox(mWindow, _("PER COMPLETARE IL LOGOUT, RIAVVIARE L'APPLICAZIONE."), _("OK"), nullptr));
+
+    // NON ricarichiamo l'interfaccia per evitare il crash.
+    // Invece, mostriamo un messaggio chiaro che spiega la situazione reale all'utente.
+    mWindow->pushGui(new GuiMsgBox(
+        mWindow, 
+        _("Il logout automatico per GOG non è supportato.\n\nPer completare l'operazione e cancellare i dati della sessione, è necessario chiudere e riavviare l'applicazione."),
+        _("HO CAPITO"), 
+        nullptr // Nessuna azione dopo aver premuto OK
+    ));
 }
 
 void GogUI::performLogin()
 {
     mStore->login([this](bool success) {
         if (success) {
-            buildMenu();
+            mWindow->pushGui(new GuiMsgBox(
+                mWindow, 
+                _("ACCESSO EFFETTUATO"), 
+                _("OK"), 
+                [this] { this->buildMenu(); } // Azione da eseguire dopo OK
+            ));
         } else {
-            // CORREZIONE: Usa il costruttore corretto
             mWindow->pushGui(new GuiMsgBox(mWindow, _("LOGIN FALLITO"), _("OK"), nullptr, GuiMsgBoxIcon::ICON_ERROR));
         }
     });

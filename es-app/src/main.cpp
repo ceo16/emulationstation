@@ -618,7 +618,7 @@ if (SDL_GAMELIST_UPDATED == ((Uint32)-1)) {
 
 	MameNames::init();
 		 
-	GameStoreManager::getInstance(&window)->initAllStores(); 
+	GameStoreManager::getInstance(&window);
 	
 	const char* errorMsg = NULL;
 	if(!loadSystemConfigFile(splashScreen && splashScreenProgress ? &window : nullptr, &errorMsg))
