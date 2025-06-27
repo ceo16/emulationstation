@@ -38,6 +38,7 @@
 #include "GameStore/GameStoreManager.h" // <<< ADD THIS LINE
 #include "GameStore/Xbox/XboxStore.h" 
 
+const std::string EMULATOR_LAUNCHER_EXE_PATH = "emulatorlauncher.exe"; 
 
 
 using namespace Utils::Platform;
@@ -813,11 +814,13 @@ bool FileData::launchGame(Window* window, LaunchGameOptions options)
     saveToGamelistRecovery(this); // Assuming 'this' is correct here, or gameToUpdate
     // --- END METADATA UPDATE LOGIC ---
 
-    std::string launch_command_str; // Use a distinct name
+      std::string launch_command_str; // Use a distinct name
     bool isEgsGame = (system->getName() == "epicgamestore");
     bool isSteamGame = (system->getName() == "steam");
     bool isXboxGame = (system->getName() == "xbox");
-	bool isEaGame = (system->getName() == "EAGamesStore");
+    bool isEaGame = (system->getName() == "EAGamesStore");
+    bool isGogGame = (system->getName() == "gog"); // Nuovo flag per GOG
+    bool isAmazonGame = (system->getName() == "amazon"); // NUOVO FLAG PER AMAZON
     bool hideWindow = Settings::getInstance()->getBool("HideWindow");
 
     // Deinitialize audio/window once before any launch attempt
@@ -831,85 +834,44 @@ bool FileData::launchGame(Window* window, LaunchGameOptions options)
     bool overallLaunchSuccess = false;
     int exitCode = 0; // For emulator path
 
-    if (isEgsGame) {
+      if (isEgsGame || isEaGame || isXboxGame || isGogGame || isSteamGame || isAmazonGame) 
+    {
+        // Recupera il LaunchCommand specifico dello store dai metadati del gioco
         launch_command_str = metadata.get(MetaDataId::LaunchCommand);
-        LOG(LogDebug) << "FileData::launchGame - EGS Game. URL: " << launch_command_str;
-        if (launch_command_str.empty()) {
-            LOG(LogError) << "EGS launch command empty for " << gameToUpdate->getName();
-            overallLaunchSuccess = false;
-        } else {
-            Utils::Platform::openUrl(launch_command_str);
-            overallLaunchSuccess = true; // Assume URL opening is a "successful start"
-        }
- } else if (isEaGame) {
-    // Prima, recuperiamo i metadati e il comando di lancio
-    const auto& metadata = gameToUpdate->getMetadata();
-    launch_command_str = metadata.get(MetaDataId::LaunchCommand);
 
-    if (launch_command_str.empty()) {
-        LOG(LogError) << "EA Games launch command is empty for " << gameToUpdate->getName();
-        overallLaunchSuccess = false;
-    } else {
-        // ORA controlliamo se il gioco è installato (NON virtuale)
-        if (metadata.get(MetaDataId::Virtual) == "false") 
+        if (launch_command_str.empty()) 
         {
-            // --- GIOCO INSTALLATO ---
-            // Eseguiamo la nostra sequenza di pre-lancio
-            LOG(LogInfo) << "Pre-launching for INSTALLED EA Game: " << gameToUpdate->getName();
-            
-            std::string eaLauncherPath = "C:\\Program Files\\Electronic Arts\\EA Desktop\\EA Desktop\\EADesktop.exe";
-            Utils::Platform::openUrl(eaLauncherPath);
-
-            LOG(LogInfo) << "Waiting for 7 seconds to allow EA App to load...";
-            #if defined(_WIN32)
-                Sleep(7000);
-            #endif
-        }
-        // --- FINE LOGICA PER GIOCHI INSTALLATI ---
-
-        // Questa parte viene eseguita per TUTTI i giochi EA, ma il pre-lancio
-        // è avvenuto solo per quelli installati.
-        LOG(LogInfo) << "Executing EA Game launch command: " << launch_command_str;
-        Utils::Platform::openUrl(launch_command_str);
-        overallLaunchSuccess = true;
-    }
-// --- FINE BLOCCO EA GAMES MODIFICATO -
-    
-    } else if (isXboxGame) {
-        launch_command_str = metadata.get(MetaDataId::LaunchCommand);
-        LOG(LogDebug) << "FileData::launchGame - Xbox Game. LaunchCommand from metadata: " << launch_command_str;
-
-        if (launch_command_str.empty()) {
-            LOG(LogError) << "Xbox launch command metadata is empty for " << gameToUpdate->getName() << "!";
+            LOG(LogError) << system->getFullName() << " launch command metadata is empty for " << gameToUpdate->getName() << "!";
             overallLaunchSuccess = false;
-        } else {
-            // 'isVirtual' è dichiarata qui e usata nello scope sottostante.
-            bool isVirtualXboxGame = metadata.get(MetaDataId::Virtual) == "true"; // Variabile con scope locale al blocco Xbox
-            if (!isVirtualXboxGame) { // Installed game
-                GameStoreManager* gsm = GameStoreManager::getInstance(nullptr); 
-                XboxStore* xboxStore = nullptr;
-                if (gsm) {
-                    GameStore* baseStore = gsm->getStore("XboxStore");
-                    if (baseStore) {
-                        xboxStore = dynamic_cast<XboxStore*>(baseStore);
-                    }
-                }
-                if (xboxStore) {
-                    LOG(LogInfo) << "  Attempting to launch installed Xbox game (AUMID): " << launch_command_str;
-                    overallLaunchSuccess = xboxStore->launchGameByAumid(launch_command_str);
-                } else {
-                    LOG(LogError) << "  XboxStore instance not available for installed game launch: " << launch_command_str;
-                    overallLaunchSuccess = false;
-                }
-            } else { // Virtual game
-                LOG(LogInfo) << "  Executing URL for Xbox virtual game (Store Link): " << launch_command_str;
-                Utils::Platform::openUrl(launch_command_str);
-                overallLaunchSuccess = true;
-            }
-            // L'eventuale popup di errore specifico per Xbox è gestito DOPO la reinizializzazione della finestra.
-        }
+        } 
+        else 
+        {
+            // Costruiamo il comando completo per emulatorlauncher
+            std::string systemName = system->getName();
+            // Assicurati che il LaunchCommand sia correttamente escapato per la riga di comando,
+            // specialmente se contiene spazi o caratteri speciali.
+            std::string actualGameCommandEscaped = Utils::FileSystem::getEscapedPath(launch_command_str);
 
-    } else { // Default emulator path
+            // Il nome del sistema e il LaunchCommand effettivo vengono passati come argomenti a emulatorlauncher
+            std::string commandToExecute = EMULATOR_LAUNCHER_EXE_PATH + 
+                                           " -system " + Utils::String::toLower(systemName) + // Passa il nome del sistema in minuscolo
+                                           " -rom " + actualGameCommandEscaped; // Il 'rom' in C# sarà il LaunchCommand dello store
+
+            LOG(LogInfo) << "Delegating launch to emulatorlauncher: " << commandToExecute;
+
+            ProcessStartInfo process(commandToExecute);
+            process.window = hideWindow ? NULL : window; // Passa la finestra (o NULL se nascosta)
+            exitCode = process.run(); // Esegue emulatorlauncher
+
+            overallLaunchSuccess = (exitCode == 0); // Considera l'avvio di emulatorlauncher un successo se ritorna 0
+
+            if (exitCode != 0) {
+                LOG(LogWarning) << "emulatorlauncher terminated with nonzero exit code " << exitCode << " for " 
+                                << systemName << " game " << gameToUpdate->getName();
+            }
+        }
+    }
+    else { 
         launch_command_str = getlaunchCommand(options);
         LOG(LogDebug) << "FileData::launchGame - Non-Store Game. Using command: " << launch_command_str;
         if (launch_command_str.empty()) {
@@ -976,9 +938,7 @@ bool FileData::launchGame(Window* window, LaunchGameOptions options)
     }
     
     // Show error popups now that the window is reinitialized
-    if (isXboxGame && metadata.get(MetaDataId::Virtual) != "true" && !overallLaunchSuccess && !metadata.get(MetaDataId::LaunchCommand).empty()){
-        window->pushGui(new GuiMsgBox(window, _("XBOX LAUNCH FAILED") + std::string("\n") + _("Could not start the selected Xbox game."), _("OK"), nullptr, GuiMsgBoxIcon::ICON_ERROR));
-    } else if (!isEgsGame && !isSteamGame && !isXboxGame && exitCode >= 200 && exitCode <= 300) {
+     if (!overallLaunchSuccess && exitCode >= 200 && exitCode <= 300) { // Questo dovrebbe catturare gli errori generici dei lanci non-store
         window->pushGui(new GuiMsgBox(window, _("AN ERROR OCCURRED") + ":\r\n" + getMessageFromExitCode(exitCode), _("OK"), nullptr, GuiMsgBoxIcon::ICON_ERROR));
     }
 

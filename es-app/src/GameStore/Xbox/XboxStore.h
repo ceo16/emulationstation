@@ -49,6 +49,8 @@ public:
 
     std::vector<FileData*> getGamesList() override;
     bool installGame(const std::string& gameId) override;
+	bool isXboxAppInstalled();
+	void openStoreClient();
     bool uninstallGame(const std::string& gameId) override;
     bool updateGame(const std::string& gameId) override;
 
@@ -69,6 +71,7 @@ private:
     XboxAuth* mAuth;
     XboxStoreAPI* mAPI;
     Window* mInstanceWindow;
+	bool mIsXboxAppInstalled; // Per memorizzare lo stato dell'app Xbox
 
     bool _initialized = false;
 #ifdef _WIN32

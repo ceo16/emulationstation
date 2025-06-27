@@ -1,10 +1,10 @@
 #define NOMINMAX
 #include "GameStore/Xbox/XboxStore.h"
 #include "GameStore/Xbox/XboxUI.h"
-#include "Log.h"        // Contiene LogInfo, LogError, etc.
+#include "Log.h"
 #include "SystemData.h"
 #include "FileData.h"
-#include "MetaData.h"   // Contiene MetaDataId e MetaDataList
+#include "MetaData.h"
 #include "Window.h"
 #include "Settings.h"
 #include "SdlEvents.h"
@@ -21,7 +21,7 @@
 #include <future>
 
 #ifdef _WIN32
-#include <ShObjIdl.h> 
+#include <ShObjIdl.h>
 #include <appmodel.h>
 #include <PathCch.h>
 #pragma comment(lib, "Pathcch.lib")
@@ -35,67 +35,68 @@ std::string ConvertWideToUtf8_XboxStore_Unique(const WCHAR* wideString) {
     return utf8String;
 }
 
+// Lista di esclusione PFN (invariata)
 const std::set<std::wstring> pfnExclusionListGlobal = {
     L"Microsoft.WindowsCalculator_8wekyb3d8bbwe", L"microsoft.windowscommunicationsapps_8wekyb3d8bbwe",
     L"Microsoft.Windows.Photos_8wekyb3d8bbwe", L"Microsoft.MicrosoftEdge_8wekyb3d8bbwe",
     L"Microsoft.MicrosoftEdge.Stable_8wekyb3d8bbwe", L"Microsoft.WindowsStore_8wekyb3d8bbwe",
-    L"Microsoft.StorePurchaseApp_8wekyb3d8bbwe", L"Microsoft.XboxApp_8wekyb3d8bbwe", // App Xbox Companion
-    L"Microsoft.GamingApp_8wekyb3d8bbwe",              // Nuova App Xbox
-    L"Microsoft.XboxGamingOverlay_8wekyb3d8bbwe",      // Xbox Game Bar
+    L"Microsoft.StorePurchaseApp_8wekyb3d8bbwe", L"Microsoft.XboxApp_8wekyb3d8bbwe",
+    L"Microsoft.GamingApp_8wekyb3d8bbwe",
+    L"Microsoft.XboxGamingOverlay_8wekyb3d8bbwe",
     L"Microsoft.XboxSpeechToTextOverlay_8wekyb3d8bbwe",
     L"Microsoft.XboxIdentityProvider_8wekyb3d8bbwe",
-    L"Microsoft.YourPhone_8wekyb3d8bbwe",            
-    L"Microsoft.WindowsTerminal_8wekyb3d8bbwe",      
-    L"Microsoft.ScreenSketch_8wekyb3d8bbwe",         
-    L"Microsoft.WindowsSoundRecorder_8wekyb3d8bbwe", 
-    L"Microsoft.ZuneVideo_8wekyb3d8bbwe",            // Film e TV
-    L"Microsoft.ZuneMusic_8wekyb3d8bbwe",            // Groove Musica
-    L"Microsoft.Office.OneNote_8wekyb3d8bbwe",       
-    L"Microsoft.People_8wekyb3d8bbwe",               
-    L"Microsoft.Wallet_8wekyb3d8bbwe",              
-    L"Microsoft.GetHelp_8wekyb3d8bbwe",              
-    L"Microsoft.Getstarted_8wekyb3d8bbwe",           // Suggerimenti
-    L"Microsoft.WindowsMaps_8wekyb3d8bbwe",          
-    L"Microsoft.549981C3F5F10_8wekyb3d8bbwe",        // Cortana
-    L"Microsoft.WindowsAlarms_8wekyb3d8bbwe",        
-    L"Microsoft.WindowsCamera_8wekyb3d8bbwe",        
-    L"Microsoft.SkypeApp_kzf8qxf38zg5c",             
-    L"Microsoft.MSPaint_8wekyb3d8bbwe",              // Paint / Paint 3D
+    L"Microsoft.YourPhone_8wekyb3d8bbwe",
+    L"Microsoft.WindowsTerminal_8wekyb3d8bbwe",
+    L"Microsoft.ScreenSketch_8wekyb3d8bbwe",
+    L"Microsoft.WindowsSoundRecorder_8wekyb3d8bbwe",
+    L"Microsoft.ZuneVideo_8wekyb3d8bbwe",
+    L"Microsoft.ZuneMusic_8wekyb3d8bbwe",
+    L"Microsoft.Office.OneNote_8wekyb3d8bbwe",
+    L"Microsoft.People_8wekyb3d8bbwe",
+    L"Microsoft.Wallet_8wekyb3d8bbwe",
+    L"Microsoft.GetHelp_8wekyb3d8bbwe",
+    L"Microsoft.Getstarted_8wekyb3d8bbwe",
+    L"Microsoft.WindowsMaps_8wekyb3d8bbwe",
+    L"Microsoft.549981C3F5F10_8wekyb3d8bbwe",
+    L"Microsoft.WindowsAlarms_8wekyb3d8bbwe",
+    L"Microsoft.WindowsCamera_8wekyb3d8bbwe",
+    L"Microsoft.SkypeApp_kzf8qxf38zg5c",
+    L"Microsoft.MSPaint_8wekyb3d8bbwe",
     L"Microsoft.VP9VideoExtensions_8wekyb3d8bbwe",
     L"Microsoft.WebMediaExtensions_8wekyb3d8bbwe",
     L"Microsoft.HEIFImageExtension_8wekyb3d8bbwe",
-    L"Microsoft.OutlookForWindows_8wekyb3d8bbwe",      // Outlook (new)
-    L"windows.immersivecontrolpanel_cw5n1h2txyewy",  // Impostazioni
-    L"BytedancePte.Ltd.TikTok_6yccndn6064se",          // TikTok
-    L"Disney.37853FC22B2CE_6rarf9sa4v8jt",             // Disney+
-    L"NVIDIACorp.NVIDIAControlPanel_56jybvy8sckqj",    // NVIDIA Control Panel
-    L"Microsoft.SecHealthUI_8wekyb3d8bbwe",           // Sicurezza di Windows
-    L"RealtekSemiconductorCorp.RealtekAudioControl_dt26b99r8h8gj", // Realtek Audio Console
-    L"Microsoft.BingNews_8wekyb3d8bbwe",                  // Notizie
-    L"AppUp.IntelGraphicsExperience_8j3eq9eme6ctt",    // Centro comandi Intel
-    L"Microsoft.XboxDevices_8wekyb3d8bbwe",           // Accessori Xbox
-    L"FACEBOOK.317180B0BB486_8xx8rvfyw5nnt",           // Messenger
-    L"Microsoft.BingWeather_8wekyb3d8bbwe",             // Meteo
-    L"Microsoft.PowerAutomateDesktop_8wekyb3d8bbwe",   // Power Automate
-    L"Clipchamp.Clipchamp_yxz26nhyzhsrt",              // Microsoft Clipchamp
-    L"MicrosoftCorporationII.QuickAssist_8wekyb3d8bbwe", // Assistenza rapida
-    L"Microsoft.MicrosoftStickyNotes_8wekyb3d8bbwe",  // Memo
-    L"9426MICRO-STARINTERNATION.MSICenter_kzh8wxbdkxb8p", // MSI Center
-    L"MSTeams_8wekyb3d8bbwe",                           // Microsoft Teams
-    L"Microsoft.WindowsFeedbackHub_8wekyb3d8bbwe",      // Hub di Feedback
-    L"AmazonVideo.PrimeVideo_pwbj9vvecjh7j",           // Prime Video for Windows
-    L"Microsoft.WindowsNotepad_8wekyb3d8bbwe",         // Blocco note
-    L"MicrosoftWindows.Client.CBS_cw5n1h2txyewy",      // Informazioni di base, Windows Backup
-    L"MicrosoftWindows.Client.CoreAI_cw5n1h2txyewy",   // Azioni con un clic (Cortana?)
-    L"SpotifyAB.SpotifyMusic_zpdnekdrzrea0",           // Spotify
-    L"Microsoft.Todos_8wekyb3d8bbwe",                   // Microsoft To Do
-    L"Microsoft.MicrosoftOfficeHub_8wekyb3d8bbwe",    
-	L"Microsoft.Paint_8wekyb3d8bbwe"
+    L"Microsoft.OutlookForWindows_8wekyb3d8bbwe",
+    L"windows.immersivecontrolpanel_cw5n1h2txyewy",
+    L"BytedancePte.Ltd.TikTok_6yccndn6064se",
+    L"Disney.37853FC22B2CE_6rarf9sa4v8jt",
+    L"NVIDIACorp.NVIDIAControlPanel_56jybvy8sckqj",
+    L"Microsoft.SecHealthUI_8wekyb3d8bbwe",
+    L"RealtekSemiconductorCorp.RealtekAudioControl_dt26b99r8h8gj",
+    L"Microsoft.BingNews_8wekyb3d8bbwe",
+    L"AppUp.IntelGraphicsExperience_8j3eq9eme6ctt",
+    L"Microsoft.XboxDevices_8wekyb3d8bbwe",
+    L"FACEBOOK.317180B0BB486_8xx8rvfyw5nnt",
+    L"Microsoft.BingWeather_8wekyb3d8bbwe",
+    L"Microsoft.PowerAutomateDesktop_8wekyb3d8bbwe",
+    L"Clipchamp.Clipchamp_yxz26nhyzhsrt",
+    L"MicrosoftCorporationII.QuickAssist_8wekyb3d8bbwe",
+    L"Microsoft.MicrosoftStickyNotes_8wekyb3d8bbwe",
+    L"9426MICRO-STARINTERNATION.MSICenter_kzh8wxbdkxb8p",
+    L"MSTeams_8wekyb3d8bbwe",
+    L"Microsoft.WindowsFeedbackHub_8wekyb3d8bbwe",
+    L"AmazonVideo.PrimeVideo_pwbj9vvecjh7j",
+    L"Microsoft.WindowsNotepad_8wekyb3d8bbwe",
+    L"MicrosoftWindows.Client.CBS_cw5n1h2txyewy",
+    L"MicrosoftWindows.Client.CoreAI_cw5n1h2txyewy",
+    L"SpotifyAB.SpotifyMusic_zpdnekdrzrea0",
+    L"Microsoft.Todos_8wekyb3d8bbwe",
+    L"Microsoft.MicrosoftOfficeHub_8wekyb3d8bbwe",
+    L"Microsoft.Paint_8wekyb3d8bbwe"
 };
 #endif
 
 XboxStore::XboxStore(XboxAuth* auth, Window* window_param)
-    : GameStore(), mAuth(auth), mAPI(nullptr), mInstanceWindow(window_param), _initialized(false)
+    : GameStore(), mAuth(auth), mAPI(nullptr), mInstanceWindow(window_param), _initialized(false), mIsXboxAppInstalled(false)
 #ifdef _WIN32
     , mComInitialized(false)
 #endif
@@ -146,8 +147,6 @@ void XboxStore::showStoreUI(Window* window_context_param) {
 
 std::string XboxStore::getStoreName() const { return "XboxStore"; }
 
-// NOTA: getGameLaunchCommand ora è solo per riferimento o per casi d'uso di explorer.exe.
-// Il lancio programmatico usa l'AUMID puro con IApplicationActivationManager.
 std::string XboxStore::getGameLaunchCommand(const std::string& aumid) {
     if (aumid.empty()) return "";
     return "explorer.exe shell:AppsFolder\\" + aumid;
@@ -189,6 +188,72 @@ bool XboxStore::launchGameByAumid(const std::string& aumid) {
 #endif
 }
 
+// --- MODIFICA ---
+// Aggiunte le funzioni isXboxAppInstalled e openStoreClient
+bool XboxStore::isXboxAppInstalled() {
+#ifndef _WIN32
+    return false;
+#else
+    LOG(LogInfo) << "--- XBOX APP INSTALL CHECK (HYPER-DEBUG V2) ---";
+    
+    try {
+        // Inizializziamo COM esplicitamente per questa chiamata
+        winrt::init_apartment(winrt::apartment_type::multi_threaded);
+        struct ComUninitializer { ~ComUninitializer() { winrt::uninit_apartment(); } } comUninitializer;
+
+        LOG(LogDebug) << "[Xbox-HyperDebug] COM Initialized. Creating PackageManager...";
+        winrt::Windows::Management::Deployment::PackageManager packageManager;
+        const wchar_t* PFN = L"Microsoft.GamingApp_8wekyb3d8bbwe";
+        LOG(LogDebug) << "[Xbox-HyperDebug] Attempting to find package with PFN: Microsoft.GamingApp_8wekyb3d8bbwe";
+
+        auto package = packageManager.FindPackageForUser(L"", PFN);
+
+        if (package) {
+            LOG(LogInfo) << "[Xbox-HyperDebug] SUCCESSO: Trovato un oggetto 'package' per il PFN.";
+            
+            auto status = package.Status();
+            
+            // --- MODIFICA ---
+            // Sostituiamo il controllo 'IsOk()' con la verifica delle singole proprietà negative.
+            // Un pacchetto è "OK" se non è un framework e nessuno degli stati negativi è attivo.
+            bool isOk = !package.IsFramework() && 
+                        !status.Disabled() && 
+                        !status.NotAvailable() && 
+                        !status.NeedsRemediation();
+
+            // Log Dettagliato dello stato per il debug
+            LOG(LogInfo) << "[Xbox-HyperDebug] Package.IsFramework: " << (package.IsFramework() ? "Si" : "No");
+            LOG(LogInfo) << "[Xbox-HyperDebug] Status.Disabled: " << (status.Disabled() ? "Si" : "No");
+            LOG(LogInfo) << "[Xbox-HyperDebug] Status.NotAvailable: " << (status.NotAvailable() ? "Si" : "No");
+            LOG(LogInfo) << "[Xbox-HyperDebug] Status.NeedsRemediation: " << (status.NeedsRemediation() ? "Si" : "No");
+            LOG(LogInfo) << "[Xbox-HyperDebug] >>> Calcolato IsOk: " << (isOk ? "Si" : "No");
+
+            if (isOk) {
+                LOG(LogInfo) << "[Xbox-HyperDebug] DECISIONE: Lo stato del pacchetto è valido. App considerata INSTALLATA. Ritorno true.";
+                return true;
+            } else {
+                LOG(LogWarning) << "[Xbox-HyperDebug] DECISIONE: Pacchetto trovato, ma il suo stato non è valido. App considerata NON INSTALLATA. Ritorno false.";
+                return false;
+            }
+        } else {
+            LOG(LogWarning) << "[Xbox-HyperDebug] DECISIONE: FindPackageForUser ha restituito un oggetto nullo. App considerata NON INSTALLATA. Ritorno false.";
+            return false;
+        }
+    } catch (const winrt::hresult_error& e) {
+        if (e.code() == static_cast<int32_t>(0x80073D54)) { // Package not found
+             LOG(LogInfo) << "[Xbox-HyperDebug] ECCEZIONE: FindPackageForUser ha lanciato 'Package not found'. Normale se l'app non è installata. Ritorno false.";
+        } else {
+             LOG(LogError) << "[Xbox-HyperDebug] ECCEZIONE: Errore COM/WinRT imprevisto. HRESULT: " << std::hex << e.code() << ", Messaggio: " << ConvertWideToUtf8_XboxStore_Unique(e.message().c_str()) << ". Ritorno false.";
+        }
+        return false;
+    } catch (...) {
+        LOG(LogError) << "[Xbox-HyperDebug] Eccezione sconosciuta durante il controllo. Ritorno false.";
+        return false;
+    }
+#endif
+}
+// --- FINE MODIFICA ---
+
 std::vector<Xbox::InstalledXboxGameInfo> XboxStore::findInstalledGames_PackageManagerHelper(
     const std::map<std::wstring, std::wstring>* pfnAndAppIdMap) {
     
@@ -218,7 +283,7 @@ std::vector<Xbox::InstalledXboxGameInfo> XboxStore::findInstalledGames_PackageMa
         std::map<winrt::hstring, winrt::Windows::ApplicationModel::Package> userPackageMap;
         if (totalUserPackagesCount > 0 && allUserPackages) { 
             for (const auto& pkg : allUserPackages) {
-                userPackageMap.insert({pkg.Id().FamilyName(), pkg}); // CORRETTO: usa insert
+                userPackageMap.insert({pkg.Id().FamilyName(), pkg});
             }
         }
         
@@ -322,7 +387,7 @@ std::vector<Xbox::InstalledXboxGameInfo> XboxStore::findInstalledGames_PackageMa
                             LOG(LogInfo) << "[XboxStore-PMHelper] Whitelist - Identified Installed Game: Name=[" << gameInfo.displayName << "], AUMID=[" << gameInfo.aumid << "], AppID=[" << gameInfo.applicationId <<"], PFN=[" << gameInfo.pfn << "]";
                             if (!gameInfo.aumid.empty()) installedGames.push_back(gameInfo);
                         } else {
-                             LOG(LogWarning) << "[XboxStore-PMHelper] No valid AppListEntry could be targeted for PFN: " << currentPfn_s;
+                            LOG(LogWarning) << "[XboxStore-PMHelper] No valid AppListEntry could be targeted for PFN: " << currentPfn_s;
                         }
                     } else {
                         LOG(LogWarning) << "[XboxStore-PMHelper] No AppListEntries found for package with PFN: " << currentPfn_s;
@@ -345,7 +410,6 @@ std::vector<Xbox::InstalledXboxGameInfo> XboxStore::findInstalledGames_PackageMa
                     continue;
                 }
                 
-                // CORREZIONE C2440: Usare .c_str() per il confronto con std::set<std::wstring>
                 if (pfnExclusionListGlobal.count(currentPfn_h_global.c_str())) { 
                     LOG(LogDebug) << "[XboxStoreFilter-PMHelper-Exclusion] Skipping PFN via exclusion list: " << currentPfn_s_global;
                     continue;
@@ -370,14 +434,14 @@ std::vector<Xbox::InstalledXboxGameInfo> XboxStore::findInstalledGames_PackageMa
                             gameInfo.aumid = ConvertWideToUtf8_XboxStore_Unique(appEntryToUse.AppUserModelId().c_str());
                             gameInfo.pfn = currentPfn_s_global; 
                             gameInfo.packageFullName = ConvertWideToUtf8_XboxStore_Unique(package.Id().FullName().c_str());
-                           
+                            
                             std::string tempAppId = "App";
                             if (!gameInfo.aumid.empty()) {
                                 size_t bang_pos_temp = gameInfo.aumid.find('!');
                                 if (bang_pos_temp != std::string::npos && bang_pos_temp + 1 < gameInfo.aumid.length()) {
-                                     tempAppId = gameInfo.aumid.substr(bang_pos_temp + 1);
+                                    tempAppId = gameInfo.aumid.substr(bang_pos_temp + 1);
                                 } else {
-                                     LOG(LogDebug) << "[XboxStore-PMHelper] ExclusionMode - No '!' in AUMID to extract AppId, or AppId is empty: " << gameInfo.aumid;
+                                    LOG(LogDebug) << "[XboxStore-PMHelper] ExclusionMode - No '!' in AUMID to extract AppId, or AppId is empty: " << gameInfo.aumid;
                                 }
                             }
                             gameInfo.applicationId = tempAppId;
@@ -410,9 +474,6 @@ std::vector<Xbox::InstalledXboxGameInfo> XboxStore::findInstalledGames_PackageMa
 #endif
     return installedGames;
 }
-// =======================================================================================================
-// FINE FUNZIONE MODIFICATA findInstalledGames_PackageManagerHelper
-// =======================================================================================================
 
 std::vector<Xbox::InstalledXboxGameInfo> XboxStore::findInstalledXboxGames() {
 #ifndef _WIN32
@@ -451,10 +512,10 @@ std::vector<Xbox::InstalledXboxGameInfo> XboxStore::findInstalledXboxGames() {
 
         if (isPCGame && !title.pfn.empty()) {
             std::wstring pfn_w = Utils::String::convertToWideString(title.pfn); 
-            std::wstring appId_w = L""; // Lasciamo che sia findInstalledGames_PackageManagerHelper a determinare l'AppID dal manifest
+            std::wstring appId_w = L""; 
             LOG(LogDebug) << "[XboxStore findInstalledXboxGames] Adding to PFN query map: PFN=" << title.pfn
                           << ", Name=" << title.name << ", AppID Hint (from online list - typically empty/unused):" << Utils::String::convertFromWideString(appId_w);
-            pfnPcGamesFromLibraryMap.insert({pfn_w, appId_w}); // Usa insert
+            pfnPcGamesFromLibraryMap.insert({pfn_w, appId_w});
         } else {
             if (!isPCGame) {
                 LOG(LogDebug) << "[XboxStore findInstalledXboxGames] Skipping online title (not a PC game): " << title.name << " (PFN: " << title.pfn << ")";
@@ -524,8 +585,6 @@ std::vector<FileData*> XboxStore::getGamesList() {
             if (fd->getMetadata().get(MetaDataId::XboxPfn) != installedApp.pfn) { fd->getMetadata().set(MetaDataId::XboxPfn, installedApp.pfn); changed = true; }
             if (fd->getMetadata().get(MetaDataId::XboxAumid) != installedApp.aumid) { fd->getMetadata().set(MetaDataId::XboxAumid, installedApp.aumid); changed = true; }
             
-            // Se il path memorizzato non è l'AUMID, logga ma non tentare di cambiarlo qui.
-            // Il LaunchCommand dovrebbe essere l'AUMID per i giochi installati.
             if (fd->getPath() != installedApp.aumid) {
                  LOG(LogWarning) << "[XboxStore GetList] FileData for " << installedApp.displayName << " has path " << fd->getPath() << " but its canonical AUMID is " << installedApp.aumid << ". Consider Gamelist cleanup.";
             }
@@ -536,13 +595,13 @@ std::vector<FileData*> XboxStore::getGamesList() {
             existingGamesMap.erase(it); 
         } else {
             LOG(LogInfo) << "XboxStore: Adding new installed game to FileData list: " << installedApp.displayName << " (AUMID: " << installedApp.aumid << ")";
-            FileData* newGame = new FileData(FileType::GAME, installedApp.aumid, system); // Path = AUMID
+            FileData* newGame = new FileData(FileType::GAME, installedApp.aumid, system);
             newGame->getMetadata().set(MetaDataId::Name, installedApp.displayName);
             newGame->getMetadata().set(MetaDataId::XboxPfn, installedApp.pfn); 
             newGame->getMetadata().set(MetaDataId::XboxAumid, installedApp.aumid);
             newGame->getMetadata().set(MetaDataId::Installed, "true");
             newGame->getMetadata().set(MetaDataId::Virtual, "false");
-            newGame->getMetadata().set(MetaDataId::LaunchCommand, installedApp.aumid); // LaunchCommand = AUMID puro
+            newGame->getMetadata().set(MetaDataId::LaunchCommand, installedApp.aumid);
             newGame->getMetadata().setDirty();
             gameFiles.push_back(newGame);
         }
@@ -574,33 +633,42 @@ std::vector<FileData*> XboxStore::getGamesList() {
                 if(alreadyProcessedAsInstalled) continue;
             }
             
+            // --- MODIFICA ---
+            // Sostituiamo la creazione del link diretto con il nostro comando personalizzato
             std::string pseudoPathForOnline;
-            std::string storeLink;
+            std::string launchCommand;
 
             if (!title.detail.productId.empty()) {
                 pseudoPathForOnline = "xbox_online_prodid:/" + title.detail.productId;
-                storeLink = "ms-windows-store://pdp/?ProductId=" + title.detail.productId;
+                launchCommand = "xbox:install:" + title.detail.productId;
             } else if (!title.pfn.empty()) { 
                 pseudoPathForOnline = "xbox_online_pfn:/" + title.pfn;
-                storeLink = "ms-windows-store://pdp/?PFN=" + title.pfn;
+                launchCommand = ""; 
             } else {
-                 LOG(LogWarning) << "[XboxStore GetList] Could not create a valid pseudoPath/storeLink for online game: " << title.name;
-                 continue;
+                continue;
             }
             LOG(LogDebug) << "[XboxStore GetList] Processing online title '" << title.name << "' with pseudoPath: '" << pseudoPathForOnline << "'";
+            // --- FINE MODIFICA ---
 
             auto it_virtual = existingGamesMap.find(pseudoPathForOnline); 
             if (it_virtual != existingGamesMap.end()) {
                 FileData* fd = it_virtual->second;
                 LOG(LogDebug) << "XboxStore: Updating existing virtual game in FileData: " << title.name;
-                 bool changed = false;
+                bool changed = false;
                 if (fd->getMetadata().get(MetaDataId::Installed) != "false") { fd->getMetadata().set(MetaDataId::Installed, "false"); changed = true; }
                 if (fd->getMetadata().get(MetaDataId::Virtual) != "true") { fd->getMetadata().set(MetaDataId::Virtual, "true"); changed = true; }
                 if (fd->getMetadata().get(MetaDataId::Name) != title.name && !title.name.empty()) { fd->getMetadata().set(MetaDataId::Name, title.name); changed = true; }
                 if (!title.pfn.empty() && fd->getMetadata().get(MetaDataId::XboxPfn) != title.pfn) { fd->getMetadata().set(MetaDataId::XboxPfn, title.pfn); changed = true; }
                 if (!title.detail.productId.empty() && fd->getMetadata().get(MetaDataId::XboxProductId) != title.detail.productId) { fd->getMetadata().set(MetaDataId::XboxProductId, title.detail.productId); changed = true; }
                 if (!title.titleId.empty() && fd->getMetadata().get(MetaDataId::XboxTitleId) != title.titleId) { fd->getMetadata().set(MetaDataId::XboxTitleId, title.titleId); changed = true; }
-                if (!storeLink.empty() && fd->getMetadata().get(MetaDataId::LaunchCommand) != storeLink) { fd->getMetadata().set(MetaDataId::LaunchCommand, storeLink); changed = true; }
+                
+                // --- MODIFICA ---
+                // Applichiamo il comando personalizzato
+                if (!launchCommand.empty() && fd->getMetadata().get(MetaDataId::LaunchCommand) != launchCommand) { 
+                    fd->getMetadata().set(MetaDataId::LaunchCommand, launchCommand); 
+                    changed = true; 
+                }
+                // --- FINE MODIFICA ---
 
                 if (changed) fd->getMetadata().setDirty();
                 if (std::find(gameFiles.begin(), gameFiles.end(), fd) == gameFiles.end()) gameFiles.push_back(fd);
@@ -614,8 +682,15 @@ std::vector<FileData*> XboxStore::getGamesList() {
                 if (!title.detail.productId.empty()) newGame->getMetadata().set(MetaDataId::XboxProductId, title.detail.productId);
                 newGame->getMetadata().set(MetaDataId::Installed, "false"); 
                 newGame->getMetadata().set(MetaDataId::Virtual, "true");
-                if (!storeLink.empty()) newGame->getMetadata().set(MetaDataId::LaunchCommand, storeLink);
-                else { LOG(LogWarning) << "XboxStore: No store link for new virtual game: " << title.name; }
+                
+                // --- MODIFICA ---
+                // Applichiamo il comando personalizzato
+                if (!launchCommand.empty()) {
+                    newGame->getMetadata().set(MetaDataId::LaunchCommand, launchCommand);
+                } else { 
+                    LOG(LogWarning) << "XboxStore: No launch command for new virtual game: " << title.name; 
+                }
+                // --- FINE MODIFICA ---
 
                 newGame->getMetadata().setDirty();
                 gameFiles.push_back(newGame);
@@ -630,7 +705,6 @@ std::vector<FileData*> XboxStore::getGamesList() {
             bool changed = false;
             if (fd->getMetadata().get(MetaDataId::Installed) != "false") { fd->getMetadata().set(MetaDataId::Installed, "false"); changed = true; }
             if (fd->getMetadata().get(MetaDataId::Virtual) != "true") { fd->getMetadata().set(MetaDataId::Virtual, "true"); changed = true; }
-            // Qui potremmo voler invalidare il LaunchCommand se non è un link allo store o un AUMID valido
             if (changed) fd->getMetadata().setDirty();
             gameFiles.push_back(fd);
         }
@@ -643,6 +717,14 @@ std::future<void> XboxStore::refreshGamesListAsync() {
     return std::async(std::launch::async, [this]() {
         winrt::init_apartment(winrt::apartment_type::multi_threaded); 
         LOG(LogInfo) << "Xbox Store Refresh BG: Starting refreshGamesListAsync...";
+		 // --- BLOCCO DA AGGIUNGERE ALL'INIZIO ---
+        // Controlliamo se l'app Xbox è installata all'inizio della sincronizzazione
+        // e salviamo il risultato nella nostra variabile membro.
+        LOG(LogInfo) << "Xbox Store Refresh BG: Checking for Xbox App installation status...";
+        this->mIsXboxAppInstalled = this->isXboxAppInstalled();
+        LOG(LogInfo) << "Xbox Store Refresh BG: Xbox App installed status: " << (this->mIsXboxAppInstalled ? "Yes" : "No");
+        // --- FINE BLOCCO DA AGGIUNGERE ---
+		
         SystemData* xboxSystem = SystemData::getSystem("xbox"); 
 
         if (!_initialized || !mAuth || !mAPI) {
@@ -679,19 +761,19 @@ std::future<void> XboxStore::refreshGamesListAsync() {
         try {
              std::vector<FileData*> currentSystemGames = xboxSystem->getRootFolder()->getFilesRecursive(GAME, true);
              for (FileData* fd : currentSystemGames) {
-                 if (fd) {
-                     std::string key = fd->getMetadata().get(MetaDataId::XboxAumid);
-                     if (key.empty() || fd->getMetadata().get(MetaDataId::Virtual) == "true") { 
-                        key = fd->getPath(); 
-                     }
+                  if (fd) {
+                       std::string key = fd->getMetadata().get(MetaDataId::XboxAumid);
+                       if (key.empty() || fd->getMetadata().get(MetaDataId::Virtual) == "true") { 
+                           key = fd->getPath(); 
+                       }
 
-                     if (!key.empty()) {
-                         fileDataMapByAumidOrPseudoPath_refresh[key] = fd;
-                         if (!fd->getMetadata().get(MetaDataId::XboxAumid).empty() && fd->getMetadata().get(MetaDataId::Installed) == "true") {
-                            existingAumidsInSystem_refresh.insert(fd->getMetadata().get(MetaDataId::XboxAumid));
-                         }
-                     }
-                 }
+                       if (!key.empty()) {
+                            fileDataMapByAumidOrPseudoPath_refresh[key] = fd;
+                            if (!fd->getMetadata().get(MetaDataId::XboxAumid).empty() && fd->getMetadata().get(MetaDataId::Installed) == "true") {
+                                existingAumidsInSystem_refresh.insert(fd->getMetadata().get(MetaDataId::XboxAumid));
+                            }
+                       }
+                  }
              }
              LOG(LogDebug) << "Xbox Store Refresh BG: Found " << fileDataMapByAumidOrPseudoPath_refresh.size() << " existing FileData entries and " << existingAumidsInSystem_refresh.size() << " existing installed AUMIDs in system '" << xboxSystem->getName() << "'.";
         } catch (const std::exception& e) {
@@ -736,10 +818,6 @@ std::future<void> XboxStore::refreshGamesListAsync() {
                 bool changed = false;
                 if (fd->getMetadata().get(MetaDataId::Installed) != "true") { fd->getMetadata().set(MetaDataId::Installed, "true"); changed = true; }
                 if (fd->getMetadata().get(MetaDataId::Virtual) != "false") { fd->getMetadata().set(MetaDataId::Virtual, "false"); changed = true; }
-                // Non cambiare fd->getPath() qui. Se era mappato con uno pseudoPath, e ora è installato, la chiave in mappa era lo pseudoPath.
-                // L'AUMID è la nuova chiave canonica per i giochi installati.
-                // Questa situazione (gioco virtuale in gamelist diventa installato) è gestita meglio da una rimozione e ri-aggiunta o una logica più complessa.
-                // Per ora, ci assicuriamo che i metadati siano corretti.
                 if (fd->getMetadata().get(MetaDataId::LaunchCommand) != installedGame.aumid) { fd->getMetadata().set(MetaDataId::LaunchCommand, installedGame.aumid); changed = true; }
                 if (fd->getMetadata().get(MetaDataId::XboxAumid) != installedGame.aumid) { fd->getMetadata().set(MetaDataId::XboxAumid, installedGame.aumid); changed = true; }
                 if (fd->getMetadata().get(MetaDataId::XboxPfn) != installedGame.pfn) { fd->getMetadata().set(MetaDataId::XboxPfn, installedGame.pfn); changed = true; }
@@ -760,18 +838,20 @@ std::future<void> XboxStore::refreshGamesListAsync() {
             if (!isPC || (onlineGame.pfn.empty() && onlineGame.detail.productId.empty())) continue; 
             if (!onlineGame.pfn.empty() && processedPfnsForVirtual_refresh.count(onlineGame.pfn)) continue; 
 
+            // --- MODIFICA ---
             std::string pseudoPathForOnline;
-            std::string storeLink;
+            std::string launchCommand;
             if (!onlineGame.detail.productId.empty()) {
                 pseudoPathForOnline = "xbox_online_prodid://" + onlineGame.detail.productId;
-                storeLink = "ms-windows-store://pdp/?ProductId=" + onlineGame.detail.productId;
+                launchCommand = "xbox:install:" + onlineGame.detail.productId;
             } else if (!onlineGame.pfn.empty()){
                 pseudoPathForOnline = "xbox_online_pfn://" + onlineGame.pfn;
-                storeLink = "ms-windows-store://pdp/?PFN=" + onlineGame.pfn;
+                launchCommand = "";
             } else {
                 continue;
             }
-
+            // --- FINE MODIFICA ---
+            
             if(!onlineGame.pfn.empty()) processedPfnsForVirtual_refresh.insert(onlineGame.pfn); 
 
             auto it = fileDataMapByAumidOrPseudoPath_refresh.find(pseudoPathForOnline);
@@ -785,11 +865,11 @@ std::future<void> XboxStore::refreshGamesListAsync() {
                 if (!onlineGame.detail.productId.empty()) data.metadataMap[MetaDataId::XboxProductId] = onlineGame.detail.productId;
                 data.metadataMap[MetaDataId::Installed] = "false"; 
                 data.metadataMap[MetaDataId::Virtual] = "true";
-                if(!storeLink.empty()) data.metadataMap[MetaDataId::LaunchCommand] = storeLink;
+                if(!launchCommand.empty()) data.metadataMap[MetaDataId::LaunchCommand] = launchCommand;
                 data.metadataMap[MetaDataId::Path] = pseudoPathForOnline;
                 if (!onlineGame.detail.developerName.empty()) data.metadataMap[MetaDataId::Developer] = onlineGame.detail.developerName;
                 if (!onlineGame.detail.publisherName.empty()) data.metadataMap[MetaDataId::Publisher] = onlineGame.detail.publisherName;
-                 if (!onlineGame.detail.releaseDate.empty()) {
+                if (!onlineGame.detail.releaseDate.empty()) {
                      time_t release_t = Utils::Time::iso8601ToTime(onlineGame.detail.releaseDate);
                      if (release_t != Utils::Time::NOT_A_DATE_TIME) {
                          data.metadataMap[MetaDataId::ReleaseDate] = Utils::Time::timeToMetaDataString(release_t);
@@ -812,10 +892,9 @@ std::future<void> XboxStore::refreshGamesListAsync() {
                 bool changed = false;
                 if (fd->getMetadata().get(MetaDataId::Installed) != "false") { fd->getMetadata().set(MetaDataId::Installed, "false"); changed = true; }
                 if (fd->getMetadata().get(MetaDataId::Virtual) != "true") { fd->getMetadata().set(MetaDataId::Virtual, "true"); changed = true; }
-                if (!storeLink.empty() && fd->getMetadata().get(MetaDataId::LaunchCommand) != storeLink) { fd->getMetadata().set(MetaDataId::LaunchCommand, storeLink); changed = true; }
+                if (!launchCommand.empty() && fd->getMetadata().get(MetaDataId::LaunchCommand) != launchCommand) { fd->getMetadata().set(MetaDataId::LaunchCommand, launchCommand); changed = true; }
                 if (fd->getPath() != pseudoPathForOnline) {
                      LOG(LogWarning) << "[Xbox Store Refresh BG] Virtual game " << fd->getName() << " has path " << fd->getPath() << " but its online pseudoPath is " << pseudoPathForOnline << ". Consider Gamelist cleanup or path update strategy.";
-                     // Non cambiamo fd->getPath() qui per evitare di invalidare la chiave della mappa 'it'
                 }
                 if (changed) {
                     fd->getMetadata().setDirty();
@@ -842,18 +921,22 @@ std::future<void> XboxStore::refreshGamesListAsync() {
                             if(onlineGame.pfn == pfnForOnlineCheck) {
                                 isInOnlineLib = true;
                                 fd->getMetadata().set(MetaDataId::Virtual, "true");
-                                std::string newStoreLink;
+                                
+                                // --- MODIFICA ---
+                                // Aggiorna il LaunchCommand al nostro comando personalizzato
+                                std::string newLaunchCommand;
                                 if (!onlineGame.detail.productId.empty()) {
-                                    newStoreLink = "ms-windows-store://pdp/?ProductId=" + onlineGame.detail.productId;
-                                } else {
-                                    newStoreLink = "ms-windows-store://pdp/?PFN=" + onlineGame.pfn;
+                                    newLaunchCommand = "xbox:install:" + onlineGame.detail.productId;
                                 }
-                                fd->getMetadata().set(MetaDataId::LaunchCommand, newStoreLink);
-                                // NON cambiare fd->getPath() qui se era un AUMID, perché la chiave nella mappa era l'AUMID.
-                                // Questo FileData ora rappresenta un gioco che ERA installato, ha un AUMID,
-                                // ma ora è solo virtuale. Il suo "path" dovrebbe rimanere l'AUMID originale
-                                // per essere trovato da fileDataMapByAumidOrPseudoPath_refresh in futuro se reinstallato.
-                                LOG(LogInfo) << "Marked " << fd->getName() << " (Path/AUMID: " << fd->getPath() << ") as virtual (still in online library). LaunchCommand set to store.";
+                                if (!newLaunchCommand.empty()) {
+                                    fd->getMetadata().set(MetaDataId::LaunchCommand, newLaunchCommand);
+                                } else {
+                                    // Se non c'è ProductID, rimuoviamo il vecchio comando di avvio (AUMID)
+                                    fd->getMetadata().set(MetaDataId::LaunchCommand, "");
+                                }
+                                // --- FINE MODIFICA ---
+
+                                LOG(LogInfo) << "Marked " << fd->getName() << " (Path/AUMID: " << fd->getPath() << ") as virtual (still in online library). LaunchCommand set to install command.";
                                 break;
                             }
                         }
@@ -861,7 +944,7 @@ std::future<void> XboxStore::refreshGamesListAsync() {
                     if (!isInOnlineLib) {
                         LOG(LogInfo) << fd->getName() << " is not in online library either. Marked as non-installed and virtual.";
                         fd->getMetadata().set(MetaDataId::Virtual, "true"); 
-                        // fd->getMetadata().set(MetaDataId::LaunchCommand, ""); // Rimuovi/invalida launch command
+                        fd->getMetadata().set(MetaDataId::LaunchCommand, ""); // Rimuovi launch command
                     }
                     fd->getMetadata().setDirty();
                     metadataPotentiallyChanged = true;
@@ -883,7 +966,7 @@ std::future<void> XboxStore::refreshGamesListAsync() {
              SDL_zero(meta_event);
              meta_event.type = SDL_USEREVENT;
              meta_event.user.code = SDL_GAMELIST_UPDATED; 
-             meta_event.user.data1 = xboxSystem;
+             meta_event.user.data1 = xboxSystem; 
              meta_event.user.data2 = nullptr; 
              SDL_PushEvent(&meta_event);
         }
@@ -892,7 +975,6 @@ std::future<void> XboxStore::refreshGamesListAsync() {
         winrt::uninit_apartment(); 
     });
 }
-
 std::future<void> XboxStore::updateGamesMetadataAsync(SystemData* system, const std::vector<std::string>& gamePfnsToUpdate) {
      return std::async(std::launch::async, [this, system, gamePfnsToUpdate]() {
         winrt::init_apartment(winrt::apartment_type::multi_threaded); 
@@ -1004,24 +1086,44 @@ std::future<void> XboxStore::updateGamesMetadataAsync(SystemData* system, const 
      });
 }
 
+// --- MODIFICA ---
+// Modificata la funzione installGame per usare il link corretto in base alla presenza dell'App Xbox
 bool XboxStore::installGame(const std::string& idToInstall) { 
     LOG(LogDebug) << "XboxStore::installGame called for ID: " << idToInstall;
     std::string storeUrl;
-    bool isLikelyPfn = idToInstall.find('_') != std::string::npos && idToInstall.length() > 20; 
+    std::string productId;
+    
+    // La logica per estrarre il productId rimane la stessa
+    bool isLikelyPfn = idToInstall.find('_') != std::string::npos && idToInstall.length() > 20;
     bool isLikelyProductId = idToInstall.length() == 12 && std::all_of(idToInstall.begin(), idToInstall.end(), ::isalnum);
 
-    if (isLikelyPfn) {
-        storeUrl = "ms-windows-store://pdp/?PFN=" + idToInstall;
-    } else if (isLikelyProductId) { 
-        storeUrl = "ms-windows-store://pdp/?ProductId=" + idToInstall;
-    } else { 
-        LOG(LogWarning) << "XboxStore::installGame - ID format not clearly PFN or ProductID: " << idToInstall << ". Assuming ProductID as fallback.";
-        storeUrl = "ms-windows-store://pdp/?ProductId=" + idToInstall; 
+    if (isLikelyProductId) {
+        productId = idToInstall;
+    } else if (!isLikelyPfn) {
+        productId = idToInstall;
     }
-    LOG(LogInfo) << "Attempting to open Microsoft Store page: " << storeUrl;
+
+    // --- NUOVA LOGICA SEMPLIFICATA ---
+    // Controlliamo la nostra variabile membro, non eseguiamo più la funzione di controllo qui.
+    if (this->mIsXboxAppInstalled && !productId.empty()) {
+        storeUrl = "ms-xbox-app://navigate?productId=" + productId;
+        LOG(LogInfo) << "Xbox App status is 'Installed'. Using deep link: " << storeUrl;
+    } else {
+        // Se l'app non è installata (o non è stata ancora fatta una sincronizzazione), usiamo il fallback.
+        if (!productId.empty()) {
+             storeUrl = "ms-windows-store://pdp/?ProductId=" + productId;
+        } else {
+             storeUrl = "ms-windows-store://pdp/?PFN=" + idToInstall;
+        }
+        LOG(LogInfo) << "Xbox App status is 'Not Installed' or unknown. Using fallback Microsoft Store link: " << storeUrl;
+    }
+
     Utils::Platform::openUrl(storeUrl);
     return true;
 }
+// --- FINE MODIFICA ---
+
+
 bool XboxStore::uninstallGame(const std::string& pfnOrAumidOrProductId) { 
     LOG(LogDebug) << "XboxStore::uninstallGame called for ID: " << pfnOrAumidOrProductId;
     LOG(LogInfo) << "Opening Apps & Features settings page for manual uninstallation. User should find game associated with ID: " << pfnOrAumidOrProductId;
