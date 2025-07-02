@@ -33,6 +33,7 @@ static bool isPathActuallyVirtual(const std::string& path) {
            Utils::String::startsWith(path, "xbox:/pfn/") || // Se usi anche questo formato generale
 		   Utils::String::startsWith(path, "ea_virtual:/") ||			   // Aggiunto per i giochi virtuali EA
 		   Utils::String::startsWith(path, "eaplay:/") ||
+		   Utils::String::startsWith(path, "amazon_virtual:/") ||
            Utils::String::startsWith(path, "amazon_installed:/") ||
            Utils::String::startsWith(path, "gog_virtual:/") || // <-- AGGIUNGI
            Utils::String::startsWith(path, "gog_installed:/");  // <-- AGGIUNGI
@@ -51,7 +52,8 @@ FileData* findOrCreateFile(SystemData* system, const std::string& path, FileType
         Utils::String::startsWith(path, "xbox:/pfn/")  ||    // Altro formato virtuale Xbox, se usato
 		Utils::String::startsWith(path, "ea_virtual:/") || 		// Aggiunto per i giochi virtuali EA
 		Utils::String::startsWith(path, "eaplay:/") ||
-        Utils::String::startsWith(path, "amazon_installed:/") ||
+        Utils::String::startsWith(path, "amazon_virtual:/") ||
+		Utils::String::startsWith(path, "amazon_installed:/") ||
            Utils::String::startsWith(path, "gog_virtual:/") || // <-- AGGIUNGI
            Utils::String::startsWith(path, "gog_installed:/"))  // <-- AGGIUNGI
     {

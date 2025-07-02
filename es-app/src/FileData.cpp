@@ -784,146 +784,127 @@ bool FileData::launchGame(Window* window, LaunchGameOptions options)
         return false;
     }
 
-    // --- METADATA UPDATE LOGIC ---
+    // --- METADATA UPDATE LOGIC (INTATTA) ---
     time_t currentTime = Utils::Time::now();
-    MetaDataList& metadata = gameToUpdate->getMetadata(); // Use reference
+    MetaDataList& metadata = gameToUpdate->getMetadata();
     time_t lastPlayedTime = Utils::Time::stringToTime(metadata.get(MetaDataId::LastPlayed));
 
     if (lastPlayedTime != 0)
     {
         long elapsedSeconds = difftime(currentTime, lastPlayedTime);
-        int timesPlayed = metadata.getInt(MetaDataId::PlayCount) + 1; // getInt handles conversion
+        int timesPlayed = metadata.getInt(MetaDataId::PlayCount) + 1;
         metadata.set(MetaDataId::PlayCount, std::to_string(timesPlayed));
-        LOG(LogDebug) << "Updating PlayCount for " << gameToUpdate->getName() << " to " << timesPlayed;
-
-        if (elapsedSeconds >= 60) { // Consider a valid session
+        
+        if (elapsedSeconds >= 60) {
             long gameTime = metadata.getInt(MetaDataId::GameTime) + elapsedSeconds;
             metadata.set(MetaDataId::GameTime, std::to_string(gameTime));
-            LOG(LogDebug) << "  Updating GameTime for " << gameToUpdate->getName() << " by ~" << elapsedSeconds << " seconds (since last played). Total: " << gameTime;
-        } else {
-            LOG(LogDebug) << "  Skipping GameTime update for " << gameToUpdate->getName() << ", elapsed time (" << elapsedSeconds << "s) too short.";
         }
-    } else { // First launch
+    } else {
         metadata.set(MetaDataId::PlayCount, "1");
-        LOG(LogDebug) << "First launch for " << gameToUpdate->getName() << ". Setting PlayCount to 1.";
-        metadata.set(MetaDataId::GameTime, "0"); // Initialize GameTime
+        metadata.set(MetaDataId::GameTime, "0");
     }
-    metadata.set(MetaDataId::LastPlayed, Utils::Time::DateTime(currentTime)); // Use toString() for consistent format if DateTime has it
-    LOG(LogDebug) << "Updating LastPlayed for " << gameToUpdate->getName() << " to current time.";
+    metadata.set(MetaDataId::LastPlayed, Utils::Time::DateTime(currentTime));
     CollectionSystemManager::get()->refreshCollectionSystems(gameToUpdate);
-    saveToGamelistRecovery(this); // Assuming 'this' is correct here, or gameToUpdate
+    saveToGamelistRecovery(this);
     // --- END METADATA UPDATE LOGIC ---
 
-      std::string launch_command_str; // Use a distinct name
     bool isEgsGame = (system->getName() == "epicgamestore");
     bool isSteamGame = (system->getName() == "steam");
     bool isXboxGame = (system->getName() == "xbox");
     bool isEaGame = (system->getName() == "EAGamesStore");
-    bool isGogGame = (system->getName() == "gog"); // Nuovo flag per GOG
-    bool isAmazonGame = (system->getName() == "amazon"); // NUOVO FLAG PER AMAZON
+    bool isGogGame = (system->getName() == "gog");
+    bool isAmazonGame = (system->getName() == "amazon");
+    bool isStoreGame = isEgsGame || isEaGame || isXboxGame || isGogGame || isSteamGame || isAmazonGame;
+
     bool hideWindow = Settings::getInstance()->getBool("HideWindow");
 
-    // Deinitialize audio/window once before any launch attempt
-    // These were correctly placed in your original code block for launchGame
+    // De-inizializzazione audio/finestra
     AudioManager::getInstance()->deinit();
     VolumeControl::getInstance()->deinit();
     window->deinit(hideWindow);
 
     Scripting::fireEvent("game-start", gameToUpdate->getPath(), gameToUpdate->getFileName(), gameToUpdate->getName());
 
+    std::string commandToRun;
+    int exitCode = 0;
     bool overallLaunchSuccess = false;
-    int exitCode = 0; // For emulator path
 
-      if (isEgsGame || isEaGame || isXboxGame || isGogGame || isSteamGame || isAmazonGame) 
+    // --- LOGICA DI LANCIO SEPARATA ---
+    if (isStoreGame)
     {
-        // Recupera il LaunchCommand specifico dello store dai metadati del gioco
-        launch_command_str = metadata.get(MetaDataId::LaunchCommand);
+        // PERCORSO 1: GIOCHI DEGLI STORE
+        LOG(LogInfo) << "Launching a store game (" << system->getName() << ").";
+        
+        commandToRun = metadata.get(MetaDataId::LaunchCommand);
 
-        if (launch_command_str.empty()) 
+        if (commandToRun.empty()) 
         {
-            LOG(LogError) << system->getFullName() << " launch command metadata is empty for " << gameToUpdate->getName() << "!";
+            LOG(LogError) << system->getFullName() << " launch command metadata is empty!";
             overallLaunchSuccess = false;
-        } 
-        else 
-        {
-            // Costruiamo il comando completo per emulatorlauncher
-            std::string systemName = system->getName();
-            // Assicurati che il LaunchCommand sia correttamente escapato per la riga di comando,
-            // specialmente se contiene spazi o caratteri speciali.
-            std::string actualGameCommandEscaped = Utils::FileSystem::getEscapedPath(launch_command_str);
-
-            // Il nome del sistema e il LaunchCommand effettivo vengono passati come argomenti a emulatorlauncher
-            std::string commandToExecute = EMULATOR_LAUNCHER_EXE_PATH + 
-                                           " -system " + Utils::String::toLower(systemName) + // Passa il nome del sistema in minuscolo
-                                           " -rom " + actualGameCommandEscaped; // Il 'rom' in C# sarà il LaunchCommand dello store
-
-            LOG(LogInfo) << "Delegating launch to emulatorlauncher: " << commandToExecute;
-
-            ProcessStartInfo process(commandToExecute);
-            process.window = hideWindow ? NULL : window; // Passa la finestra (o NULL se nascosta)
-            exitCode = process.run(); // Esegue emulatorlauncher
-
-            overallLaunchSuccess = (exitCode == 0); // Considera l'avvio di emulatorlauncher un successo se ritorna 0
-
-            if (exitCode != 0) {
-                LOG(LogWarning) << "emulatorlauncher terminated with nonzero exit code " << exitCode << " for " 
-                                << systemName << " game " << gameToUpdate->getName();
-            }
         }
-    }
-    else { 
-        launch_command_str = getlaunchCommand(options);
-        LOG(LogDebug) << "FileData::launchGame - Non-Store Game. Using command: " << launch_command_str;
-        if (launch_command_str.empty()) {
-            LOG(LogError) << "Standard launch command is empty for " << gameToUpdate->getName() << "!";
-            overallLaunchSuccess = false;
-        } else {
-            LOG(LogInfo) << "  Executing Command: " << launch_command_str;
-            auto p2kConv = convertP2kFile(); // Specific to your setup
-            mRunningGame = gameToUpdate;
+        else
+        {
+            // Costruisce il percorso completo per emulatorlauncher.exe
+            std::string emulatorLauncherPath = Utils::FileSystem::getEscapedPath(Utils::FileSystem::combine(Paths::getEmulationStationPath(), "emulatorlauncher.exe"));
+            std::string actualGameCommandEscaped = Utils::FileSystem::getEscapedPath(commandToRun);
 
-            ProcessStartInfo process(launch_command_str);
+            // Crea il comando specifico per gli store
+            commandToRun = emulatorLauncherPath +
+                           " -system " + Utils::String::toLower(system->getName()) +
+                           " -rom " + actualGameCommandEscaped;
+
+            LOG(LogInfo) << "Delegating store launch to emulatorlauncher: " << commandToRun;
+
+            ProcessStartInfo process(commandToRun);
             process.window = hideWindow ? NULL : window;
             exitCode = process.run();
-
-            mRunningGame = nullptr; // Clear running game state
-
-            if (exitCode != 0) {
-                LOG(LogWarning) << "...launch terminated with nonzero exit code " << exitCode << "!";
-            }
             overallLaunchSuccess = (exitCode == 0);
 
-            // Post-launch for emulators
-            if (SaveStateRepository::isEnabled(this)) {
-                if (options.saveStateInfo != nullptr) {
-                    options.saveStateInfo->onGameEnded(this);
-                }
-                if (getSourceFileData() && getSourceFileData()->getSystem() && getSourceFileData()->getSystem()->getSaveStateRepository()) {
-                     getSourceFileData()->getSystem()->getSaveStateRepository()->refresh();
-                }
-            }
-            if (!p2kConv.empty()) {
-                Utils::FileSystem::removeFile(p2kConv);
-            }
-             if (exitCode >= 200 && exitCode <= 300) {
-                 // Defer GuiMsgBox until after window reinitialization if possible.
-                 LOG(LogError) << "Emulator launch error: " << getMessageFromExitCode(exitCode);
-                // window->pushGui(new GuiMsgBox(window, _("AN ERROR OCCURRED") + ":\r\n" + getMessageFromExitCode(exitCode), _("OK"), nullptr, GuiMsgBoxIcon::ICON_ERROR));
+            if (!overallLaunchSuccess)
+                LOG(LogWarning) << "emulatorlauncher terminated with nonzero exit code " << exitCode;
+        }
+    }
+    else 
+    {
+        // PERCORSO 2: EMULATORI NORMALI
+        LOG(LogInfo) << "Launching a standard emulator game (" << system->getName() << ").";
+
+        // Prende il comando completo da es_systems.cfg (che già include emulatorlauncher.exe)
+        commandToRun = getlaunchCommand(options); 
+
+        if (commandToRun.empty())
+        {
+            LOG(LogError) << "Standard launch command is empty for " << gameToUpdate->getName() << "!";
+            overallLaunchSuccess = false;
+        }
+        else
+        {
+            LOG(LogInfo) << "Executing command from es_systems.cfg: " << commandToRun;
+            mRunningGame = gameToUpdate;
+
+            ProcessStartInfo process(commandToRun);
+            process.window = hideWindow ? NULL : window;
+            exitCode = process.run();
+            
+            mRunningGame = nullptr;
+            overallLaunchSuccess = (exitCode == 0);
+
+            if (!overallLaunchSuccess)
+            {
+                LOG(LogWarning) << "...launch terminated with nonzero exit code " << exitCode << "!";
             }
         }
     }
 
-    Scripting::fireEvent("game-end"); // Fire game-end, should be common for all paths that started
+    Scripting::fireEvent("game-end");
 
-    // Common reinitialization logic for all paths
+    // --- LOGICA DI REINIZIALIZZAZIONE (INTATTA) --
     LOG(LogDebug) << "FileData::launchGame - Common Reinitialization. Launch success so far: " << std::boolalpha << overallLaunchSuccess;
     if (!hideWindow && Settings::getInstance()->getBool("HideWindowFullReinit")) {
-        LOG(LogDebug) << "FileData::launchGame - Full reinitialization.";
-        ResourceManager::getInstance()->reloadAll(); // Make sure ResourceManager is included
+        ResourceManager::getInstance()->reloadAll();
         window->init();
         window->setCustomSplashScreen(gameToUpdate->getImagePath(), gameToUpdate->getName(), gameToUpdate);
     } else {
-        LOG(LogDebug) << "FileData::launchGame - Standard reinitialization.";
         window->init(hideWindow);
     }
     VolumeControl::getInstance()->init();
@@ -937,15 +918,13 @@ bool FileData::launchGame(Window* window, LaunchGameOptions options)
         AudioManager::getInstance()->playRandomMusic();
     }
     
-    // Show error popups now that the window is reinitialized
-     if (!overallLaunchSuccess && exitCode >= 200 && exitCode <= 300) { // Questo dovrebbe catturare gli errori generici dei lanci non-store
+    // Mostra il popup di errore, se necessario
+    if (!overallLaunchSuccess && exitCode >= 200 && exitCode <= 300) {
         window->pushGui(new GuiMsgBox(window, _("AN ERROR OCCURRED") + ":\r\n" + getMessageFromExitCode(exitCode), _("OK"), nullptr, GuiMsgBoxIcon::ICON_ERROR));
     }
 
-
     return overallLaunchSuccess;
 }
-
 
 bool FileData::hasContentFiles()
 {
@@ -1416,15 +1395,6 @@ void FolderData::getFilesRecursiveWithContext(
 
     // Log parametri di ingresso QUANDO è per il sistema Steam e si cercano giochi
     bool isSteamSystemAndGames = (pSystem->getName() == "steam" && (typeMask & GAME));
-    if (isSteamSystemAndGames) {
-        LOG(LogInfo) << "[FRWC_Steam_Entry] Called for Steam to find GAMEs. Folder: \"" << mPath << "\"";
-        LOG(LogInfo) << "[FRWC_Steam_Entry]   typeMask: " << typeMask;
-        LOG(LogInfo) << "[FRWC_Steam_Entry]   filter->showHiddenFiles: " << filter->showHiddenFiles;
-        LOG(LogInfo) << "[FRWC_Steam_Entry]   filter->filterKidGame: " << filter->filterKidGame;
-        LOG(LogInfo) << "[FRWC_Steam_Entry]   filter->hiddenExtensions.size(): " << filter->hiddenExtensions.size();
-        LOG(LogInfo) << "[FRWC_Steam_Entry]   displayedOnly: " << displayedOnly;
-        LOG(LogInfo) << "[FRWC_Steam_Entry]   includeVirtualStorage: " << includeVirtualStorage;
-    }
 
 	FileFilterIndex* idx = pSystem->getIndex(false); // Filtri utente dalla UI
     if (isSteamSystemAndGames) { // Logga anche lo stato di idx per Steam

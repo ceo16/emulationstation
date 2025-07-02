@@ -417,10 +417,10 @@ void CollectionSystemManager::updateSystemsList()
 		else if (sortBySubgroup)
 			std::sort(SystemData::sSystemVector.begin(), SystemData::sSystemVector.end(), systemBySubgroupSort);
 
-		// Move RetroPie / Retrobat system to end
+		// Move RetroPie / Lumaca system to end
 		for (auto sysIt = SystemData::sSystemVector.cbegin(); sysIt != SystemData::sSystemVector.cend(); )
 		{
-			if ((*sysIt)->getName() == "retropie" || (*sysIt)->getName() == "retrobat")
+			if ((*sysIt)->getName() == "retropie" || (*sysIt)->getName() == "lumaca")
 			{
 				SystemData* retroPieSystem = (*sysIt);
 				sysIt = SystemData::sSystemVector.erase(sysIt);

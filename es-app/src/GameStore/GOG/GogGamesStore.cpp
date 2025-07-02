@@ -103,35 +103,48 @@ void GogGamesStore::syncGames(std::function<void(bool)> on_complete) {
 void GogGamesStore::processGamesList(const std::vector<GOG::LibraryGame>& onlineGames, const std::vector<GOG::InstalledGameInfo>& installedGames) {
     SystemData* sys = SystemData::getSystem("gog");
     if (!sys) {
-        LOG(LogError) << "GOG Store: System 'gog' not found!";
+        LOG(LogError) << "[GOG Sync] Sistema 'gog' non trovato!";
         return;
     }
 
     FolderData* root = sys->getRootFolder();
+
+    // 1. PULISCI LA VECCHIA LISTA
+    // Questo è il passo fondamentale. Svuota la memoria da qualsiasi stato precedente o corrotto.
+    LOG(LogInfo) << "[GOG Sync] Pulizia della lista giochi esistente prima della ricostruzione...";
     root->clear();
 
-    std::map<std::string, GOG::InstalledGameInfo> installedMap;
+    // 2. PREPARA I DATI
+    // Mappa dei giochi installati per una ricerca veloce
+    std::set<std::string> installedGameIds;
     for (const auto& game : installedGames) {
-        installedMap[game.id] = game;
+        installedGameIds.insert(game.id);
     }
+    LOG(LogInfo) << "[GOG Sync] Ricostruzione della lista basata su " << onlineGames.size() << " giochi della libreria online.";
 
-    int processedCount = 0;
+    // 3. RICOSTRUISCI LA LISTA DA ZERO
     for (const auto& onlineGame : onlineGames) {
-        bool isInstalled = (installedMap.find(onlineGame.game.id) != installedMap.end());
+        bool isInstalled = (installedGameIds.count(onlineGame.game.id) > 0);
+        
         std::string path = isInstalled ? "gog_installed:/" + onlineGame.game.id : "gog_virtual:/" + onlineGame.game.id;
 
+        // Crea un nuovo e pulito oggetto FileData
         FileData* fd = new FileData(FileType::GAME, path, sys);
         MetaDataList& mdl = fd->getMetadata();
+
+        // Imposta tutti i metadati dalla fonte autorevole (l'API di GOG)
+        mdl.set("storeId", onlineGame.game.id);
         mdl.set(MetaDataId::Name, onlineGame.game.title);
         mdl.set(MetaDataId::Image, onlineGame.game.image);
         mdl.set(MetaDataId::Installed, isInstalled ? "true" : "false");
         mdl.set(MetaDataId::Virtual, !isInstalled ? "true" : "false");
-        mdl.set("storeId", onlineGame.game.id);
-        
+        mdl.set(MetaDataId::LaunchCommand, "goggalaxy://game/" + onlineGame.game.id);
+
         root->addChild(fd, false);
-        processedCount++;
     }
     
-    ViewController::get()->reloadGameListView(sys);
-    LOG(LogInfo) << "GOG Sync: Processing complete. Total games processed: " << processedCount;
+    // 4. AGGIORNA LA UI
+    sys->updateDisplayedGameCount(); // Aggiorna il conteggio
+    ViewController::get()->reloadGameListView(sys); 
+    LOG(LogInfo) << "[GOG Sync] Ricostruzione completata. Conteggio finale: " << root->getChildren().size();
 }

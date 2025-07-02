@@ -469,7 +469,7 @@ void SystemData::setIsGameSystemStatus()
 	// we exclude non-game systems from specific operations
 	// if/when there are more in the future, maybe this can be a more complex method, with a proper list
 	// but for now a simple string comparison is more performant
-	mIsGameSystem = (mMetadata.name != "retropie" && mMetadata.name != "retrobat");
+	mIsGameSystem = (mMetadata.name != "retropie" && mMetadata.name != "lumaca");
 }
 
 void SystemData::populateFolder(FolderData* folder, std::unordered_map<std::string, FileData*>& fileMap)
@@ -1152,17 +1152,17 @@ void SystemData::loadAdditionnalConfig(pugi::xml_node& srcSystems)
   CollectionSystemManager::get()->loadCollectionSystems();
   }
   
-// --- AMAZON GAMES SYSTEM CREATION (CON LOGICA DI INSTALL/UNINSTALL COMPLETA) ---
+// --- AMAZON GAMES SYSTEM (LOGICA FINALE BASATA SUL NOME DEL GIOCO) ---
 LOG(LogInfo) << "[AmazonDynamic] Checking/Creating Amazon Games system...";
 
-if (Settings::getInstance()->getBool("EnableAmazonGames")) 
+if (Settings::getInstance()->getBool("EnableAmazonGames"))
 {
     SystemData* amazonSystem = SystemData::getSystem("amazon");
     bool amazonSystemWasNewlyCreated = false;
 
     if (amazonSystem == nullptr) {
-        // ... (la logica di creazione del sistema rimane invariata) ...
-        LOG(LogInfo) << "[AmazonDynamic] Amazon Games system not found, creating dynamically...";
+        LOG(LogInfo) << "[AmazonDynamic] Amazon system not found, creating dynamically...";
+        // La tua logica di creazione è corretta e rimane invariata
         SystemMetadata md_amazon;
         md_amazon.name = "amazon";
         md_amazon.fullName = _("Amazon Games");
@@ -1172,9 +1172,7 @@ if (Settings::getInstance()->getBool("EnableAmazonGames"))
         SystemEnvironmentData* envData_amazon = new SystemEnvironmentData();
         std::string exeDir = Utils::FileSystem::getParent(Paths::getExePath());
         std::string amazonGamelistDir = Utils::FileSystem::getGenericPath(exeDir + "/roms/amazon");
-        if (!Utils::FileSystem::exists(amazonGamelistDir)) {
-            Utils::FileSystem::createDirectory(amazonGamelistDir);
-        }
+        Utils::FileSystem::createDirectory(amazonGamelistDir);
         envData_amazon->mStartPath = amazonGamelistDir;
         envData_amazon->mPlatformIds = {PlatformIds::PC};
         envData_amazon->mLaunchCommand = "";
@@ -1185,126 +1183,120 @@ if (Settings::getInstance()->getBool("EnableAmazonGames"))
             sSystemVector.push_back(amazonSystem);
         } else {
             delete envData_amazon;
-            LOG(LogError) << "[AmazonDynamic] Failed to create 'amazon' system object!";
         }
+    } else {
+        // STRATEGIA CHIAVE: Pulisci sempre la lista per evitare corruzioni e duplicati.
+        LOG(LogInfo) << "[AmazonDynamic] Amazon system already exists. Clearing game list before repopulation.";
+        amazonSystem->getRootFolder()->clear();
     }
 
     if (amazonSystem != nullptr) {
-        // 1. Carica i giochi dalla cache (gamelist.xml)
+        FolderData* root = amazonSystem->getRootFolder();
+
+        // 1. CARICA LA CACHE DA gamelist.xml
         std::string gamelistPath = amazonSystem->getGamelistPath(false);
-        if (Utils::FileSystem::exists(gamelistPath) && amazonSystem->getRootFolder()->getChildren().empty()) {
-            LOG(LogInfo) << "[AmazonDynamic] Parsing cached Amazon gamelist: " << gamelistPath;
+        if (Utils::FileSystem::exists(gamelistPath)) {
             std::unordered_map<std::string, FileData*> fileMap;
             parseGamelist(amazonSystem, fileMap);
+            LOG(LogInfo) << "[AmazonDynamic] Popolato con " << root->getChildren().size() << " giochi da gamelist.xml.";
         }
 
-        // 2. Scansiona i giochi realmente installati
+        // 2. SCANSIONA I GIOCHI INSTALLATI LOCALMENTE
+        std::map<std::string, Amazon::InstalledGameInfo> installedGameMap; // Chiave: Nome del gioco (lowercase)
         GameStoreManager* gsm = GameStoreManager::getInstance(nullptr);
-        AmazonGamesStore* amazonStore = nullptr;
         if (gsm) {
+            AmazonGamesStore* amazonStore = nullptr;
             GameStore* baseStore = gsm->getStore("amazon");
             if (baseStore) amazonStore = dynamic_cast<AmazonGamesStore*>(baseStore);
-        }
-
-        if (amazonStore) {
-            LOG(LogInfo) << "[AmazonDynamic] Syncing installation status...";
-            auto installedGames = amazonStore->getScanner()->findInstalledGames();
-            FolderData* root = amazonSystem->getRootFolder();
-
-            // Crea una mappa degli ID dei giochi installati per una ricerca veloce
-            std::set<std::string> installedGameIds;
-            for (const auto& game : installedGames) {
-                installedGameIds.insert(game.id);
-            }
-
-            // 3. LOGICA DI FUSIONE (Installazione)
-            for (const auto& installedGame : installedGames) {
-                FileData* existingGame = nullptr;
-                for (auto child : root->getChildren()) {
-                    if (child->getMetadata().get("storeId") == installedGame.id) {
-                        existingGame = child;
-                        break;
-                    }
-                }
-
-                if (existingGame) { // Gioco trovato, era virtuale -> aggiorna a installato
-                    if (existingGame->getMetadata().get("Installed") == "false") {
-                        LOG(LogInfo) << "[AmazonDynamic] Updating '" << installedGame.title << "' to INSTALLED.";
-                        MetaDataList& mdl = existingGame->getMetadata();
-                        mdl.set(MetaDataId::Installed, "true");
-                        mdl.set(MetaDataId::Virtual, "false");
-                        existingGame->setPath("amazon_installed:/" + installedGame.id);
-                    }
-                } else { // Gioco non trovato -> crea una nuova voce per il gioco installato
-                    LOG(LogInfo) << "[AmazonDynamic] Creating new entry for installed game '" << installedGame.title << "'.";
-                    std::string path = "amazon_installed:/" + installedGame.id;
-                    FileData* fd = new FileData(FileType::GAME, path, amazonSystem);
-                    MetaDataList& mdl = fd->getMetadata();
-                    mdl.set(MetaDataId::Name, installedGame.title);
-                    mdl.set(MetaDataId::Installed, "true");
-                    mdl.set("storeId", installedGame.id);
-                    mdl.set(MetaDataId::LaunchCommand, "amazon-games://play/" + installedGame.id);
-        
-        // --- MODIFICA CHIAVE: Aggiungiamo la lingua del sistema ---
-        std::string esSystemLanguage = Settings::getInstance()->getString("Language");
-        if (!esSystemLanguage.empty()) {
-            mdl.set(MetaDataId::Language, esSystemLanguage);
-        }
-        
-        root->addChild(fd, false);
+            if (amazonStore) {
+                auto installedGames = amazonStore->getScanner()->findInstalledGames();
+                for(const auto& game : installedGames) {
+                    // Usa il nome del gioco in minuscolo come chiave per la mappa
+                    installedGameMap[Utils::String::toLower(game.title)] = game;
                 }
             }
+        }
+        LOG(LogInfo) << "[AmazonDynamic] Scansione locale ha trovato " << installedGameMap.size() << " giochi installati.";
 
-            // 4. LOGICA "VICEVERSA" (Disinstallazione)
-            auto currentGames = root->getChildren(); // Crea una copia per iterare in sicurezza
-            for (auto game : currentGames) {
-                if (game->getMetadata().get("Installed") == "true") {
-                    std::string storeId = game->getMetadata().get("storeId");
-                    // Se un gioco segnato come installato NON è nella lista dei giochi realmente installati...
-                    if (installedGameIds.find(storeId) == installedGameIds.end()) {
-                        LOG(LogInfo) << "[AmazonDynamic] Game '" << game->getName() << "' was uninstalled. Reverting to VIRTUAL.";
-                        MetaDataList& mdl = game->getMetadata();
-                        mdl.set(MetaDataId::Installed, "false");
-                        mdl.set(MetaDataId::Virtual, "true");
-                        game->setPath("amazon_virtual:/" + storeId);
-                    }
+        // 3. RICONCILIAZIONE BASATA SUL NOME
+        LOG(LogInfo) << "[AmazonDynamic] Riconciliazione dello stato dei giochi per nome...";
+        
+        // A. Aggiorna i giochi esistenti nel gamelist
+        for (auto& game : root->getChildren()) {
+            std::string gameNameLower = Utils::String::toLower(game->getName());
+            auto it = installedGameMap.find(gameNameLower);
+
+            if (it != installedGameMap.end()) {
+                // CORRISPONDENZA TROVATA: Il gioco è installato
+                const auto& installedInfo = it->second;
+                MetaDataList& mdl = game->getMetadata();
+                mdl.set(MetaDataId::Installed, "true");
+                mdl.set(MetaDataId::Virtual, "false");
+                // Aggiorniamo il path e l'ID per coerenza, usando l'ID trovato dallo scanner
+                game->setPath("amazon_installed:/" + installedInfo.id);
+                mdl.set("storeId", installedInfo.id); 
+                mdl.set(MetaDataId::LaunchCommand, "amazon-games://play/" + installedInfo.id);
+
+                // Rimuovi il gioco dalla mappa per non ri-aggiungerlo dopo
+                installedGameMap.erase(it);
+            } else {
+                // NESSUNA CORRISPONDENZA: Il gioco è solo virtuale
+                MetaDataList& mdl = game->getMetadata();
+                mdl.set(MetaDataId::Installed, "false");
+                mdl.set(MetaDataId::Virtual, "true");
+                // Assicuriamoci che il path sia corretto per un gioco virtuale
+                std::string storeId = mdl.get("storeId");
+                if (!storeId.empty()) {
+                    game->setPath("amazon_virtual:/" + storeId);
                 }
             }
         }
         
+        // B. Aggiungi i giochi installati che non erano presenti nel gamelist
+        for (const auto& pair : installedGameMap) {
+            const Amazon::InstalledGameInfo& installedInfo = pair.second;
+            LOG(LogInfo) << "[AmazonDynamic] Trovato nuovo gioco installato non nel gamelist: '" << installedInfo.title << "'. Aggiungo.";
+            FileData* fd = new FileData(FileType::GAME, "amazon_installed:/" + installedInfo.id, amazonSystem);
+            MetaDataList& mdl = fd->getMetadata();
+            mdl.set("storeId", installedInfo.id);
+            mdl.set(MetaDataId::Name, installedInfo.title);
+            mdl.set(MetaDataId::Installed, "true");
+            mdl.set(MetaDataId::Virtual, "false");
+            mdl.set(MetaDataId::LaunchCommand, "amazon-games://play/" + installedInfo.id);
+            root->addChild(fd, false);
+        }
+        
+        LOG(LogInfo) << "[AmazonDynamic] Riconciliazione completata. Conteggio finale: " << root->getChildren().size();
+
         if (amazonSystemWasNewlyCreated) {
             amazonSystem->loadTheme();
         }
-
         amazonSystem->updateDisplayedGameCount();
-        ViewController::get()->reloadGameListView(amazonSystem);
-        LOG(LogInfo) << "[AmazonDynamic] Amazon system sync complete. Final game count: " << amazonSystem->getGameCount();
     }
 }
 // --- FINE BLOCCO AMAZON ---
 
-// --- GOG GAMES SYSTEM CREATION (CON SCANSIONE ALL'AVVIO) ---
+// --- GOG GAMES SYSTEM (LOGICA FINALE BASATA SUL MODELLO FUNZIONANTE DI EPIC/STEAM) ---
 LOG(LogInfo) << "[GogDynamic] Checking/Creating GOG.com system...";
 
-if (Settings::getInstance()->getBool("EnableGogStore")) 
+if (Settings::getInstance()->getBool("EnableGogStore"))
 {
     SystemData* gogSystem = SystemData::getSystem("gog");
     bool gogSystemWasNewlyCreated = false;
 
     if (gogSystem == nullptr) {
-        LOG(LogInfo) << "[GogDynamic] GOG.com system not found, creating dynamically...";
+        LOG(LogInfo) << "[GogDynamic] GOG system not found, creating dynamically...";
+        // La tua logica di creazione è corretta e rimane invariata
         SystemMetadata md_gog;
         md_gog.name = "gog";
         md_gog.fullName = "GOG.com";
         md_gog.themeFolder = "gog";
         md_gog.manufacturer = "CD Projekt";
         md_gog.hardwareType = "pc";
-        
         SystemEnvironmentData* envData_gog = new SystemEnvironmentData();
         std::string romPath = Utils::FileSystem::getParent(Paths::getExePath()) + "/roms/gog";
         Utils::FileSystem::createDirectory(romPath);
         envData_gog->mStartPath = romPath;
-        
         std::vector<EmulatorData> gogEmulators_empty;
         gogSystem = new SystemData(md_gog, envData_gog, &gogEmulators_empty, false, false, true, true);
 
@@ -1314,79 +1306,107 @@ if (Settings::getInstance()->getBool("EnableGogStore"))
         } else {
             delete envData_gog;
         }
+    } else {
+        // STRATEGIA CHIAVE COPIATA DA EPIC/STEAM: Se il sistema esiste già, puliscilo completamente.
+        // Questo è il passo più importante per prevenire qualsiasi tipo di corruzione o duplicato.
+        LOG(LogInfo) << "[GogDynamic] GOG system already exists. Clearing game list before repopulation.";
+        gogSystem->getRootFolder()->clear();
     }
 
     if (gogSystem != nullptr) {
-        // Carica gamelist.xml se esiste
+        FolderData* root = gogSystem->getRootFolder();
+
+        // 1. CARICA LA CACHE DA gamelist.xml (la nostra fonte di verità per i giochi virtuali)
         std::string gamelistPath = gogSystem->getGamelistPath(false);
-        if (Utils::FileSystem::exists(gamelistPath) && gogSystem->getRootFolder()->getChildren().empty()) {
+        if (Utils::FileSystem::exists(gamelistPath)) {
+            // Poiché la lista è stata pulita (se il sistema esisteva), partiamo sempre da una base pulita.
             std::unordered_map<std::string, FileData*> fileMap;
             parseGamelist(gogSystem, fileMap);
+            LOG(LogInfo) << "[GogDynamic] Popolato con " << root->getChildren().size() << " giochi da gamelist.xml.";
         }
 
-        // Scansiona e unisce i giochi installati
+        // 2. SCANSIONA I GIOCHI INSTALLATI LOCALMENTE
+        std::map<std::string, GOG::InstalledGameInfo> installedGameMap;
         GameStoreManager* gsm = GameStoreManager::getInstance(nullptr);
-        GogGamesStore* gogStore = nullptr;
         if (gsm) {
+            GogGamesStore* gogStore = nullptr;
             GameStore* baseStore = gsm->getStore("gog");
             if (baseStore) gogStore = dynamic_cast<GogGamesStore*>(baseStore);
+            if (gogStore) {
+                auto installedGames = gogStore->getScanner()->findInstalledGames();
+                for(const auto& game : installedGames) {
+                    installedGameMap[game.id] = game;
+                }
+            }
         }
+        LOG(LogInfo) << "[GogDynamic] Scansione locale ha trovato " << installedGameMap.size() << " giochi installati.";
 
-        if (gogStore) {
-            LOG(LogInfo) << "[GogDynamic] Scanning and merging INSTALLED GOG games at startup...";
-            auto installedGames = gogStore->getScanner()->findInstalledGames();
-            FolderData* root = gogSystem->getRootFolder();
-            std::set<std::string> installedGameIds;
-            for(const auto& game : installedGames) installedGameIds.insert(game.id);
-
-            // Logica "viceversa" per giochi disinstallati
-            auto currentGames = root->getChildren();
-            for (auto game : currentGames) {
-                if (game->getMetadata().get("Installed") == "true") {
-                    std::string storeId = game->getMetadata().get("storeId");
-                    if (installedGameIds.find(storeId) == installedGameIds.end()) {
-                        LOG(LogInfo) << "[GogDynamic] Game '" << game->getName() << "' was uninstalled. Reverting to VIRTUAL.";
-                        MetaDataList& mdl = game->getMetadata();
-                        mdl.set(MetaDataId::Installed, "false");
-                        mdl.set(MetaDataId::Virtual, "true");
-                        game->setPath("gog_virtual:/" + storeId);
+        // 3. RICONCILIAZIONE (Il cuore della logica)
+        LOG(LogInfo) << "[GogDynamic] Riconciliazione dello stato dei giochi...";
+        
+        // A. Itera sui giochi INSTALLATI e aggiorna o crea le voci.
+        for (const auto& pair : installedGameMap) {
+            const std::string& storeId = pair.first;
+            const GOG::InstalledGameInfo& installedInfo = pair.second;
+            
+            FileData* existingGame = nullptr;
+            for(auto child : root->getChildren()) {
+                // CORREZIONE DEFINITIVA per il bug del log: estrai l'ID dal path se manca nei metadati.
+                std::string childStoreId = child->getMetadata().get("storeId");
+                if (childStoreId.empty()) {
+                    std::string path = child->getPath();
+                    size_t pos = path.find_last_of('/');
+                    if (pos != std::string::npos) {
+                        childStoreId = path.substr(pos + 1);
+                        child->getMetadata().set("storeId", childStoreId); // Salva l'ID corretto per il futuro
                     }
+                }
+
+                if(childStoreId == storeId) {
+                    existingGame = child;
+                    break;
                 }
             }
 
-            // Logica di fusione per giochi installati
-            for (const auto& game : installedGames) {
-                FileData* existingGame = nullptr;
-                for (auto child : root->getChildren()) {
-                    if (child->getMetadata().get("storeId") == game.id) {
-                        existingGame = child;
-                        break;
-                    }
-                }
-
-                if (existingGame) { // Gioco trovato, aggiorna a installato
-                    if (existingGame->getMetadata().get("Installed") == "false") {
-                        LOG(LogInfo) << "[GogDynamic] Updating '" << game.name << "' to INSTALLED.";
-                        MetaDataList& mdl = existingGame->getMetadata();
-                        mdl.set(MetaDataId::Installed, "true");
-                        mdl.set(MetaDataId::Virtual, "false");
-                        existingGame->setPath("gog_installed:/" + game.id);
-                    }
-                } else { // Gioco non trovato, crea nuova voce
-                    LOG(LogInfo) << "[GogDynamic] Creating new entry for installed game '" << game.name << "'.";
-                    std::string path = "gog_installed:/" + game.id;
-                    FileData* fd = new FileData(FileType::GAME, path, gogSystem);
-                    MetaDataList& mdl = fd->getMetadata();
-                    mdl.set(MetaDataId::Name, game.name);
-                    mdl.set(MetaDataId::Installed, "true");
-                    mdl.set("storeId", game.id);
-					mdl.set(MetaDataId::LaunchCommand, "goggalaxy://game/" + game.id); // Imposta il LaunchCommand per GOG
-                    root->addChild(fd, false);
-                }
+            if (existingGame) {
+                // Il gioco esiste (probabilmente caricato come virtuale dal gamelist), aggiornalo.
+                MetaDataList& mdl = existingGame->getMetadata();
+                mdl.set(MetaDataId::Installed, "true");
+                mdl.set(MetaDataId::Virtual, "false");
+                mdl.set(MetaDataId::Name, installedInfo.name);
+                existingGame->setPath("gog_installed:/" + storeId);
+            } else {
+                // Gioco installato non presente in lista, crealo.
+                LOG(LogInfo) << "[GogDynamic] Trovato nuovo gioco installato non nel gamelist: '" << installedInfo.name << "'. Aggiungo.";
+                FileData* fd = new FileData(FileType::GAME, "gog_installed:/" + storeId, gogSystem);
+                MetaDataList& mdl = fd->getMetadata();
+                mdl.set("storeId", storeId);
+                mdl.set(MetaDataId::Name, installedInfo.name);
+                mdl.set(MetaDataId::Installed, "true");
+                mdl.set(MetaDataId::LaunchCommand, "goggalaxy://game/" + storeId);
+                root->addChild(fd, false);
             }
         }
         
-        if (gogSystemWasNewlyCreated) gogSystem->loadTheme();
+        // B. Itera su tutti i giochi in lista e assicurati che quelli NON installati siano marcati come virtuali.
+        for (auto& game : root->getChildren()) {
+            std::string storeId = game->getMetadata().get("storeId");
+            if (storeId.empty()) continue; // Dovrebbe essere già stato corretto sopra, ma per sicurezza
+
+            if (installedGameMap.find(storeId) == installedGameMap.end()) {
+                // Questo gioco è nel gamelist ma non è risultato installato.
+                MetaDataList& mdl = game->getMetadata();
+                mdl.set(MetaDataId::Installed, "false");
+                mdl.set(MetaDataId::Virtual, "true");
+                game->setPath("gog_virtual:/" + storeId);
+            }
+        }
+        
+        LOG(LogInfo) << "[GogDynamic] Riconciliazione completata. Conteggio finale: " << root->getChildren().size();
+
+        if (gogSystemWasNewlyCreated) {
+            gogSystem->loadTheme();
+        }
         gogSystem->updateDisplayedGameCount();
     }
 }

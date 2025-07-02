@@ -7,6 +7,7 @@
 #include <future>
 #include <thread>
 #include <map>
+#include "utils/StringUtil.h"
 
 AmazonGamesStore::AmazonGamesStore(Window* window) : mWindow(window) {}
 AmazonGamesStore::~AmazonGamesStore() {}
@@ -105,46 +106,48 @@ void AmazonGamesStore::processGamesList(const std::vector<Amazon::GameEntitlemen
         return;
     }
 
-    // Crea la nuova lista di giochi in un vettore temporaneo
-    std::vector<FileData*> newGameList;
-    std::map<std::string, std::string> installedMap;
-    for (const auto& game : installedGames) {
-        installedMap[game.id] = game.installDirectory;
-    }
+    FolderData* root = sys->getRootFolder();
 
-    int processedCount = 0;
+    // 1. PULISCI LA VECCHIA LISTA
+    LOG(LogInfo) << "[Amazon Sync] Pulizia della lista giochi esistente prima della ricostruzione...";
+    root->clear();
+
+    // 2. PREPARA I DATI
+    // Crea una mappa dei giochi installati usando il loro NOME in minuscolo come chiave.
+    std::map<std::string, Amazon::InstalledGameInfo> installedGamesMap;
+    for (const auto& game : installedGames) {
+        installedGamesMap[Utils::String::toLower(game.title)] = game;
+    }
+    LOG(LogInfo) << "[Amazon Sync] Ricostruzione della lista basata su " << onlineGames.size() << " giochi della libreria online.";
+
+    // 3. RICOSTRUISCI LA LISTA DA ZERO
     for (const auto& onlineGame : onlineGames) {
         if (onlineGame.product_productLine == "Twitch:FuelEntitlement") continue;
 
-        bool isInstalled = (installedMap.find(onlineGame.id) != installedMap.end());
-        std::string path = isInstalled ? "amazon_installed:/" + onlineGame.id : "amazon_virtual:/" + onlineGame.id;
+        std::string onlineTitleLower = Utils::String::toLower(onlineGame.product_title);
+        auto it = installedGamesMap.find(onlineTitleLower);
+        
+        bool isInstalled = (it != installedGamesMap.end());
+        
+        // Se il gioco è installato, usiamo l'ID locale. Altrimenti, usiamo l'ID online.
+        std::string storeId = isInstalled ? it->second.id : onlineGame.id;
+        std::string path = isInstalled ? "amazon_installed:/" + storeId : "amazon_virtual:/" + storeId;
 
         FileData* fd = new FileData(FileType::GAME, path, sys);
         MetaDataList& mdl = fd->getMetadata();
+
+        mdl.set("storeId", storeId);
         mdl.set(MetaDataId::Name, onlineGame.product_title);
         mdl.set(MetaDataId::Image, onlineGame.product_imageUrl);
         mdl.set(MetaDataId::Installed, isInstalled ? "true" : "false");
         mdl.set(MetaDataId::Virtual, !isInstalled ? "true" : "false");
-        mdl.set("storeId", onlineGame.id);
-        mdl.set(MetaDataId::LaunchCommand, "amazon-games://play/" + onlineGame.id);
+        mdl.set(MetaDataId::LaunchCommand, "amazon-games://play/" + storeId);
         
-		std::string esSystemLanguage = Settings::getInstance()->getString("Language");
-    if (!esSystemLanguage.empty()) {
-        mdl.set(MetaDataId::Language, esSystemLanguage);
-    }
-        newGameList.push_back(fd);
-        processedCount++;
+        root->addChild(fd, false);
     }
     
-    // Ora che la nuova lista è pronta, aggiorniamo il sistema in modo "atomico"
-    // Questo previene che la UI acceda a dati mentre vengono cancellati.
-    sys->getRootFolder()->clear(); // Pulisce la vecchia lista
-    for (auto game : newGameList) {
-        sys->getRootFolder()->addChild(game, false); // Aggiunge i nuovi giochi
-    }
-    
-    // Infine, notifichiamo alla UI che può ricaricare la vista in sicurezza
+    // 4. AGGIORNA LA UI
+    sys->updateDisplayedGameCount();
     ViewController::get()->reloadGameListView(sys);
-
-    LOG(LogInfo) << "Amazon Sync: Processing complete. Total games processed: " << processedCount;
+    LOG(LogInfo) << "Amazon Sync: Ricostruzione completata. Conteggio finale: " << root->getChildren().size();
 }
