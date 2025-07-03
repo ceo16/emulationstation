@@ -17,7 +17,7 @@
 
 // Credenziali Twitch per IGDB (DA SOSTITUIRE CON I TUOI VALORI REALI)
 #define IGDB_CLIENT_ID "spnxgx5wpq50lx5bulmfy1qyk5ahuu" //
-#define IGDB_CLIENT_SECRET "rvseeb3t24ueceznht5dlmneg0x0th" //
+#define IGDB_CLIENT_SECRET "slv9n73fbg89sp54tmoio9wrr79c4h" //
 
 // --- Implementazione di IGDBScraperRequest ---
 IGDBScraperRequest::IGDBScraperRequest(
