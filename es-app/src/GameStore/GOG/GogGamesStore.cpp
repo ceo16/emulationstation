@@ -122,26 +122,34 @@ void GogGamesStore::processGamesList(const std::vector<GOG::LibraryGame>& online
     }
     LOG(LogInfo) << "[GOG Sync] Ricostruzione della lista basata su " << onlineGames.size() << " giochi della libreria online.";
 
-    // 3. RICOSTRUISCI LA LISTA DA ZERO
-    for (const auto& onlineGame : onlineGames) {
-        bool isInstalled = (installedGameIds.count(onlineGame.game.id) > 0);
-        
-        std::string path = isInstalled ? "gog_installed:/" + onlineGame.game.id : "gog_virtual:/" + onlineGame.game.id;
+// 3. RICOSTRUISCI LA LISTA DA ZERO
+for (const auto& onlineGame : onlineGames) {
+    bool isInstalled = (installedGameIds.count(onlineGame.game.id) > 0);
+    
+    // Il path viene già calcolato correttamente
+    std::string path = isInstalled ? "gog_installed:/" + onlineGame.game.id : "gog_virtual:/" + onlineGame.game.id;
 
-        // Crea un nuovo e pulito oggetto FileData
-        FileData* fd = new FileData(FileType::GAME, path, sys);
-        MetaDataList& mdl = fd->getMetadata();
+    FileData* fd = new FileData(FileType::GAME, path, sys);
+    MetaDataList& mdl = fd->getMetadata();
 
-        // Imposta tutti i metadati dalla fonte autorevole (l'API di GOG)
-        mdl.set("storeId", onlineGame.game.id);
-        mdl.set(MetaDataId::Name, onlineGame.game.title);
-        mdl.set(MetaDataId::Image, onlineGame.game.image);
-        mdl.set(MetaDataId::Installed, isInstalled ? "true" : "false");
-        mdl.set(MetaDataId::Virtual, !isInstalled ? "true" : "false");
-        mdl.set(MetaDataId::LaunchCommand, "goggalaxy://game/" + onlineGame.game.id);
+    // Imposta i metadati
+    mdl.set("storeId", onlineGame.game.id);
+    mdl.set(MetaDataId::Name, onlineGame.game.title);
+    mdl.set(MetaDataId::Image, onlineGame.game.image);
+    mdl.set(MetaDataId::Installed, isInstalled ? "true" : "false");
+    mdl.set(MetaDataId::Virtual, !isInstalled ? "true" : "false");
 
-        root->addChild(fd, false);
+    // --- ECCO LA MODIFICA FONDAMENTALE ---
+    // Imposta il comando di lancio CORRETTO in base allo stato di installazione
+    // IMMEDIATAMENTE alla creazione dell'oggetto in memoria.
+    if (isInstalled) {
+        mdl.set(MetaDataId::LaunchCommand, "goggalaxy://launch/" + onlineGame.game.id);
+    } else {
+        mdl.set(MetaDataId::LaunchCommand, "goggalaxy://openGameView/" + onlineGame.game.id);
     }
+
+    root->addChild(fd, false);
+}
     
     // 4. AGGIORNA LA UI
     sys->updateDisplayedGameCount(); // Aggiorna il conteggio

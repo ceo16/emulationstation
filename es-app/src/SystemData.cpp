@@ -1248,6 +1248,7 @@ if (Settings::getInstance()->getBool("EnableAmazonGames"))
                 std::string storeId = mdl.get("storeId");
                 if (!storeId.empty()) {
                     game->setPath("amazon_virtual:/" + storeId);
+
                 }
             }
         }
@@ -1374,7 +1375,8 @@ if (Settings::getInstance()->getBool("EnableGogStore"))
                 mdl.set(MetaDataId::Installed, "true");
                 mdl.set(MetaDataId::Virtual, "false");
                 mdl.set(MetaDataId::Name, installedInfo.name);
-                existingGame->setPath("gog_installed:/" + storeId);
+                mdl.set(MetaDataId::LaunchCommand, "goggalaxy://launch/" + storeId);
+                       existingGame->setPath("gog_installed:/" + storeId);
             } else {
                 // Gioco installato non presente in lista, crealo.
                 LOG(LogInfo) << "[GogDynamic] Trovato nuovo gioco installato non nel gamelist: '" << installedInfo.name << "'. Aggiungo.";
@@ -1383,7 +1385,7 @@ if (Settings::getInstance()->getBool("EnableGogStore"))
                 mdl.set("storeId", storeId);
                 mdl.set(MetaDataId::Name, installedInfo.name);
                 mdl.set(MetaDataId::Installed, "true");
-                mdl.set(MetaDataId::LaunchCommand, "goggalaxy://game/" + storeId);
+                mdl.set(MetaDataId::LaunchCommand, "goggalaxy://launch/" + storeId);
                 root->addChild(fd, false);
             }
         }

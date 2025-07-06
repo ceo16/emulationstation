@@ -107,14 +107,26 @@ inline void to_json(nlohmann::json& j, const TokenRefreshRequest& p) {
         std::vector<GameEntitlement> entitlements;
         std::string nextToken;
     };
-    inline void from_json(const nlohmann::json& j, GameEntitlement& p) {
-        p.id = j.value("id", "");
-        if (j.contains("product")) {
-            p.product_title = j["product"].value("title", "Unknown Title");
-            p.product_imageUrl = j["product"].value("imageUrl", "");
-            p.product_productLine = j["product"].value("productLine", "");
-        }
+inline void from_json(const nlohmann::json& j, GameEntitlement& p) {
+    // La vecchia riga è commentata via, non serve più.
+    // p.id = j.value("id", ""); 
+
+    if (j.contains("product")) 
+    {
+        // CORREZIONE: Leggi l'ID e il titolo dall'oggetto "product" annidato.
+        const auto& productJson = j["product"];
+        p.id = productJson.value("id", ""); // <-- Legge l'ID CORRETTO (amzn1.adg.product...)
+        p.product_title = productJson.value("title", "Unknown Title");
+        p.product_imageUrl = productJson.value("imageUrl", "");
+        p.product_productLine = productJson.value("productLine", "");
     }
+    else
+    {
+        // Fallback nel caso improbabile che manchi l'oggetto "product"
+        p.id = j.value("id", "");
+        p.product_title = "Unknown Title";
+    }
+}
     inline void from_json(const nlohmann::json& j, EntitlementsResponse& p) {
         if (j.contains("entitlements")) {
             j.at("entitlements").get_to(p.entitlements);

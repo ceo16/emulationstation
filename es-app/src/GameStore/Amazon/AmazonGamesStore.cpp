@@ -113,7 +113,6 @@ void AmazonGamesStore::processGamesList(const std::vector<Amazon::GameEntitlemen
     root->clear();
 
     // 2. PREPARA I DATI
-    // Crea una mappa dei giochi installati usando il loro NOME in minuscolo come chiave.
     std::map<std::string, Amazon::InstalledGameInfo> installedGamesMap;
     for (const auto& game : installedGames) {
         installedGamesMap[Utils::String::toLower(game.title)] = game;
@@ -129,7 +128,6 @@ void AmazonGamesStore::processGamesList(const std::vector<Amazon::GameEntitlemen
         
         bool isInstalled = (it != installedGamesMap.end());
         
-        // Se il gioco è installato, usiamo l'ID locale. Altrimenti, usiamo l'ID online.
         std::string storeId = isInstalled ? it->second.id : onlineGame.id;
         std::string path = isInstalled ? "amazon_installed:/" + storeId : "amazon_virtual:/" + storeId;
 
@@ -141,7 +139,14 @@ void AmazonGamesStore::processGamesList(const std::vector<Amazon::GameEntitlemen
         mdl.set(MetaDataId::Image, onlineGame.product_imageUrl);
         mdl.set(MetaDataId::Installed, isInstalled ? "true" : "false");
         mdl.set(MetaDataId::Virtual, !isInstalled ? "true" : "false");
-        mdl.set(MetaDataId::LaunchCommand, "amazon-games://play/" + storeId);
+
+        // --- MODIFICA FONDAMENTALE QUI ---
+        // Imposta il comando di lancio corretto in base allo stato di installazione.
+        if (isInstalled) {
+            mdl.set(MetaDataId::LaunchCommand, "amazon-games://play/" + storeId);
+        } else {
+            mdl.set(MetaDataId::LaunchCommand, "amazon-games://install/" + storeId);
+        }
         
         root->addChild(fd, false);
     }
