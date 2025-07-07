@@ -63,21 +63,19 @@ namespace {
 const std::string EAGamesStore::STORE_ID = "EAGamesStore";
 
 EAGamesStore::EAGamesStore(Window* window)
-    : GameStore(), // Aggiungi questa chiamata al costruttore base
+    : GameStore(),
       mWindow(window),
       mAuth(std::make_unique<EAGames::EAGamesAuth>(mWindow)),
       mApi(std::make_unique<EAGames::EAGamesAPI>(mAuth.get())),
       mScanner(std::make_unique<EAGames::EAGamesScanner>()),
       mGamesCacheDirty(true),
       mFetchingGamesInProgress(false),
-      mActiveScrapeCounter(0)
-{
-    LOG(LogInfo) << "EAGamesStore: Constructor completed.";
-}
+      mSubscriptionDetailsInitialized(false),
+      mSubscriptionDetailsFetching(false),
+      mEAPlayCatalogInitialized(false)
+{}
 
-EAGamesStore::~EAGamesStore() {
-    LOG(LogInfo) << "EAGamesStore: Destructor";
-}
+EAGamesStore::~EAGamesStore() {}
 
 std::vector<EAGames::InstalledGameInfo> EAGamesStore::getInstalledGames()
 {
@@ -299,96 +297,192 @@ void EAGamesStore::getSubscriptionDetails(std::function<void(const EAGames::Subs
     });
 }
 
+
 void EAGamesStore::getEAPlayCatalog(std::function<void(const std::vector<EAGames::SubscriptionGame>& catalog)> callback) {
     {
         std::lock_guard<std::mutex> lock(mCacheMutex);
         if (mEAPlayCatalogInitialized) {
-            if (callback) callback(mEAPlayCatalog);
+            if (callback) mWindow->postToUiThread([this, callback] { callback(mEAPlayCatalog); });
             return;
         }
     }
 
     getSubscriptionDetails([this, callback](const EAGames::SubscriptionDetails& details) {
         if (!details.isActive) {
-            LOG(LogInfo) << "Nessun abbonamento attivo, il catalogo EA Play è vuoto.";
+            LOG(LogInfo) << "Nessun abbonamento EA Play attivo, il catalogo è vuoto.";
             std::lock_guard<std::mutex> lock(mCacheMutex);
             mEAPlayCatalogInitialized = true;
             mEAPlayCatalog.clear();
             mEAPlayOfferIds.clear();
-            if (callback) callback(mEAPlayCatalog);
+            if (callback) mWindow->postToUiThread([callback] { callback({}); });
             return;
         }
 
-        mApi->getSubscriptionGameSlugs(details.tier, [this, callback](std::vector<std::string> slugs, bool success) {
-            if (!success || slugs.empty()) {
+        mApi->getSubscriptionGameSlugs(details.tier, [this, callback](std::vector<std::string> allSlugs, bool success) {
+            if (!success || allSlugs.empty()) {
                 LOG(LogError) << "Fallito il recupero degli slug del catalogo EA Play.";
-                // ERRORE CORRETTO: Passa un vettore vuoto invece di un int/nullptr
-                if (callback) callback({}); 
+                if (callback) mWindow->postToUiThread([callback] { callback({}); });
                 return;
             }
-            
-            mApi->getGamesDetailsBySlug(slugs, [this, callback](std::vector<EAGames::SubscriptionGame> games, bool success) {
-                if (success) {
-                    std::lock_guard<std::mutex> lock(mCacheMutex);
-                    mEAPlayCatalog = games;
-                    mEAPlayOfferIds.clear();
-                    for(const auto& game : games) { mEAPlayOfferIds.insert(game.offerId); }
-                    mEAPlayCatalogInitialized = true;
-                    LOG(LogInfo) << "Cache del catalogo EA Play inizializzata con " << games.size() << " giochi.";
-                }
-                // ERRORE CORRETTO: Passa il vettore di giochi anche in caso di fallimento parziale
-                if (callback) callback(games);
-            });
+
+            //================================================================
+            // --- INIZIO NUOVA LOGICA DI PAGINAZIONE (CHUNKING) ---
+            //================================================================
+
+            // 1. Prepara le variabili per gestire le chiamate multiple
+            auto allSubscriptionGames = std::make_shared<std::vector<EAGames::SubscriptionGame>>();
+            auto outstandingCalls = std::make_shared<std::atomic<int>>(0);
+            auto resultsMutex = std::make_shared<std::mutex>();
+            const size_t slugLimit = 99; // Limite imposto da EA (usiamo 99 per sicurezza)
+
+            // Controlla se ci sono slug da processare
+            if (allSlugs.empty()) {
+                if (callback) mWindow->postToUiThread([callback] { callback({}); });
+                return;
+            }
+
+            // 2. Itera sulla lista di slug creando pacchetti (chunk)
+            for (size_t i = 0; i < allSlugs.size(); i += slugLimit) {
+                (*outstandingCalls)++; // Incrementa il contatore per ogni chiamata che stiamo per fare
+
+                // Crea il pacchetto di slug
+                auto start_it = allSlugs.begin() + i;
+                auto end_it = allSlugs.begin() + std::min(i + slugLimit, allSlugs.size());
+                std::vector<std::string> slugChunk(start_it, end_it);
+
+                // 3. Chiama l'API con il pacchetto di slug corrente
+                mApi->getGamesDetailsBySlug(slugChunk, [this, callback, allSubscriptionGames, outstandingCalls, resultsMutex](std::vector<EAGames::SubscriptionGame> gamesChunk, bool chunkSuccess) {
+                    
+                    if (chunkSuccess) {
+                        // Se la chiamata ha successo, aggiungi i risultati al vettore finale in modo sicuro
+                        std::lock_guard<std::mutex> lock(*resultsMutex);
+                        allSubscriptionGames->insert(allSubscriptionGames->end(), gamesChunk.begin(), gamesChunk.end());
+                    }
+
+                    // Decrementa il contatore perché questa chiamata è finita
+                    (*outstandingCalls)--; 
+
+                    // 4. Se questa era l'ultima chiamata in sospeso, abbiamo finito
+                    if (*outstandingCalls == 0) {
+                        LOG(LogInfo) << "[PAGINAZIONE] Tutte le chiamate per i dettagli del catalogo EA Play sono terminate. Giochi totali recuperati: " << allSubscriptionGames->size();
+                        
+                        // Ora possiamo procedere con il caching e il callback finale
+                        std::lock_guard<std::mutex> lock(*resultsMutex);
+                        mEAPlayCatalog = *allSubscriptionGames;
+                        mEAPlayOfferIds.clear();
+
+                        for(const auto& game : mEAPlayCatalog) { 
+                            mEAPlayOfferIds.insert(game.offerId); 
+                        }
+                        mEAPlayCatalogInitialized = true;
+
+                        // Esegui il callback finale sul thread principale
+                        if (callback) mWindow->postToUiThread([callback, finalCatalog = mEAPlayCatalog] { callback(finalCatalog); });
+                    }
+                });
+            }
+            //================================================================
+            // --- FINE NUOVA LOGICA DI PAGINAZIONE (CHUNKING) ---
+            //================================================================
         });
     });
 }
 
 
-// --- SyncGames (versione corretta) ---
-void EAGamesStore::SyncGames(std::function<void(bool success)> callback)
+void EAGamesStore::fetchDetailsForGames(
+    const std::vector<EAGames::GameEntitlement>& onlineGames,
+    const std::vector<EAGames::SubscriptionGame>& catalogGames,
+    std::function<void(bool, const std::map<std::string, EAGames::GameStoreData>&)> on_complete)
 {
+    std::set<std::string> uniqueOfferIds;
+    for (const auto& game : onlineGames) {
+        if (!game.originOfferId.empty()) uniqueOfferIds.insert(game.originOfferId);
+    }
+    for (const auto& game : catalogGames) {
+        if (!game.offerId.empty()) uniqueOfferIds.insert(game.offerId);
+    }
+
+    if (uniqueOfferIds.empty()) {
+        if (on_complete) mWindow->postToUiThread([on_complete] { on_complete(true, {}); });
+        return;
+    }
+
+    LOG(LogInfo) << "[fetchDetails] Fetching details for " << uniqueOfferIds.size() << " unique games.";
+
+    auto detailedDataMap = std::make_shared<std::map<std::string, EAGames::GameStoreData>>();
+    auto outstandingCalls = std::make_shared<std::atomic<int>>(uniqueOfferIds.size());
+    auto resultsMutex = std::make_shared<std::mutex>();
+
+    for (const std::string& offerId : uniqueOfferIds) {
+        mApi->getOfferStoreData(offerId, "", "", 
+            [this, offerId, detailedDataMap, outstandingCalls, resultsMutex, on_complete]
+            (EAGames::GameStoreData details, bool success) {
+            
+            if (success && !details.contentId.empty()) {
+                std::lock_guard<std::mutex> lock(*resultsMutex);
+                detailedDataMap->emplace(offerId, details);
+            }
+            
+            if (--(*outstandingCalls) == 0) {
+                LOG(LogInfo) << "[fetchDetails] Detail fetching complete.";
+                mWindow->postToUiThread([on_complete, detailedDataMap] { 
+                    on_complete(true, *detailedDataMap); 
+                });
+            }
+        });
+    }
+}
+
+
+void EAGamesStore::SyncGames(std::function<void(bool success)> callback) {
     if (mFetchingGamesInProgress || !IsUserLoggedIn()) {
         if (callback) callback(false);
         return;
     }
     mFetchingGamesInProgress = true;
+    LOG(LogInfo) << "[SyncGames] Starting Phase 1: Fetching base lists...";
 
-    // 1. Leggi l'impostazione che l'utente ha scelto nella UI
-    bool syncEAPlay = Settings::getInstance()->getBool("EAPlay.Enabled");
-    LOG(LogInfo) << "[EAGamesStore] Starting sync. Include EA Play catalog: " << (syncEAPlay ? "Yes" : "No");
+    auto ownedGames = std::make_shared<std::vector<EAGames::GameEntitlement>>();
+    auto catalogGames = std::make_shared<std::vector<EAGames::SubscriptionGame>>();
+    auto callsDone = std::make_shared<std::atomic<int>>(0);
 
-    // 2. Se l'opzione è attiva, esegui la sincronizzazione completa
-    if (syncEAPlay) {
-        getEAPlayCatalog([this, callback](const std::vector<EAGames::SubscriptionGame>& catalogGames) {
-            mApi->getOwnedGames([this, callback, catalogGames](std::vector<EAGames::GameEntitlement> onlineGames, bool apiSuccess) {
-                if (!apiSuccess) {
-                    mFetchingGamesInProgress = false;
-                    if (callback) mWindow->postToUiThread([callback] { callback(false); });
-                    return;
-                }
+    auto onPhase1Complete = [this, ownedGames, catalogGames, callback]() {
+        LOG(LogInfo) << "[SyncGames] Phase 1 complete. Owned: " << ownedGames->size() << ", Catalog: " << catalogGames->size();
+        
+        fetchDetailsForGames(*ownedGames, *catalogGames, 
+            [this, ownedGames, catalogGames, callback]
+            (bool detailsSuccess, const std::map<std::string, EAGames::GameStoreData>& detailedDataMap) {
+            
+            if (detailsSuccess) {
+                LOG(LogInfo) << "[SyncGames] Phase 2 complete. Merging and caching...";
                 auto installedGames = mScanner->scanForInstalledGames();
-                processAndCacheGames(onlineGames, installedGames, catalogGames);
-                mFetchingGamesInProgress = false;
-                if (callback) mWindow->postToUiThread([callback] { callback(true); });
-            });
-        });
-    } 
-    // 3. Altrimenti, esegui la sincronizzazione base (solo giochi posseduti e installati)
-    else {
-        mApi->getOwnedGames([this, callback](std::vector<EAGames::GameEntitlement> onlineGames, bool apiSuccess) {
-            if (!apiSuccess) {
-                mFetchingGamesInProgress = false;
-                if (callback) mWindow->postToUiThread([callback] { callback(false); });
-                return;
+                processAndCacheGames(*ownedGames, installedGames, *catalogGames, detailedDataMap);
             }
-            auto installedGames = mScanner->scanForInstalledGames();
-            // Chiama la funzione di unione passando un catalogo vuoto
-            processAndCacheGames(onlineGames, installedGames, {}); 
+            
             mFetchingGamesInProgress = false;
-            if (callback) mWindow->postToUiThread([callback] { callback(true); });
+            if (callback) mWindow->postToUiThread([callback, detailsSuccess] { callback(detailsSuccess); });
         });
+    };
+
+    // Chiamata per i giochi posseduti
+    mApi->getOwnedGames([ownedGames, callsDone, onPhase1Complete](std::vector<EAGames::GameEntitlement> result, bool success) {
+        if (success) *ownedGames = result;
+        if (++(*callsDone) == 2) onPhase1Complete();
+    });
+
+    // Chiamata per i giochi del catalogo
+    if (Settings::getInstance()->getBool("EAPlay.Enabled")) {
+        getEAPlayCatalog([catalogGames, callsDone, onPhase1Complete](const std::vector<EAGames::SubscriptionGame>& result) {
+            *catalogGames = result;
+            if (++(*callsDone) == 2) onPhase1Complete();
+        });
+    } else {
+        if (++(*callsDone) == 2) onPhase1Complete();
     }
 }
+
+
+
 
 void EAGamesStore::StartLoginFlow(std::function<void(bool success, const std::string& message)> onFlowFinished) {
     if (mAuth) {
@@ -413,93 +507,105 @@ unsigned short EAGamesStore::GetLocalRedirectPort() {
 }
 
 
-
+// FASE 3: Usa tutti i dati raccolti per costruire la lista finale
 void EAGamesStore::processAndCacheGames(
     const std::vector<EAGames::GameEntitlement>& onlineGames,
     const std::vector<EAGames::InstalledGameInfo>& installedGames,
-    const std::vector<EAGames::SubscriptionGame>& catalogGames)
+    const std::vector<EAGames::SubscriptionGame>& catalogGames,
+    const std::map<std::string, EAGames::GameStoreData>& detailedDataMap)
 {
-    LOG(LogInfo) << "[EAGamesStore] Merging lists: " 
-                 << installedGames.size() << " installed, " 
-                 << onlineGames.size() << " owned, " 
-                 << catalogGames.size() << " in EA Play catalog.";
+    LOG(LogInfo) << "[processAndCacheGames] Merging: " << installedGames.size() << " installed, " 
+                 << onlineGames.size() << " owned, " << catalogGames.size() << " catalog, "
+                 << detailedDataMap.size() << " details fetched.";
 
     mCachedGameFileDatas.clear();
     SystemData* eaSystem = SystemData::getSystem(STORE_ID);
-    if (!eaSystem) {
-        LOG(LogError) << "[EAGamesStore] System '" << STORE_ID << "' not found. Cannot process games.";
-        return;
-    }
+    if (!eaSystem) return;
 
-    // Usiamo una mappa per gestire i duplicati in modo pulito, usando l'Offer ID come chiave.
     std::map<std::string, std::unique_ptr<FileData>> processedGames;
 
-    // --- PRIORITÀ 1: GIOCHI INSTALLATI ---
-    // La tua logica di fuzzy matching per i giochi installati è ottima, la manteniamo.
-    auto onlineGamesPool = onlineGames; // Creiamo una copia per poterla modificare
+	// --- PRIORITÀ 1: GIOCHI INSTALLATI ---
+	// La logica di fuzzy matching cerca di associare i giochi installati localmente
+	// con le voci della libreria online per ottenere metadati accurati.
+	auto onlineGamesPool = onlineGames; // Copia per poter rimuovere elementi
 
-    for (const auto& installedInfo : installedGames) {
-        std::string normalizedLocalName = normalizeGameName(installedInfo.name);
-        double bestMatchScore = 0.85; // La tua soglia
-        auto bestMatchIterator = onlineGamesPool.end();
+	for (const auto& installedInfo : installedGames) {
+		std::string normalizedLocalName = normalizeGameName(installedInfo.name);
+		double bestMatchScore = 0.85; // Soglia di corrispondenza
+		auto bestMatchIterator = onlineGamesPool.end();
 
-        for (auto it = onlineGamesPool.begin(); it != onlineGamesPool.end(); ++it) {
-            std::string normalizedOnlineName = normalizeGameName(it->title);
-            double score = 1.0 - (double)levenshtein_distance(normalizedLocalName, normalizedOnlineName) / std::max(normalizedLocalName.length(), normalizedOnlineName.length());
-            if (score > bestMatchScore) {
-                bestMatchScore = score;
-                bestMatchIterator = it;
-            }
-        }
+		// Cerca la migliore corrispondenza nella libreria online
+		for (auto it = onlineGamesPool.begin(); it != onlineGamesPool.end(); ++it) {
+			std::string normalizedOnlineName = normalizeGameName(it->title);
+			double score = 1.0 - (double)levenshtein_distance(normalizedLocalName, normalizedOnlineName) / std::max(normalizedLocalName.length(), normalizedOnlineName.length());
+			if (score > bestMatchScore) {
+				bestMatchScore = score;
+				bestMatchIterator = it;
+			}
+		}
 
-        if (bestMatchIterator != onlineGamesPool.end()) {
-            LOG(LogInfo) << "[EAGamesStore] Matched installed game '" << installedInfo.name << "' with library game '" << bestMatchIterator->title << "'";
-            
-            std::string offerId = bestMatchIterator->originOfferId;
-            auto fd = std::make_unique<FileData>(FileType::GAME, "ea_installed:/" + offerId, eaSystem);
-            MetaDataList& mdl = fd->getMetadata();
-            mdl.set(MetaDataId::Name, bestMatchIterator->title);
-            mdl.set(MetaDataId::Installed, "true");
-            mdl.set(MetaDataId::Virtual, "false");
-            mdl.set("ea_offerid", offerId);
-            mdl.set("ea_mastertitleid", bestMatchIterator->productId);
-            mdl.set("gameid", offerId);
-            mdl.set(MetaDataId::LaunchCommand, "\"" + installedInfo.executablePath + "\" " + installedInfo.launchParameters);
-            
-            // Questo gioco è posseduto E installato. Non è un gioco "solo" di EA Play.
-            mdl.set("eaplay", "false"); 
-            
-            processedGames[offerId] = std::move(fd);
-            onlineGamesPool.erase(bestMatchIterator); // Rimuovi per non riprocessarlo dopo
-        } else {
-            LOG(LogWarning) << "[EAGamesStore] No good match for installed game '" << installedInfo.name << "'";
-            auto fd = std::make_unique<FileData>(FileType::GAME, "ea_installed_local:/" + (installedInfo.id.empty() ? installedInfo.name : installedInfo.id), eaSystem);
-            fd->getMetadata().set(MetaDataId::Name, installedInfo.name);
-            fd->getMetadata().set(MetaDataId::Installed, "true");
-            processedGames[installedInfo.name] = std::move(fd); // Usa il nome come chiave fallback
-        }
-    }
+		if (bestMatchIterator != onlineGamesPool.end()) {
+			// --- CORRISPONDENZA TROVATA ---
+			LOG(LogInfo) << "[processAndCacheGames] Matched installed game '" << installedInfo.name << "' with library game '" << bestMatchIterator->title << "'";
+			
+			std::string offerId = bestMatchIterator->originOfferId;
+			auto fd = std::make_unique<FileData>(FileType::GAME, "ea_installed:/" + offerId, eaSystem);
+			MetaDataList& mdl = fd->getMetadata();
+			
+			mdl.set(MetaDataId::Name, bestMatchIterator->title);
+			mdl.set(MetaDataId::Installed, "true");
+			mdl.set(MetaDataId::Virtual, "false");
+			mdl.set("ea_offerid", offerId);
+			mdl.set("ea_mastertitleid", bestMatchIterator->productId);
+			mdl.set("gameid", offerId);
+			
+			// Per un gioco installato, il comando di lancio punta al suo eseguibile locale.
+			mdl.set(MetaDataId::LaunchCommand, "\"" + installedInfo.executablePath + "\" " + installedInfo.launchParameters);
+			
+			// Arricchiamo comunque i metadati con il contentId per completezza.
+			auto detailIt = detailedDataMap.find(offerId);
+			if (detailIt != detailedDataMap.end()) {
+				mdl.set("ea_contentid", detailIt->second.contentId);
+			}
+			
+			mdl.set("eaplay", "false"); 
+			
+			processedGames[offerId] = std::move(fd);
+			onlineGamesPool.erase(bestMatchIterator); // Rimuovi per non riprocessarlo dopo.
 
-    // --- PRIORITÀ 2: GIOCHI POSSEDUTI (non installati) ---
-    // Itera sui giochi rimasti nella pool dei giochi online
-    for (const auto& entitlement : onlineGamesPool) {
-        // La condizione 'if' non è necessaria perché abbiamo già rimosso i giochi installati.
-        // Tutti quelli rimasti qui sono posseduti ma non installati.
+		} else {
+			// --- NESSUNA CORRISPONDENZA TROVATA ---
+			// Aggiungiamo il gioco usando solo le informazioni locali.
+			LOG(LogWarning) << "[processAndCacheGames] No library match for installed game '" << installedInfo.name << "'";
+			auto fd = std::make_unique<FileData>(FileType::GAME, "ea_installed_local:/" + (installedInfo.id.empty() ? installedInfo.name : installedInfo.id), eaSystem);
+			fd->getMetadata().set(MetaDataId::Name, installedInfo.name);
+			fd->getMetadata().set(MetaDataId::Installed, "true");
+			fd->getMetadata().set(MetaDataId::LaunchCommand, "\"" + installedInfo.executablePath + "\" " + installedInfo.launchParameters);
+			processedGames[installedInfo.name] = std::move(fd);
+		}
+	}
+
+    // GIOCHI POSSEDUTI (non installati)
+    for (const auto& entitlement : onlineGames) {
+        if (processedGames.find(entitlement.originOfferId) != processedGames.end()) continue;
+
         auto fd = std::make_unique<FileData>(FileType::GAME, "ea_virtual:/" + entitlement.originOfferId, eaSystem);
         MetaDataList& mdl = fd->getMetadata();
         mdl.set(MetaDataId::Name, entitlement.title);
         mdl.set(MetaDataId::Installed, "false");
         mdl.set(MetaDataId::Virtual, "true");
         mdl.set("ea_offerid", entitlement.originOfferId);
-        mdl.set("gameid", entitlement.originOfferId);
-        mdl.set("eaplay", "false"); // È posseduto, quindi il flag eaplay è falso.
-        mdl.set(MetaDataId::LaunchCommand, "origin2://game/launch?offerIds=" + entitlement.originOfferId);
+        
+        std::string launchId = "";
+        auto it = detailedDataMap.find(entitlement.originOfferId);
+        if (it != detailedDataMap.end()) launchId = it->second.contentId;
+        
+        mdl.set(MetaDataId::LaunchCommand, "origin2://game/launch?offerIds=" + launchId);
         processedGames[entitlement.originOfferId] = std::move(fd);
     }
 
-    // --- PRIORITÀ 3: GIOCHI DEL CATALOGO EA PLAY ---
+    // GIOCHI DEL CATALOGO EA PLAY
     for (const auto& catalogGame : catalogGames) {
-        // Aggiungi solo se non è GIÀ stato aggiunto come installato o posseduto.
         if (processedGames.find(catalogGame.offerId) == processedGames.end()) {
             auto fd = std::make_unique<FileData>(FileType::GAME, "eaplay:/" + catalogGame.offerId, eaSystem);
             MetaDataList& mdl = fd->getMetadata();
@@ -507,23 +613,23 @@ void EAGamesStore::processAndCacheGames(
             mdl.set(MetaDataId::Installed, "false");
             mdl.set(MetaDataId::Virtual, "true");
             mdl.set("ea_offerid", catalogGame.offerId);
-            mdl.set("gameid", catalogGame.offerId);
-            mdl.set("eaplay", "true"); // <-- ECCO IL FLAG PER I GIOCHI DEL CATALOGO
-            mdl.set(MetaDataId::LaunchCommand, "origin2://game/launch?offerIds=" + catalogGame.offerId);
+            mdl.set("eaplay", "true");
+
+            std::string launchId = "";
+            auto it = detailedDataMap.find(catalogGame.offerId);
+            if (it != detailedDataMap.end()) launchId = it->second.contentId;
+
+            mdl.set(MetaDataId::LaunchCommand, "origin2://game/launch?offerIds=" + launchId);
             processedGames[catalogGame.offerId] = std::move(fd);
         }
     }
 
-    // --- Popola la cache finale ---
     for (auto& pair : processedGames) {
         mCachedGameFileDatas.push_back(std::move(pair.second));
     }
 
     rebuildAndSortCache();
-    
-    if (eaSystem) {
-        updateGamelist(eaSystem);
-    }
+    updateGamelist(eaSystem);
 }
 
 void EAGamesStore::rebuildAndSortCache() {

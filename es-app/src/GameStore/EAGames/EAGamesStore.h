@@ -1,40 +1,37 @@
-// emulationstation-master/es-app/src/GameStore/EAGames/EAGamesStore.h
 #pragma once
 
-// Assumendo che GameStore.h sia una directory sopra, o che il percorso di include sia configurato
-#include "GameStore/GameStore.h" // Per la classe base 'GameStore' (globale)
+#include "GameStore/GameStore.h"
 #include "Window.h"
-#include "HttpReq.h"     // Per la classe 'HttpReq' (globale)
 #include <memory>
 #include <vector>
 #include <functional>
 #include <string>
-#include <mutex>  // <-- Aggiunto per thread-safety
-#include <set>  
-#include "GameStore/EAGames/EAGamesModels.h" 
+#include <mutex>
+#include <set>
+#include <map>
+#include "GameStore/EAGames/EAGamesModels.h"
 
-// Forward declarations per i componenti interni nel namespace EAGames
+// Forward declarations
 namespace EAGames {
     class EAGamesAuth;
     class EAGamesAPI;
     class EAGamesScanner;
     struct GameEntitlement;
     struct InstalledGameInfo;
-    struct GameStoreData; // Necessaria per la definizione della struct EAGameData, se usata lì
-	struct SubscriptionDetails;
+    struct GameStoreData;
+    struct SubscriptionDetails;
     struct SubscriptionGame;
 }
 
 class FileData;
 
-// EAGamesStore è nel namespace globale e deriva da GameStore (globale)
 class EAGamesStore : public GameStore
 {
 public:
-    EAGamesStore(Window* window); // Non ha più HttpReq::Manager*
+    EAGamesStore(Window* window);
     ~EAGamesStore() override;
 
-    // --- Implementazione dell'interfaccia GameStore ---
+    // --- Interfaccia GameStore (ripristinata) ---
     bool init(Window* window) override;
     void showStoreUI(Window* window) override;
     std::string getStoreName() const override;
@@ -44,27 +41,24 @@ public:
     bool installGame(const std::string& gameId) override;
     bool uninstallGame(const std::string& gameId) override;
     bool updateGame(const std::string& gameId) override;
-	static const std::string STORE_ID;
-	void incrementActiveScrape();
-    void decrementActiveScrape();
-    std::vector<EAGames::InstalledGameInfo> getInstalledGames();
+    static const std::string STORE_ID;
 
-    // --- Metodi Pubblici Specifici di EAGamesStore ---
+    // --- Metodi Pubblici (ripristinati) ---
     bool IsUserLoggedIn();
     void Login(std::function<void(bool success, const std::string& message)> callback);
     void Logout();
     void GetUsername(std::function<void(const std::string& username)> callback);
     void SyncGames(std::function<void(bool success)> callback);
-	    // Ottiene i dettagli dell'abbonamento in modo asincrono, usando la cache.
     void getSubscriptionDetails(std::function<void(const EAGames::SubscriptionDetails& details)> callback);
-
-
     void StartLoginFlow(std::function<void(bool success, const std::string& message)> onFlowFinished);
-    void HandleAuthRedirect(const std::string& redirectUrlQuery, std::function<void(bool success, const std::string& message)> onFlowFinished);
-    static unsigned short GetLocalRedirectPort(); // Definito nel .cpp
+    static unsigned short GetLocalRedirectPort();
+    std::vector<EAGames::InstalledGameInfo> getInstalledGames();
+    void incrementActiveScrape();
+    void decrementActiveScrape();
 
+    // --- Struct e Callback per lo Scraper (ripristinati) ---
     struct EAGameData {
-        std::string id; // Può essere offerId o masterTitleId, a seconda del contesto che preferisci come ID primario
+        std::string id;
         std::string name;
         std::string description;
         std::string developer;
@@ -73,8 +67,8 @@ public:
         std::string genre;
         std::string imageUrl;
         std::string backgroundUrl;
-        std::string offerId;        // <--- AGGIUNGI QUESTA RIGA
-        std::string masterTitleId;  // <--- AGGIUNGI QUESTA RIGA
+        std::string offerId;
+        std::string masterTitleId;
     };
     using ArtworkFetchedCallbackStore = std::function<void(const std::string& url, bool success)>;
     using MetadataFetchedCallbackStore = std::function<void(const EAGameData& metadata, bool success)>;
@@ -83,33 +77,24 @@ public:
     void GetGameMetadata(const FileData* game, MetadataFetchedCallbackStore callback);
 
 private:
-    void processAndCacheGames(const std::vector<EAGames::GameEntitlement>& onlineGames,
-                              const std::vector<EAGames::InstalledGameInfo>& installedGames,
-							  const std::vector<EAGames::SubscriptionGame>& catalogGames); 
-							  
-    FileData* convertEaDataToGameData(const EAGames::GameEntitlement& entitlement, const EAGames::InstalledGameInfo* installedInfo);
-    FileData* convertInstalledEaToGameData(const EAGames::InstalledGameInfo& installedInfo);
-	bool mSubscriptionDetailsFetching = false;
+    // --- NUOVA ARCHITETTURA (corretta) ---
+    void fetchDetailsForGames(
+        const std::vector<EAGames::GameEntitlement>& onlineGames,
+        const std::vector<EAGames::SubscriptionGame>& catalogGames,
+        std::function<void(bool, const std::map<std::string, EAGames::GameStoreData>&)> on_complete);
 
+    void processAndCacheGames(
+        const std::vector<EAGames::GameEntitlement>& onlineGames,
+        const std::vector<EAGames::InstalledGameInfo>& installedGames,
+        const std::vector<EAGames::SubscriptionGame>& catalogGames,
+        const std::map<std::string, EAGames::GameStoreData>& detailedDataMap);
 
-	
-    bool checkGameInstallation(const std::string& normalizedGameName, const std::map<std::string, EAGames::InstalledGameInfo>& installedGamesMap, EAGames::InstalledGameInfo& foundGame);
-    void rebuildAndSortCache();
-	
-	 // Arricchisce la lista di giochi 'mCachedGameFileDatas' con il flag "eaplay".
-    
-    // Funzione helper asincrona per ottenere il catalogo e metterlo in cache.
+    // --- Funzioni private (ripristinate) ---
     void getEAPlayCatalog(std::function<void(const std::vector<EAGames::SubscriptionGame>& catalog)> callback);
+    void rebuildAndSortCache();
+    void rebuildReturnableGameList();
 
-    std::mutex mCacheMutex;
-
-    EAGames::SubscriptionDetails mSubscriptionDetails;
-    bool mSubscriptionDetailsInitialized = false;
-
-    std::vector<EAGames::SubscriptionGame> mEAPlayCatalog;
-    std::set<std::string> mEAPlayOfferIds;
-    bool mEAPlayCatalogInitialized = false;
-
+    // --- Variabili membro (ripristinate) ---
     Window* mWindow;
     std::unique_ptr<EAGames::EAGamesAuth> mAuth;
     std::unique_ptr<EAGames::EAGamesAPI> mApi;
@@ -117,10 +102,17 @@ private:
 
     std::vector<std::unique_ptr<FileData>> mCachedGameFileDatas;
     std::vector<FileData*> mReturnableGameList;
-    void rebuildReturnableGameList();
 
     bool mGamesCacheDirty;
     bool mFetchingGamesInProgress;
-	bool _initialized;
-	int mActiveScrapeCounter;
+    bool _initialized;
+    int mActiveScrapeCounter;
+
+    std::mutex mCacheMutex;
+    EAGames::SubscriptionDetails mSubscriptionDetails;
+    bool mSubscriptionDetailsInitialized;
+    bool mSubscriptionDetailsFetching;
+    std::vector<EAGames::SubscriptionGame> mEAPlayCatalog;
+    std::set<std::string> mEAPlayOfferIds;
+    bool mEAPlayCatalogInitialized;
 };
