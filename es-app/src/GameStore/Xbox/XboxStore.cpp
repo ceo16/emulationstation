@@ -843,7 +843,7 @@ std::future<void> XboxStore::refreshGamesListAsync() {
             std::string launchCommand;
             if (!onlineGame.detail.productId.empty()) {
                 pseudoPathForOnline = "xbox_online_prodid://" + onlineGame.detail.productId;
-                launchCommand = "xbox:install:" + onlineGame.detail.productId;
+                launchCommand = "xboxstore://install/" + onlineGame.detail.productId;
             } else if (!onlineGame.pfn.empty()){
                 pseudoPathForOnline = "xbox_online_pfn://" + onlineGame.pfn;
                 launchCommand = "";
@@ -926,7 +926,7 @@ std::future<void> XboxStore::refreshGamesListAsync() {
                                 // Aggiorna il LaunchCommand al nostro comando personalizzato
                                 std::string newLaunchCommand;
                                 if (!onlineGame.detail.productId.empty()) {
-                                    newLaunchCommand = "xbox:install:" + onlineGame.detail.productId;
+                                    newLaunchCommand = "xboxstore:install:" + onlineGame.detail.productId;
                                 }
                                 if (!newLaunchCommand.empty()) {
                                     fd->getMetadata().set(MetaDataId::LaunchCommand, newLaunchCommand);

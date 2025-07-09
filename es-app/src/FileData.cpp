@@ -810,7 +810,7 @@ bool FileData::launchGame(Window* window, LaunchGameOptions options)
 
     bool isEgsGame = (system->getName() == "epicgamestore");
     bool isSteamGame = (system->getName() == "steam");
-    bool isXboxGame = (system->getName() == "xbox");
+    bool isXboxGame = (system->getName() == "xboxstore");
     bool isEaGame = (system->getName() == "EAGamesStore");
     bool isGogGame = (system->getName() == "gog");
     bool isAmazonGame = (system->getName() == "amazon");
