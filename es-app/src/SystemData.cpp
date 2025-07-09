@@ -1897,7 +1897,7 @@ if (esSystemLanguage.empty()) {
     LOG(LogInfo) << "[XboxPopulate] Lingua globale di EmulationStation rilevata: " << esSystemLanguage;
 }
 
-SystemData* xboxSystem = SystemData::getSystem("xbox");
+SystemData* xboxSystem = SystemData::getSystem("xboxstore");
 bool xboxSystemJustCreated = false;
 
 if (xboxSystem == nullptr) {
@@ -1912,7 +1912,7 @@ if (xboxSystem == nullptr) {
     SystemEnvironmentData* envData_xbox = new SystemEnvironmentData();
     std::string exePath_xbox = Paths::getExePath();
     std::string exeDir_xbox = Utils::FileSystem::getParent(exePath_xbox);
-    std::string xboxGamelistDir = Utils::FileSystem::getGenericPath(exeDir_xbox + "/roms/xbox");
+    std::string xboxGamelistDir = Utils::FileSystem::getGenericPath(exeDir_xbox + "/roms/xboxstore");
     
     if (!Utils::FileSystem::exists(xboxGamelistDir)) {
         Utils::FileSystem::createDirectory(xboxGamelistDir);
@@ -2009,7 +2009,7 @@ if (xboxSystem) {
         GameStoreManager* gsm = GameStoreManager::getInstance(nullptr); 
         XboxStore* xboxStoreConcrete = nullptr;
         if (gsm) {
-            GameStore* baseStore = gsm->getStore("xbox"); // Usa nome sistema, non classe
+            GameStore* baseStore = gsm->getStore("xboxstore"); // Usa nome sistema, non classe
             if (baseStore) xboxStoreConcrete = dynamic_cast<XboxStore*>(baseStore);
         }
 
