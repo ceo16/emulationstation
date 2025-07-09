@@ -1420,6 +1420,8 @@ if (Settings::getInstance()->getBool("EnableGogStore"))
 
 LOG(LogInfo) << "[EpicDynamic] Checking/Creating Epic Games Store system in loadConfig...";
 
+if (Settings::getInstance()->getBool("EnableEpicGamesStore"))
+{
 SystemData* epicSystem = getSystem("epicgamestore"); // Cerca se il sistema esiste già
 bool systemWasNewlyCreated = false;
 
@@ -1626,11 +1628,14 @@ if (epicSystem != nullptr) {
 } else if (epicSystem == nullptr && systemWasNewlyCreated) { 
     LOG(LogError) << "[EpicDynamic] EpicSystem object is unexpectedly null after dynamic creation block reported success (but system pointer is null).";
 }
+}
 // --- Fine della sezione per il sistema 'epicgamestore' ---
  
 // --- STEAM SYSTEM CREATION/POPULATION (Logica da rendere il più simile possibile a Epic) ---
 LOG(LogInfo) << "[SteamDynamic] Checking/Creating/Populating Steam system...";
 
+if (Settings::getInstance()->getBool("EnableSteamStore"))
+{
 SystemData* steamSystem = SystemData::getSystem("steam");
 bool steamSystemJustCreated = false; // Rinominato
 
@@ -1874,11 +1879,14 @@ std::string steamStoreName = "SteamStore"; // O "steam" - VERIFICA il nome regis
     }
 	
 }
+}
 // --- FINE BLOCCO STEAM ---
 
 // --- XBOX SYSTEM CREATION/POPULATION ---
 LOG(LogInfo) << "[XboxDynamic] Checking/Creating/Populating Xbox system...";
 
+if (Settings::getInstance()->getBool("EnableXboxStore"))
+{
 std::string esSystemLanguage = Settings::getInstance()->getString("Language"); 
 if (esSystemLanguage.empty()) {
     esSystemLanguage = SystemConf::getInstance()->get("system.language");
@@ -1895,9 +1903,9 @@ bool xboxSystemJustCreated = false;
 if (xboxSystem == nullptr) {
     LOG(LogInfo) << "[XboxDynamic] Xbox system not found, creating dynamically...";
     SystemMetadata md_xbox;
-    md_xbox.name = "xbox";
-    md_xbox.fullName = _("Xbox");
-    md_xbox.themeFolder = "xbox";
+    md_xbox.name = "xboxstore";
+    md_xbox.fullName = _("Xbox Store");
+    md_xbox.themeFolder = "xboxstore";
     md_xbox.manufacturer = "Microsoft";
     md_xbox.hardwareType = "pc";
 
@@ -2118,6 +2126,7 @@ if (xboxSystem) {
     }
 } else { 
      LOG(LogError) << "[XboxDynamic] Xbox system object is definitively null. Cannot proceed with Xbox population logic.";
+}
 }
 // --- FINE BLOCCO XBOX ---
 // --- BLOCCO EA GAMES PER SystemData::loadConfig ---

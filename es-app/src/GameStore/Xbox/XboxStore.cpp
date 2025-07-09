@@ -544,7 +544,7 @@ std::vector<Xbox::InstalledXboxGameInfo> XboxStore::findInstalledXboxGames() {
 std::vector<FileData*> XboxStore::getGamesList() {
     LOG(LogDebug) << "XboxStore::getGamesList() called.";
     std::vector<FileData*> gameFiles;
-    SystemData* system = SystemData::getSystem("xbox");
+    SystemData* system = SystemData::getSystem("xboxstore");
     if (!system) { LOG(LogError) << "XboxStore::getGamesList - System 'xbox' not found!"; return gameFiles; }
     if (!_initialized || !mAuth || !mAPI) { LOG(LogError) << "XboxStore::getGamesList - Store not initialized or Auth/API missing!"; return gameFiles; }
 
@@ -725,7 +725,7 @@ std::future<void> XboxStore::refreshGamesListAsync() {
         LOG(LogInfo) << "Xbox Store Refresh BG: Xbox App installed status: " << (this->mIsXboxAppInstalled ? "Yes" : "No");
         // --- FINE BLOCCO DA AGGIUNGERE ---
 		
-        SystemData* xboxSystem = SystemData::getSystem("xbox"); 
+        SystemData* xboxSystem = SystemData::getSystem("xboxstore"); 
 
         if (!_initialized || !mAuth || !mAPI) {
             LOG(LogError) << "Xbox Store Refresh BG: Store not ready (uninitialized, no auth, or no API).";
