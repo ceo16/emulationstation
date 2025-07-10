@@ -14,6 +14,7 @@
 #include <map>
 
 #ifdef _WIN32
+#include <winrt/base.h>
 #include <winrt/Windows.Foundation.h>
 #include <winrt/Windows.Foundation.Collections.h>
 #include <winrt/Windows.Management.Deployment.h>
@@ -66,7 +67,7 @@ public:
     bool launchGameByAumid(const std::string& aumid); // Dichiarazione corretta
 
 private:
-    std::vector<Xbox::InstalledXboxGameInfo> findInstalledGames_PackageManagerHelper(const std::map<std::wstring, std::wstring>* pfnAndAppIdMap); // Dichiarazione corretta
+std::vector<Xbox::InstalledXboxGameInfo> findInstalledGames_PackageManagerHelper();
 
     XboxAuth* mAuth;
     XboxStoreAPI* mAPI;

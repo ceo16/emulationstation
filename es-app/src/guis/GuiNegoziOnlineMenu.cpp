@@ -130,7 +130,7 @@ GuiNegoziOnlineMenu::GuiNegoziOnlineMenu(Window* window)
 	addEntry(_("APRI XBOX STORE"), true, [this] {
 		GameStoreManager* gsm = GameStoreManager::getInstance(mWindow);
 		if (gsm) {
-			GameStore* store = gsm->getStore("XboxStore");
+			GameStore* store = gsm->getStore("xboxstore");
 			if (store) {
 				store->showStoreUI(mWindow);
 			} else {

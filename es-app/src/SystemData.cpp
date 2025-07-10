@@ -1885,9 +1885,7 @@ std::string steamStoreName = "SteamStore"; // O "steam" - VERIFICA il nome regis
 // --- XBOX SYSTEM CREATION/POPULATION ---
 LOG(LogInfo) << "[XboxDynamic] Checking/Creating/Populating Xbox system...";
 
-if (Settings::getInstance()->getBool("EnableXboxStore"))
-{
-std::string esSystemLanguage = Settings::getInstance()->getString("Language"); 
+std::string esSystemLanguage = Settings::getInstance()->getString("Language");
 if (esSystemLanguage.empty()) {
     esSystemLanguage = SystemConf::getInstance()->get("system.language");
 }
@@ -1897,6 +1895,7 @@ if (esSystemLanguage.empty()) {
     LOG(LogInfo) << "[XboxPopulate] Lingua globale di EmulationStation rilevata: " << esSystemLanguage;
 }
 
+// ## MODIFICA 1: Usiamo il nome corretto del sistema "xboxstore" ##
 SystemData* xboxSystem = SystemData::getSystem("xboxstore");
 bool xboxSystemJustCreated = false;
 
@@ -1916,7 +1915,7 @@ if (xboxSystem == nullptr) {
     
     if (!Utils::FileSystem::exists(xboxGamelistDir)) {
         Utils::FileSystem::createDirectory(xboxGamelistDir);
-        LOG(LogInfo) << "[XboxDynamic] Created roms/xbox directory: " << xboxGamelistDir;
+        LOG(LogInfo) << "[XboxDynamic] Created roms/xboxstore directory: " << xboxGamelistDir;
     }
     envData_xbox->mStartPath = xboxGamelistDir;
     envData_xbox->mPlatformIds = {PlatformIds::PC};
@@ -1927,9 +1926,9 @@ if (xboxSystem == nullptr) {
 
     if (!xboxSystem) {
         delete envData_xbox;
-        LOG(LogError) << "[XboxDynamic] Failed to dynamically create 'xbox' system object!";
+        LOG(LogError) << "[XboxDynamic] Failed to dynamically create 'xboxstore' system object!";
     } else {
-        LOG(LogInfo) << "[XboxDynamic] Dynamically created 'xbox' system object.";
+        LOG(LogInfo) << "[XboxDynamic] Dynamically created 'xboxstore' system object.";
         xboxSystemJustCreated = true;
 
         bool nameCollisionXbox = false;
@@ -1942,7 +1941,7 @@ if (xboxSystem == nullptr) {
         } else {
             LOG(LogWarning) << "[XboxDynamic] Xbox system name collision after dynamic creation. Using existing system from vector.";
             delete xboxSystem; 
-            xboxSystem = SystemData::getSystem("xbox"); 
+            xboxSystem = SystemData::getSystem("xboxstore"); 
             if (xboxSystem) {
                 if (xboxSystem->getRootFolder()) xboxSystem->getRootFolder()->clear();
                 FileFilterIndex* existingIndexXbox = xboxSystem->getIndex(false);
@@ -1970,7 +1969,7 @@ if (xboxSystem == nullptr) {
 }
 
 if (xboxSystem) {
-    LOG(LogInfo) << "[XboxDynamic] Initiating data population for 'xbox' system ("
+    LOG(LogInfo) << "[XboxDynamic] Initiating data population for 'xboxstore' system ("
                  << (xboxSystemJustCreated ? "newly created" : "existing, repopulating")
                  << ").";
     try { 
@@ -2009,7 +2008,7 @@ if (xboxSystem) {
         GameStoreManager* gsm = GameStoreManager::getInstance(nullptr); 
         XboxStore* xboxStoreConcrete = nullptr;
         if (gsm) {
-            GameStore* baseStore = gsm->getStore("xboxstore"); // Usa nome sistema, non classe
+            GameStore* baseStore = gsm->getStore("xboxstore");
             if (baseStore) xboxStoreConcrete = dynamic_cast<XboxStore*>(baseStore);
         }
 
@@ -2017,28 +2016,39 @@ if (xboxSystem) {
             int addedInstalledCount = 0;
             int updatedInstalledCount = 0;
             
-            // --- 1. Processa Giochi Installati (Questa parte rimane) ---
+            // --- 1. Processa Giochi Installati (Logica Locale) ---
             LOG(LogInfo) << "[XboxDynamic] Discovering installed Xbox games...";
             std::vector<Xbox::InstalledXboxGameInfo> detectedGamesInfo = xboxStoreConcrete->findInstalledXboxGames();
             LOG(LogInfo) << "[XboxDynamic] Found " << detectedGamesInfo.size() << " installed UWP application(s).";
 
+            // ## MODIFICA 2: Ciclo di popolamento corretto e completo ##
+            std::set<std::string> processedPfnForVirtualCheck; 
             for (const auto& gameInfo : detectedGamesInfo) {
                 if (gameInfo.aumid.empty()) continue;
-                std::string gameAUMIDPath = gameInfo.aumid;
 
-                FileData* gameFileData = currentXboxRootFolder->FindByPath(gameAUMIDPath);
-                
-                if (gameFileData == nullptr) { 
-                    gameFileData = new FileData(FileType::GAME, gameAUMIDPath, xboxSystem);
+                const std::string standardizedPath = "xbox_installed:/" + gameInfo.aumid;
+                const std::string legacyPath = gameInfo.aumid;
+
+                FileData* gameFileData = currentXboxRootFolder->FindByPath(standardizedPath);
+                if (!gameFileData) {
+                    gameFileData = currentXboxRootFolder->FindByPath(legacyPath);
+                }
+
+                bool isNewEntry = (gameFileData == nullptr);
+
+                if (isNewEntry) {
+                    gameFileData = new FileData(FileType::GAME, standardizedPath, xboxSystem);
+                    
                     MetaDataList& metadata = gameFileData->getMetadata();
-                    LOG(LogInfo) << "[XboxDynamic] Added NEW INSTALLED game: '" << gameInfo.displayName << "' (AUMID: " << gameAUMIDPath << ")";
+                    LOG(LogInfo) << "[XboxDynamic] Added NEW INSTALLED game: '" << gameInfo.displayName << "' (Path: " << standardizedPath << ")";
                     
                     metadata.set(MetaDataId::Name, gameInfo.displayName);
                     if (!gameInfo.pfn.empty()) metadata.set(MetaDataId::XboxPfn, gameInfo.pfn);
                     if (!gameInfo.aumid.empty()) metadata.set(MetaDataId::XboxAumid, gameInfo.aumid);
                     metadata.set(MetaDataId::Installed, "true");
                     metadata.set(MetaDataId::Virtual, "false");
-                    metadata.set(MetaDataId::LaunchCommand, gameAUMIDPath);
+                    metadata.set(MetaDataId::LaunchCommand, gameInfo.aumid); 
+                    
                     if (!esSystemLanguage.empty()) {
                         metadata.set(MetaDataId::Language, esSystemLanguage);
                     }
@@ -2048,10 +2058,17 @@ if (xboxSystem) {
                     metadata.setDirty();
                     addedInstalledCount++;
                 } else {
-                    LOG(LogDebug) << "[XboxDynamic] Updating EXISTING INSTALLED game: '" << gameInfo.displayName << "' (AUMID: " << gameAUMIDPath << ")";
+                    LOG(LogDebug) << "[XboxDynamic] Updating EXISTING INSTALLED game: '" << gameInfo.displayName << "'";
+                    
                     MetaDataList& currentMetaData = gameFileData->getMetadata();
                     bool metadataWasActuallyChanged = false;
-                    
+
+                    if (gameFileData->getPath() == legacyPath) {
+                        LOG(LogInfo) << "[XboxDynamic] Migrating old path format for '" << gameInfo.displayName << "' to new standardized path.";
+                        gameFileData->setPath(standardizedPath);
+                        metadataWasActuallyChanged = true;
+                    }
+
                     if (!gameInfo.displayName.empty() && currentMetaData.get(MetaDataId::Name) != gameInfo.displayName) {
                         currentMetaData.set(MetaDataId::Name, gameInfo.displayName);
                         metadataWasActuallyChanged = true;
@@ -2060,7 +2077,7 @@ if (xboxSystem) {
                         currentMetaData.set(MetaDataId::XboxPfn, gameInfo.pfn);
                         metadataWasActuallyChanged = true;
                     }
-                    if (currentMetaData.get(MetaDataId::XboxAumid) != gameInfo.aumid && !gameInfo.aumid.empty()) {
+                    if (!gameInfo.aumid.empty() && currentMetaData.get(MetaDataId::XboxAumid) != gameInfo.aumid) {
                         currentMetaData.set(MetaDataId::XboxAumid, gameInfo.aumid);
                         metadataWasActuallyChanged = true;
                     }
@@ -2072,24 +2089,35 @@ if (xboxSystem) {
                         currentMetaData.set(MetaDataId::Virtual, "false");
                         metadataWasActuallyChanged = true;
                     }
-                    if (currentMetaData.get(MetaDataId::LaunchCommand) != gameInfo.aumid && !gameInfo.aumid.empty()) {
+                    if (currentMetaData.get(MetaDataId::LaunchCommand) != gameInfo.aumid) {
                         currentMetaData.set(MetaDataId::LaunchCommand, gameInfo.aumid);
                         metadataWasActuallyChanged = true;
                     }
 
                     if (metadataWasActuallyChanged) {
                         currentMetaData.setDirty();
-                        LOG(LogInfo) << "[XboxPopulateExisting] Metadata for existing installed game '" << currentMetaData.get(MetaDataId::Name) << "' was updated and marked dirty.";
                     }
                     updatedInstalledCount++;
                 }
-            } 
+
+                if (!gameInfo.pfn.empty()) {
+                    processedPfnForVirtualCheck.insert(gameInfo.pfn);
+                }
+            }
             LOG(LogInfo) << "[XboxDynamic] Finished processing installed Xbox games. Added: " << addedInstalledCount << ", Updated: " << updatedInstalledCount;
 
-            // --- 2. Processa Giochi Virtuali ---
-            // QUESTO BLOCCO È STATO RIMOSSO INTENZIONALMENTE PER EVITARE LA SINCRONIZZAZIONE ONLINE ALL'AVVIO.
-            // La sincronizzazione dei giochi virtuali avverrà solo on-demand tramite la funzione refreshGamesListAsync.
-
+            // ## MODIFICA 3: Logica per giochi virtuali disattivata all'avvio ##
+            /* // Questa sezione verrà eseguita solo da funzioni manuali come refreshGamesListAsync, non all'avvio.
+            if (xboxStoreConcrete->getAuth() && xboxStoreConcrete->getAuth()->isAuthenticated()) {
+                int addedVirtualCount = 0;
+                int updatedVirtualCount = 0;
+                LOG(LogInfo) << "[XboxDynamic] Adding/Updating online (virtual) library games...";
+                std::vector<Xbox::OnlineTitleInfo> allLibraryTitles = xboxStoreConcrete->getApi()->GetLibraryTitles();
+                
+                // ... (logica per i giochi virtuali) ...
+            }
+            */
+            
         } else { 
             LOG(LogError) << "[XboxDynamic] Impossibile ottenere istanza XboxStore.";
         }
@@ -2113,7 +2141,7 @@ if (xboxSystem) {
         
         if (xboxSystem) {
             xboxSystem->updateDisplayedGameCount();
-            LOG(LogInfo) << "[XboxDynamic] Finished all processing for 'xbox'. Final displayed game count: "
+            LOG(LogInfo) << "[XboxDynamic] Finished all processing for 'xboxstore'. Final displayed game count: "
                          << (xboxSystem->getGameCountInfo() ? xboxSystem->getGameCountInfo()->visibleGames : -1);
         }
 
@@ -2125,8 +2153,7 @@ if (xboxSystem) {
         LOG(LogError) << "[XboxDynamic] Unknown exception during Xbox population.";
     }
 } else { 
-     LOG(LogError) << "[XboxDynamic] Xbox system object is definitively null. Cannot proceed with Xbox population logic.";
-}
+    LOG(LogError) << "[XboxDynamic] Xbox system object is definitively null. Cannot proceed with Xbox population logic.";
 }
 // --- FINE BLOCCO XBOX ---
 // --- BLOCCO EA GAMES PER SystemData::loadConfig ---

@@ -30,7 +30,7 @@ static bool isPathActuallyVirtual(const std::string& path) {
 		   Utils::String::startsWith(path, "steam_online_appid:/") || 
            Utils::String::startsWith(path, "xbox_online_prodid:/") ||
            Utils::String::startsWith(path, "xbox_online_pfn:/") ||
-           Utils::String::startsWith(path, "xbox:/pfn/") || // Se usi anche questo formato generale
+           Utils::String::startsWith(path, "xbox_installed:/") || // Se usi anche questo formato generale
 		   Utils::String::startsWith(path, "ea_virtual:/") ||			   // Aggiunto per i giochi virtuali EA
 		   Utils::String::startsWith(path, "eaplay:/") ||
 		   Utils::String::startsWith(path, "amazon_virtual:/") ||
@@ -49,7 +49,7 @@ FileData* findOrCreateFile(SystemData* system, const std::string& path, FileType
 		Utils::String::startsWith(path, "steam_online_appid:/") || 
         Utils::String::startsWith(path, "xbox_online_prodid:/") ||  // CORRETTO DAL LOG
         Utils::String::startsWith(path, "xbox_online_pfn:/") ||    // CORRETTO DAL LOG (presumendo stesso formato)
-        Utils::String::startsWith(path, "xbox:/pfn/")  ||    // Altro formato virtuale Xbox, se usato
+        Utils::String::startsWith(path, "xbox_installed:/")  ||    // Altro formato virtuale Xbox, se usato
 		Utils::String::startsWith(path, "ea_virtual:/") || 		// Aggiunto per i giochi virtuali EA
 		Utils::String::startsWith(path, "eaplay:/") ||
         Utils::String::startsWith(path, "amazon_virtual:/") ||
@@ -147,7 +147,7 @@ FileData* findOrCreateFile(SystemData* system, const std::string& path, FileType
                 }
             }
 
-        } else if (system->getName() == "xbox") {
+        } else if (system->getName() == "xboxstore") {
             if (path.find('!') != std::string::npos) { // Euristica per AUMID
                 LOG(LogInfo) << "findOrCreateFile: Handling Xbox AUMID path from gamelist as 'conceptually existent': " << path;
                 if (type != GAME) {
@@ -717,7 +717,7 @@ void updateGamelist(SystemData* system)
 				Utils::String::startsWith(nodePathText, "steam_online_appid:/") || 
                 Utils::String::startsWith(nodePathText, "xbox_online_prodid:/") ||
                 Utils::String::startsWith(nodePathText, "xbox_online_pfn:/") ||
-                Utils::String::startsWith(nodePathText, "xbox:/pfn/") ||
+                Utils::String::startsWith(nodePathText, "xbox_installed:/") ||
                 Utils::String::startsWith(nodePathText, "ea_virtual:/") ||
                 Utils::String::startsWith(nodePathText, "ea_installed:/") ||
                 Utils::String::startsWith(nodePathText, "eaplay:/") ||
@@ -750,7 +750,7 @@ void updateGamelist(SystemData* system)
             Utils::String::startsWith(currentFilePath, "steam:/") ||
             Utils::String::startsWith(currentFilePath, "xbox_online_prodid:/") ||
             Utils::String::startsWith(currentFilePath, "xbox_online_pfn:/") ||
-           Utils::String::startsWith(currentFilePath, "xbox:/pfn/") ||
+           Utils::String::startsWith(currentFilePath, "xbox_installed:/") ||
            Utils::String::startsWith(currentFilePath, "ea_virtual:/") ||
            Utils::String::startsWith(currentFilePath, "ea_installed:/") ||
            Utils::String::startsWith(currentFilePath, "eaplay:/") ||
