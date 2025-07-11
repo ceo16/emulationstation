@@ -62,6 +62,7 @@ public:
 	std::vector<std::string> customHeaders;
 	std::string dataToPost;
 	std::string userAgent;
+	 std::string verb; // <-- AGGIUNGI QUESTA RIGA
 	
 	std::string cookieData; 
 

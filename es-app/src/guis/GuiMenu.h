@@ -50,6 +50,8 @@ private:
         void openSoundSettings();
         void openUISettings();
         void openUpdatesSettings();
+		    void onSpotifyLoginFinished(bool success, const std::string& resultUrlOrError);
+
         
         void openSystemSettings();
         void openGamesSettings();       

@@ -142,6 +142,11 @@ void HttpReq::performRequest(const std::string& url, HttpReqOptions* options)
 		onError("curl_easy_init failed");
 		return;
 	}
+	
+	if (options != nullptr && !options->verb.empty())
+{
+    curl_easy_setopt(mHandle, CURLOPT_CUSTOMREQUEST, options->verb.c_str());
+}
 
 	//set the url
 	CURLcode err = curl_easy_setopt(mHandle, CURLOPT_URL, url.c_str());

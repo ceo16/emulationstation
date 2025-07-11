@@ -28,6 +28,7 @@ set(ES_HEADERS
     ${CMAKE_CURRENT_SOURCE_DIR}/src/SaveStateRepository.h
     ${CMAKE_CURRENT_SOURCE_DIR}/src/SaveStateConfigFile.h
     ${CMAKE_CURRENT_SOURCE_DIR}/src/CustomFeatures.h
+	${CMAKE_CURRENT_SOURCE_DIR}/src/SpotifyManager.h
     #gamestore
     ${CMAKE_CURRENT_SOURCE_DIR}/src/GameStore/GameStoreManager.h
     ${CMAKE_CURRENT_SOURCE_DIR}/src/GameStore/EpicGames/EpicGamesUI.h
@@ -119,6 +120,7 @@ set(ES_HEADERS
     ${CMAKE_CURRENT_SOURCE_DIR}/src/guis/GuiBusyInfoPopup.h
     ${CMAKE_CURRENT_SOURCE_DIR}/src/guis/GuiNegoziOnlineMenu.h
 	${CMAKE_CURRENT_SOURCE_DIR}/src/guis/GuiWebViewAuthLogin.h
+	${CMAKE_CURRENT_SOURCE_DIR}/src/guis/GuiSpotifyBrowser.h
 
     # Scrapers
     ${CMAKE_CURRENT_SOURCE_DIR}/src/scrapers/Scraper.h
@@ -184,6 +186,7 @@ set(ES_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/src/SaveStateRepository.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/SaveStateConfigFile.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/CustomFeatures.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/src/SpotifyManager.cpp
     # GamesStore
     ${CMAKE_CURRENT_SOURCE_DIR}/src/GameStore/GameStoreManager.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/GameStore/EpicGames/EpicGamesStore.cpp
@@ -267,6 +270,7 @@ set(ES_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/src/guis/GuiBusyInfoPopup.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/guis/GuiNegoziOnlineMenu.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/src/guis/GuiWebViewAuthLogin.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/src/guis/GuiSpotifyBrowser.cpp
 
     # Scrapers
     ${CMAKE_CURRENT_SOURCE_DIR}/src/scrapers/Scraper.cpp
