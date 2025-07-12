@@ -1,17 +1,15 @@
 #include "guis/GuiSpotifyBrowser.h"
 #include "Window.h"
 #include "Log.h"
-
-// <<< AGGIUNTI GLI INCLUDE FONDAMENTALI >>>
-#include "HttpReq.h"
-#include "json.hpp"
-#include "SpotifyManager.h"
-// <<< FINE INCLUDE >>>
+#include "HttpReq.h" // Già presente, ma per completezza
+#include "json.hpp" // Già presente, ma per completezza
+#include "SpotifyManager.h" // Già presente, ma per completezza
+#include "guis/GuiMsgBox.h" // Aggiunta qui e in .h
 
 GuiSpotifyBrowser::GuiSpotifyBrowser(Window* window) : GuiComponent(window), mMenu(window, "SPOTIFY")
 {
     addChild(&mMenu);
-    loadPlaylists();
+    loadPlaylists(); // Carica le playlist all'avvio della GUI
     setSize(Renderer::getScreenWidth(), Renderer::getScreenHeight());
 }
 
@@ -19,36 +17,54 @@ void GuiSpotifyBrowser::loadPlaylists()
 {
     mMenu.clear();
     mMenu.setTitle("LE TUE PLAYLIST");
-    
-    // <<< CORRETTO 'close()' con 'delete this' che è il modo giusto per chiudere una GUI >>>
+
+    // L'entry per tornare al menu audio
     mMenu.addEntry(".. TORNA AL MENU AUDIO", false, [this] { delete this; });
 
     auto playlists = SpotifyManager::getInstance()->getUserPlaylists();
 
     if (playlists.empty()) {
         mMenu.addEntry("Nessuna playlist trovata o errore API", false, nullptr);
+        LOG(LogWarning) << "GuiSpotifyBrowser: Nessuna playlist caricata. Controllare i log di SpotifyManager per dettagli.";
         return;
     }
 
-    for (const auto& p : playlists) {
-        mMenu.addEntry(p.name, true, [this, p] {
-            loadTracks(p.id);
-        });
-    }
+for (const auto& p : playlists) {
+    const std::string idCopy = p.id;
+    const std::string nameCopy = p.name;
+    mMenu.addEntry(nameCopy, true, [this, idCopy] {
+        LOG(LogInfo) << "Playlist selezionata: idCopy = '" << idCopy << "'";
+        if (idCopy.empty()) {
+            mWindow->pushGui(new GuiMsgBox(mWindow, _("Errore"), _("ID playlist non valido.")));
+            return;
+        }
+        loadTracks(idCopy);
+    });
+}
 }
 
-void GuiSpotifyBrowser::loadTracks(const std::string& playlist_id)
+void GuiSpotifyBrowser::loadTracks(std::string id)
 {
+    LOG(LogInfo) << "GuiSpotifyBrowser::loadTracks chiamato con ID: '" << id << "'";
     mMenu.clear();
-    mMenu.setTitle("TRACCE");
+    mMenu.setTitle("TRACCE DELLA PLAYLIST");
     mMenu.addEntry(".. TORNA ALLE PLAYLIST", true, [this] {
         loadPlaylists();
     });
 
-    auto tracks = getPlaylistTracks(playlist_id);
+    if (id.empty()) {
+        LOG(LogError) << "ID playlist in loadTracks è vuoto! Non dovrebbe accadere.";
+        mMenu.addEntry("Errore: ID playlist vuoto", false, nullptr);
+        return;
+    }
+
+    LOG(LogInfo) << "GuiSpotifyBrowser: Richiesta tracce per playlist ID: " << id;
+
+    auto tracks = SpotifyManager::getInstance()->getPlaylistTracks(id);
 
     if (tracks.empty()) {
-        mMenu.addEntry("Nessuna traccia trovata", false, nullptr);
+        mMenu.addEntry("Nessuna traccia trovata o errore API", false, nullptr);
+        LOG(LogWarning) << "GuiSpotifyBrowser: Nessuna traccia caricata per playlist ID: " << id << ". Controllare log di SpotifyManager.";
         return;
     }
 
@@ -57,71 +73,4 @@ void GuiSpotifyBrowser::loadTracks(const std::string& playlist_id)
             SpotifyManager::getInstance()->startPlayback(t.uri);
         });
     }
-}
-
-std::vector<SpotifyTrack> GuiSpotifyBrowser::getPlaylistTracks(const std::string& playlist_id)
-{
-    if (playlist_id.empty()) {
-        LOG(LogError) << "ERRORE CRITICO: L'ID della playlist è vuoto!";
-        return {};
-    }
-
-    if (!SpotifyManager::getInstance()->isAuthenticated()) return {};
-    
-    std::vector<SpotifyTrack> tracks;
-    HttpReqOptions options;
-    options.customHeaders.push_back("Authorization: Bearer " + SpotifyManager::getInstance()->getAccessToken());
-    
-    std::string url = "https://api.spotify.com/v1/playlists/" + playlist_id + "/tracks";
-    
-    HttpReq request(url, &options);
-    request.wait();
-    
-    if (request.status() == 401)
-    {
-        if (SpotifyManager::getInstance()->refreshTokens())
-        {
-            HttpReqOptions newOptions;
-            newOptions.customHeaders.push_back("Authorization: Bearer " + SpotifyManager::getInstance()->getAccessToken());
-            
-            HttpReq request_retry(url, &newOptions);
-            request_retry.wait();
-
-            if (request_retry.status() == 200) {
-                try {
-                    auto json = nlohmann::json::parse(request_retry.getContent());
-                    if (json.contains("items")) {
-                        for (const auto& item : json["items"]) {
-                            if (item.contains("track") && !item["track"].is_null()) {
-                                SpotifyTrack t;
-                                t.name = item["track"].value("name", "N/A");
-                                t.uri = item["track"].value("uri", "");
-                                if (!item["track"]["artists"].empty()) { t.artist = item["track"]["artists"][0].value("name", "N/A"); }
-                                tracks.push_back(t);
-                            }
-                        }
-                    }
-                } catch (const std::exception& e) { LOG(LogError) << "getPlaylistTracks (retry) JSON parse error: " << e.what(); }
-            }
-            return tracks;
-        }
-    }
-
-    if (request.status() == 200) {
-        try {
-            auto json = nlohmann::json::parse(request.getContent());
-            if (json.contains("items")) {
-                for (const auto& item : json["items"]) {
-                    if (item.contains("track") && !item["track"].is_null()) {
-                        SpotifyTrack t;
-                        t.name = item["track"].value("name", "N/A");
-                        t.uri = item["track"].value("uri", "");
-                        if (!item["track"]["artists"].empty()) { t.artist = item["track"]["artists"][0].value("name", "N/A"); }
-                        tracks.push_back(t);
-                    }
-                }
-            }
-        } catch (const std::exception& e) { LOG(LogError) << "getPlaylistTracks JSON parse error: " << e.what(); }
-    }
-    return tracks;
 }

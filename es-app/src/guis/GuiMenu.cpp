@@ -2444,7 +2444,6 @@ void GuiMenu::onSpotifyLoginFinished(bool success, const std::string& resultUrlO
 
     LOG(LogInfo) << "Redirect da Spotify ricevuto: " << resultUrlOrError;
 
-    // La WebView ha finito. Ora estraiamo il 'code' dall'URL.
     std::string authCode = Utils::String::getUrlParam(resultUrlOrError, "code");
 
     if (authCode.empty())
@@ -2457,9 +2456,6 @@ void GuiMenu::onSpotifyLoginFinished(bool success, const std::string& resultUrlO
 
     LOG(LogInfo) << "Codice di autorizzazione Spotify ottenuto: " << authCode;
 
-    // Adesso passiamo il codice al nostro futuro SpotifyManager
-    // che si occuperà di scambiarlo per i token di accesso.
-    // Questa funzione mostrerà una GUI di caricamento.
     SpotifyManager::getInstance()->exchangeCodeForTokens(mWindow, authCode);
 }
 
@@ -4036,25 +4032,48 @@ void GuiMenu::openSoundSettings()
 	// Switch per selezionare Spotify come sorgente musicale
 auto spotify_source_switch = std::make_shared<SwitchComponent>(mWindow);
 spotify_source_switch->setState(Settings::getInstance()->getString("audio.musicsource") == "spotify");
-s->addWithLabel(_("USA SPOTIFY PER LA MUSICA DI SOTTOFONDO"), spotify_source_switch);
-s->addSaveFunc([this, spotify_source_switch] {
-    bool on = spotify_source_switch->getState();
-    if (on && !SpotifyManager::getInstance()->isAuthenticated()) {
-        mWindow->pushGui(new GuiMsgBox(mWindow, _("EFFETTUA PRIMA IL LOGIN A SPOTIFY."), _("OK")));
-        spotify_source_switch->setState(false);
-        return;
-    }
 
-    Settings::getInstance()->setString("audio.musicsource", on ? "spotify" : "local");
-    
-    if (on) {
-        AudioManager::getInstance()->stopMusic(false); // Ferma la musica locale
-        SpotifyManager::getInstance()->startPlayback(); // Riprende l'ultima canzone
-    } else {
-        SpotifyManager::getInstance()->pausePlayback(); // Mette in pausa Spotify
-        AudioManager::getInstance()->playRandomMusic(); // Fa ripartire la musica locale
-    }
+// 🔁 Callback che reagisce subito al cambio dello switch
+spotify_source_switch->setOnChangedCallback([this, spotify_source_switch] {
+	bool on = spotify_source_switch->getState();
+
+	if (on && !SpotifyManager::getInstance()->isAuthenticated()) {
+		mWindow->pushGui(new GuiMsgBox(mWindow, _("EFFETTUA PRIMA IL LOGIN A SPOTIFY."), _("OK")));
+		spotify_source_switch->setState(false); // Torna su "off"
+		return;
+	}
+
+	// Applica l'effetto immediatamente
+	if (on) {
+		AudioManager::getInstance()->stopMusic();
+		SpotifyManager::getInstance()->startPlayback(); // Avvia Spotify
+	} else {
+		SpotifyManager::getInstance()->pausePlayback(); // Pausa Spotify
+		AudioManager::getInstance()->playRandomMusic(); // Avvia musica locale
+	}
 });
+
+// Etichetta dello switch
+s->addWithLabel(_("USA SPOTIFY PER LA MUSICA DI SOTTOFONDO"), spotify_source_switch);
+
+// 💾 Callback per salvare la scelta quando esci dal menu
+s->addSaveFunc([spotify_source_switch] {
+     bool on = spotify_source_switch->getState();
+     Settings::getInstance()->setString("audio.musicsource", on ? "spotify" : "local");
+
+     if (on) {
+       // passo a Spotify e interrompo qualunque musica locale
+       if (AudioManager::isInitialized())
+         AudioManager::getInstance()->stopMusic();
+       SpotifyManager::getInstance()->startPlayback();
+     } else {
+       // torno alla musica locale, metto in pausa Spotify
+       SpotifyManager::getInstance()->pausePlayback();
+       if (AudioManager::isInitialized())
+         AudioManager::getInstance()->playRandomMusic();
+     }
+ });
+
 
 	// Pulsante per il Login
 	s->addEntry(_("LOGIN WITH SPOTIFY"), true, [this]
@@ -4067,15 +4086,18 @@ s->addSaveFunc([this, spotify_source_switch] {
 			mWindow->pushGui(new GuiMsgBox(mWindow, _("PER FAVORE, INSERISCI IL TUO CLIENT ID E CLIENT SECRET DI SPOTIFY NELLE IMPOSTAZIONI."), _("OK")));
 			return;
 		}
-		
+
 		const std::string SPOTIFY_REDIRECT_URI = "es-spotify://callback";
-		const std::string SPOTIFY_SCOPES = "user-read-private user-read-email user-modify-playback-state playlist-read-private user-read-playback-state";
-		
-		std::string authUrl = "https://accounts.spotify.com/authorize?";
+		// AGGIUNTA DI SCOPE CRUCIALI: user-modify-playback-state per il controllo della riproduzione
+		const std::string SPOTIFY_SCOPES = "user-read-private user-read-email user-modify-playback-state playlist-read-private user-read-playback-state user-library-read streaming app-remote-control";
+
+		// *** CORREZIONE URL: Endpoint di autorizzazione di Spotify Accounts ***
+		std::string authUrl = "https://accounts.spotify.com/authorize?"; // Questo dovrebbe essere accounts.spotify.com/authorize
 		authUrl += "client_id=" + clientId;
 		authUrl += "&response_type=code";
 		authUrl += "&redirect_uri=" + HttpReq::urlEncode(SPOTIFY_REDIRECT_URI);
         authUrl += "&scope=" + HttpReq::urlEncode(SPOTIFY_SCOPES);
+        authUrl += "&show_dialog=true"; // Forzare il dialogo di conferma per ri-autorizzare gli scopes
 
 		LOG(LogInfo) << "Avvio login Spotify. URL: " << authUrl;
 
@@ -4094,10 +4116,17 @@ s->addSaveFunc([this, spotify_source_switch] {
 
 	// Pulsante per il Logout
 	s->addEntry(_("LOGOUT FROM SPOTIFY"), false, [this] {
+		// Prima di fare il logout, metti in pausa la riproduzione Spotify se attiva
+		if (Settings::getInstance()->getString("audio.musicsource") == "spotify") {
+            SpotifyManager::getInstance()->pausePlayback();
+            Settings::getInstance()->setString("audio.musicsource", "local"); // Torna alla musica locale
+            AudioManager::getInstance()->playRandomMusic(); // Fa ripartire la musica locale
+        }
 		SpotifyManager::getInstance()->logout();
 		mWindow->pushGui(new GuiMsgBox(mWindow, _("SEI STATO DISCONNESSO DA SPOTIFY."), _("OK")));
 	});
-	
+
+	// Pulsante per sfogliare Spotify
 	s->addEntry(_("SFOGLIA SPOTIFY"), true, [this] {
     if (!SpotifyManager::getInstance()->isAuthenticated()) {
         mWindow->pushGui(new GuiMsgBox(mWindow, _("EFFETTUA PRIMA IL LOGIN A SPOTIFY."), _("OK")));
@@ -4105,7 +4134,8 @@ s->addSaveFunc([this, spotify_source_switch] {
     }
     mWindow->pushGui(new GuiSpotifyBrowser(mWindow));
 });
-	// --- FINE BLOCCO SPOTIFY ---
+// --- FINE BLOCCO SPOTIFY ---
+
 
 	s->addGroup(_("SOUNDS"));
 

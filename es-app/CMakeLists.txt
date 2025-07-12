@@ -28,6 +28,7 @@ set(ES_HEADERS
     ${CMAKE_CURRENT_SOURCE_DIR}/src/SaveStateRepository.h
     ${CMAKE_CURRENT_SOURCE_DIR}/src/SaveStateConfigFile.h
     ${CMAKE_CURRENT_SOURCE_DIR}/src/CustomFeatures.h
+	${CMAKE_CURRENT_SOURCE_DIR}/src/MusicStartupHelper.h
 	${CMAKE_CURRENT_SOURCE_DIR}/src/SpotifyManager.h
     #gamestore
     ${CMAKE_CURRENT_SOURCE_DIR}/src/GameStore/GameStoreManager.h
@@ -186,6 +187,7 @@ set(ES_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/src/SaveStateRepository.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/SaveStateConfigFile.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/CustomFeatures.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/src/MusicStartupHelper.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/src/SpotifyManager.cpp
     # GamesStore
     ${CMAKE_CURRENT_SOURCE_DIR}/src/GameStore/GameStoreManager.cpp

@@ -17,6 +17,7 @@
 #include "Paths.h"
 #include "utils/VectorEx.h"
 #include "LocaleES.h"
+#include "MusicStartupHelper.h"
 
 #include <stdlib.h>
 #include <sstream>
@@ -415,6 +416,7 @@ void ApiSystem::launchExternalWindow_after(Window *window)
 	window->reactivateGui();
 
 	AudioManager::getInstance()->playRandomMusic();
+	startBackgroundMusicBasedOnSetting();
 
 	LOG(LogDebug) << "ApiSystem::launchExternalWindow_after OK";
 }

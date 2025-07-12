@@ -624,8 +624,11 @@ void SystemView::onCursorChanged(const CursorState& state)
 
 	int mCursor = mCarousel.getCursorIndex();
 
-	if (AudioManager::isInitialized())
-		AudioManager::getInstance()->changePlaylist(getSelected()->getTheme());
+ if (AudioManager::isInitialized() &&
+        Settings::getInstance()->getString("audio.musicsource") != "spotify")
+    {
+        AudioManager::getInstance()->changePlaylist(getSelected()->getTheme());
+    }
 
 	Utils::FileSystem::preloadFileSystemCache(mEntries.at(mCursor).object->getRootFolder()->getPath(), true);
 

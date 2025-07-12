@@ -37,6 +37,7 @@
 #include "GameStore/EpicGames/EpicGamesStore.h"
 #include "GameStore/GameStoreManager.h" // <<< ADD THIS LINE
 #include "GameStore/Xbox/XboxStore.h" 
+#include "MusicStartupHelper.h"
 
 const std::string EMULATOR_LAUNCHER_EXE_PATH = "emulatorlauncher.exe"; 
 
@@ -909,13 +910,16 @@ bool FileData::launchGame(Window* window, LaunchGameOptions options)
     }
     VolumeControl::getInstance()->init();
     AudioManager::getInstance()->init();
+	startBackgroundMusicBasedOnSetting(); 
     window->normalizeNextUpdate();
     window->reactivateGui();
 
-    if (system != nullptr && system->getTheme() != nullptr) {
-        AudioManager::getInstance()->changePlaylist(system->getTheme(), true);
-    } else {
-        AudioManager::getInstance()->playRandomMusic();
+   if (Settings::getInstance()->getString("audio.musicsource") != "spotify")
+    {
+        if (system != nullptr && system->getTheme() != nullptr)
+            AudioManager::getInstance()->changePlaylist(system->getTheme(), true);
+        else
+            AudioManager::getInstance()->playRandomMusic();
     }
     
     // Mostra il popup di errore, se necessario

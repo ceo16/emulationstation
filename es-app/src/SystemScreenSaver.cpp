@@ -25,6 +25,7 @@
 #include "utils/Randomizer.h"
 #include "Paths.h"
 #include "ApiSystem.h"
+#include "MusicStartupHelper.h"
 
 #define FADE_TIME					(500)
 #define DATE_TIME_UPDATE_INTERVAL	(100)
@@ -237,6 +238,7 @@ void SystemScreenSaver::stopScreenSaver()
 				AudioManager::getInstance()->changePlaylist(ViewController::get()->getState().getSystem()->getTheme(), true);
 			else
 				AudioManager::getInstance()->playRandomMusic();
+			    startBackgroundMusicBasedOnSetting();
 		}
 	}
 }

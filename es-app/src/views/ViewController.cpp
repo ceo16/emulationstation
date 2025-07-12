@@ -31,6 +31,7 @@
 #include "TextToSpeech.h"
 #include "VolumeControl.h"
 #include "guis/GuiNetPlay.h"
+#include "MusicStartupHelper.h"
 
 ViewController* ViewController::sInstance = nullptr;
 
@@ -352,11 +353,12 @@ void ViewController::goToGameList(SystemData* system, bool forceImmediate)
 		}
 	}
 
-	// Cambia la musica (se necessario)
-	if (AudioManager::isInitialized()) {
-		LOG(LogDebug) << "Changing playlist for system: " << system->getName(); // Usa 'system' originale per il tema? O 'destinationSystem'? Probabilmente 'system'.
-		AudioManager::getInstance()->changePlaylist(system->getTheme());
-	}
+if (AudioManager::isInitialized() &&
+        Settings::getInstance()->getString("audio.musicsource") != "spotify")
+    {
+        LOG(LogDebug) << "Changing playlist for system: " << destinationSystem->getName();
+        AudioManager::getInstance()->changePlaylist(destinationSystem->getTheme());
+    }
 
 	// Gestisci la transizione
 	mDeferPlayViewTransitionTo = nullptr;
@@ -937,6 +939,7 @@ bool ViewController::input(InputConfig* config, Input input)
 	if (((mState.viewing != GAME_LIST && config->isMappedTo("l3", input)) || config->isMappedTo("r3", input)) && input.value != 0)
 	{		
 		AudioManager::getInstance()->playRandomMusic(false);
+		startBackgroundMusicBasedOnSetting();
 		return true;
 	}
 

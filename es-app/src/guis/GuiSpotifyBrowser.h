@@ -4,7 +4,8 @@
 
 #include "components/MenuComponent.h"
 #include "GuiComponent.h"
-#include "SpotifyManager.h"
+#include "SpotifyManager.h" // Includiamo SpotifyManager
+#include "guis/GuiMsgBox.h" // Necessario per GuiMsgBox nel .cpp
 
 class GuiSpotifyBrowser : public GuiComponent
 {
@@ -13,8 +14,7 @@ public:
 
 private:
     void loadPlaylists();
-    void loadTracks(const std::string& playlist_id);
-    std::vector<SpotifyTrack> getPlaylistTracks(const std::string& playlist_id); // <-- Funzione dichiarata qui
+    void loadTracks(std::string playlist_id);
 
     MenuComponent mMenu;
 };

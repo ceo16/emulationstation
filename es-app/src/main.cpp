@@ -52,7 +52,8 @@
 #include "GameStore/Steam/SteamStore.h"
 #include "GameStore/Xbox/XboxStore.h"
 #include "GameStore/Xbox/XboxUI.h"
-
+#include "SpotifyManager.h"
+#include "MusicStartupHelper.h"
 
 #ifdef WIN32
 #include <Windows.h>
@@ -319,6 +320,7 @@ bool loadSystemConfigFile(Window* window, const char** errorString)
 
 	return true;
 }
+
 
 
 //called on exit, assuming we get far enough to have the log initialized
@@ -691,13 +693,8 @@ if (SDL_GAMELIST_UPDATED == ((Uint32)-1)) {
 	// Create a flag in  temporary directory to signal READY state
 	ApiSystem::getInstance()->setReadyFlag();
 
-	// Play music
-	AudioManager::getInstance()->init();
-
-	if (ViewController::get()->getState().viewing == ViewController::GAME_LIST || ViewController::get()->getState().viewing == ViewController::SYSTEM_SELECT)
-		AudioManager::getInstance()->changePlaylist(ViewController::get()->getState().getSystem()->getTheme());
-	else
-		AudioManager::getInstance()->playRandomMusic();
+AudioManager::getInstance()->init();
+startBackgroundMusicBasedOnSetting();
 
 // *** NUOVO: Forza aggiornamento UI DOPO preload e PRIMA di goToStart ***
 	// Questo dovrebbe far "vedere" EGS alla SystemView prima che venga mostrata
@@ -1131,6 +1128,13 @@ if (SDL_GAMELIST_UPDATED == ((Uint32)-1)) {
 
 	while (window.peekGui() != nullptr)
 		delete window.peekGui();
+if (Settings::getInstance()->getString("audio.musicsource") == "spotify") {
+    if (SpotifyManager::getInstance()->isAuthenticated()) {
+        SpotifyManager::getInstance()->pausePlayback();
+    }
+} else {
+    AudioManager::getInstance()->stopMusic(true); // true per stop completo e cleanup
+}
 
 	window.deinit();
 	Utils::Platform::processQuitMode();

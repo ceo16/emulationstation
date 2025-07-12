@@ -1,5 +1,5 @@
 #include "SpotifyManager.h"
-#include "SystemConf.h" // <--- CORREZIONE 1: Aggiunto l'include mancante
+#include "SystemConf.h"
 #include "HttpReq.h"
 #include "Log.h"
 #include "Paths.h"
@@ -12,6 +12,7 @@
 #include <thread>
 #include <json.hpp>
 #include <fstream>
+#include <chrono> // Necessario per std::chrono::seconds
 
 // --- Utility per la codifica Base64 ---
 static const std::string base64_chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
@@ -61,9 +62,8 @@ SpotifyManager::~SpotifyManager() {}
 
 void SpotifyManager::exchangeCodeForTokens(Window* window, const std::string& code)
 {
-    // <--- CORREZIONE 2: Usiamo GuiLoading<int> invece di <void> o <string>
     auto SincroAuth = new GuiLoading<int>(window, _("AUTHENTICATING WITH SPOTIFY..."),
-        [this, code](IGuiLoadingHandler* loadingInterface) -> int // La lambda ora ritorna un int
+        [this, code](IGuiLoadingHandler* loadingInterface) -> int
         {
             auto loadingGui = (GuiLoading<int>*)loadingInterface;
 
@@ -72,9 +72,9 @@ void SpotifyManager::exchangeCodeForTokens(Window* window, const std::string& co
             const std::string SPOTIFY_REDIRECT_URI = "es-spotify://callback";
 
             if (clientId.empty() || clientSecret.empty()) {
-                loadingGui->setText("Client ID/Secret non configurato!");
+                loadingGui->setText("Client ID/Secret non configurato! Controlla emulationstation_settings.xml");
                 std::this_thread::sleep_for(std::chrono::seconds(3));
-                return 0; // Ritorna un valore fittizio
+                return 0;
             }
 
             HttpReqOptions options;
@@ -84,6 +84,7 @@ void SpotifyManager::exchangeCodeForTokens(Window* window, const std::string& co
             options.customHeaders.push_back("Authorization: Basic " + auth_b64);
             options.dataToPost = "grant_type=authorization_code&code=" + code + "&redirect_uri=" + HttpReq::urlEncode(SPOTIFY_REDIRECT_URI);
 
+            // *** URL DI AUTENTICAZIONE CORRETTO ***
             HttpReq request("https://accounts.spotify.com/api/token", &options);
             request.wait();
 
@@ -109,7 +110,7 @@ void SpotifyManager::exchangeCodeForTokens(Window* window, const std::string& co
                 loadingGui->setText(_("LOGIN FAILED") + ":\n" + request.getErrorMsg());
                 std::this_thread::sleep_for(std::chrono::seconds(4));
             }
-            return 0; // Ritorna un valore fittizio
+            return 0;
         });
 
     window->pushGui(SincroAuth);
@@ -122,19 +123,20 @@ bool SpotifyManager::refreshTokens() {
     const std::string clientId = SystemConf::getInstance()->get("spotify.client.id");
     const std::string clientSecret = SystemConf::getInstance()->get("spotify.client.secret");
 
-    if (mRefreshToken.empty() || clientId.empty() || clientSecret.empty()) { return false; }
+    if (mRefreshToken.empty() || clientId.empty() || clientSecret.empty()) {
+        LOG(LogError) << "Spotify: Impossibile rinfrescare i token. Credenziali mancanti o refresh token vuoto.";
+        return false;
+    }
 
     HttpReqOptions options;
     std::string auth_str = clientId + ":" + clientSecret;
     std::string auth_b64 = base64_encode(reinterpret_cast<const unsigned char*>(auth_str.c_str()), auth_str.length());
     options.customHeaders.push_back("Authorization: Basic " + auth_b64);
     options.customHeaders.push_back("Content-Type: application/x-www-form-urlencoded");
-
     options.dataToPost = "grant_type=refresh_token&refresh_token=" + mRefreshToken;
-
-    // AGGIUNGI QUESTA RIGA
     options.customHeaders.push_back("Content-Length: " + std::to_string(options.dataToPost.length()));
 
+    // *** URL DI REFRESH TOKEN CORRETTO ***
     HttpReq request("https://accounts.spotify.com/api/token", &options);
     request.wait();
 
@@ -143,25 +145,22 @@ bool SpotifyManager::refreshTokens() {
             auto json = nlohmann::json::parse(request.getContent());
             if (json.contains("access_token")) {
                 mAccessToken = json.value("access_token", "");
-                
-                // Spotify potrebbe restituire un nuovo refresh_token, aggiorniamolo se presente
-                if (json.contains("refresh_token")) {
+                if (json.contains("refresh_token")) { // Spotify potrebbe restituire un nuovo refresh_token
                     mRefreshToken = json.value("refresh_token", "");
                 }
-                
                 saveTokens();
                 LOG(LogInfo) << "Spotify: Token rinfrescato con successo.";
                 return true;
             }
-        } catch (...) {
-            LOG(LogError) << "Spotify: Errore nel parsing della risposta di refresh.";
+        } catch (const std::exception& e) {
+            LOG(LogError) << "Spotify: Errore nel parsing della risposta di refresh: " << e.what();
         }
+    } else {
+        LOG(LogError) << "Spotify: Refresh del token fallito. Status: " << request.status() << " - " << request.getErrorMsg()
+                      << " Contenuto: " << request.getContent(); // Logga il contenuto per debug
     }
-    
-    LOG(LogError) << "Spotify: Refresh del token fallito. Status: " << request.status();
-    // Se il refresh fallisce, il refresh_token potrebbe essere stato revocato.
-    // Facciamo il logout forzato per obbligare l'utente a ri-autenticarsi.
-    logout();
+
+    logout(); // Se il refresh fallisce, forziamo il logout
     return false;
 }
 
@@ -187,8 +186,8 @@ void SpotifyManager::loadTokens() {
         mAccessToken = j.value("access_token", "");
         mRefreshToken = j.value("refresh_token", "");
         LOG(LogInfo) << "Spotify Auth: Token caricati da " << mTokensPath;
-    } catch (...) {
-        LOG(LogError) << "Spotify Auth: Errore nel caricamento dei token.";
+    } catch (const std::exception& e) {
+        LOG(LogError) << "Spotify Auth: Errore nel caricamento dei token da " << mTokensPath << ": " << e.what();
         clearTokens();
     }
 }
@@ -201,8 +200,8 @@ void SpotifyManager::saveTokens() {
         std::ofstream file(mTokensPath);
         file << j.dump(4);
         LOG(LogInfo) << "Spotify Auth: Token salvati in " << mTokensPath;
-    } catch (...) {
-        LOG(LogError) << "Spotify Auth: Errore nel salvataggio dei token.";
+    } catch (const std::exception& e) {
+        LOG(LogError) << "Spotify Auth: Errore nel salvataggio dei token in " << mTokensPath << ": " << e.what();
     }
 }
 
@@ -217,84 +216,118 @@ void SpotifyManager::startPlayback(const std::string& track_uri)
 {
     if (!isAuthenticated()) return;
 
-    // 1. Otteniamo l'ID del dispositivo
     std::string deviceId = getActiveComputerDeviceId();
     if (deviceId.empty()) {
-        LOG(LogError) << "Spotify: Impossibile avviare la riproduzione, nessun dispositivo computer attivo trovato.";
+        LOG(LogError) << "Spotify: Impossibile avviare la riproduzione, nessun dispositivo computer attivo o riproducibile trovato.";
         return;
     }
 
     HttpReqOptions options;
-    options.verb = "PUT"; 
+    options.verb = "PUT";
     options.customHeaders.push_back("Authorization: Bearer " + getAccessToken());
     options.customHeaders.push_back("Content-Type: application/json");
 
-    nlohmann::json body;
+    std::string bodyStr;
     if (!track_uri.empty()) {
+        nlohmann::json body;
         body["uris"] = { track_uri };
+        bodyStr = body.dump();
+    } else {
+        // Per riprendere la riproduzione corrente, body vuoto
+        bodyStr = ""; 
     }
-    options.dataToPost = body.dump();
-    options.customHeaders.push_back("Content-Length: " + std::to_string(options.dataToPost.length()));
+    options.dataToPost = bodyStr;
+    options.customHeaders.push_back("Content-Length: " + std::to_string(bodyStr.length()));
 
-    // 2. Aggiungiamo l'ID del dispositivo all'URL
-    std::string url = "https://api.spotify.com/v1/me/player/play?device_id=" + deviceId;
+    std::string url = "https://api.spotify.com/v1/me/player/play";
+    if (!deviceId.empty()) {
+        url += "?device_id=" + deviceId;
+    }
+
+    LOG(LogInfo) << "Spotify: Invio comando di riproduzione all'URL: " << url << " con body: " << (bodyStr.empty() ? "<vuoto>" : bodyStr);
 
     HttpReq request(url, &options);
     request.wait();
 
     if (request.status() != HttpReq::Status::REQ_SUCCESS && request.status() != 204) {
-        LOG(LogError) << "Spotify: Errore nell'invio del comando di riproduzione. Status: " << request.status();
+        LOG(LogError) << "Spotify: Errore nell'invio del comando di riproduzione. Status: " << request.status() << " - " << request.getErrorMsg();
+        LOG(LogError) << "Spotify: Contenuto errore riproduzione: " << request.getContent();
+    } else {
+        LOG(LogInfo) << "Spotify: Comando di riproduzione inviato con successo (Status " << request.status() << ").";
     }
 }
+
 
 void SpotifyManager::pausePlayback()
 {
     if (!isAuthenticated()) return;
-    
-    // Anche la pausa è più affidabile se specifichiamo il dispositivo
+
     std::string deviceId = getActiveComputerDeviceId();
-    if (deviceId.empty()) return;
+    if (deviceId.empty()) {
+        LOG(LogWarning) << "Spotify: Impossibile mettere in pausa, nessun dispositivo computer attivo trovato.";
+        return;
+    }
 
     HttpReqOptions options;
     options.verb = "PUT";
     options.customHeaders.push_back("Authorization: Bearer " + getAccessToken());
-    options.customHeaders.push_back("Content-Length: 0");
+    options.customHeaders.push_back("Content-Length: 0"); // PUT senza body
 
-    std::string url = "https://api.spotify.com/v1/me/player/pause?device_id=" + deviceId;
-    
+    // *** URL DI PAUSA CORRETTO CON device_id COME QUERY PARAMETER ***
+    std::string url = "https://api.spotify.com/v1/me/player/pause";
+    if (!deviceId.empty()) {
+        url += "?device_id=" + deviceId;
+    }
+
+    LOG(LogInfo) << "Spotify: Invio comando di pausa all'URL: " << url;
+
     HttpReq request(url, &options);
     request.wait();
+
+    if (request.status() != HttpReq::Status::REQ_SUCCESS && request.status() != 204) {
+        LOG(LogError) << "Spotify: Errore nell'invio del comando di pausa. Status: " << request.status() << " - " << request.getErrorMsg();
+        LOG(LogError) << "Spotify: Contenuto errore pausa: " << request.getContent();
+    } else {
+        LOG(LogInfo) << "Spotify: Comando di pausa inviato con successo (Status " << request.status() << ").";
+    }
+}
+
+// Funzione resumePlayback, aggiunta anche in .h
+void SpotifyManager::resumePlayback() {
+    startPlayback(""); // Chiamiamo startPlayback senza URI per riprendere la riproduzione attuale
 }
 
 std::vector<SpotifyPlaylist> SpotifyManager::getUserPlaylists()
 {
-    if (!isAuthenticated()) 
+    if (!isAuthenticated())
         return {};
 
-    std::vector<SpotifyPlaylist> playlists; 
+    std::vector<SpotifyPlaylist> playlists;
 
     HttpReqOptions options;
     options.customHeaders.push_back("Authorization: Bearer " + getAccessToken());
 
-    // URL CORRETTO E VERIFICATO
     std::string url = "https://api.spotify.com/v1/me/playlists";
 
     LOG(LogInfo) << "Spotify: Richiesta playlist all'URL: " << url;
-    
+
     HttpReq request(url, &options);
     request.wait();
 
-    // Se il token è scaduto, lo rinfreschiamo e riproviamo
-    if (request.status() == 401)
+    LOG(LogDebug) << "Spotify: Risposta JSON getUserPlaylists: " << request.getContent();
+
+    if (request.status() == 401) // Token scaduto o non valido
     {
-        if (this->refreshTokens())
+        if (this->refreshTokens()) // Tentiamo di rinfrescare
         {
             LOG(LogInfo) << "Spotify: Token rinfrescato, ritento la richiesta delle playlist.";
             HttpReqOptions newOptions;
             newOptions.customHeaders.push_back("Authorization: Bearer " + getAccessToken());
-            
+
             HttpReq request_retry(url, &newOptions);
             request_retry.wait();
+
+            LOG(LogDebug) << "Spotify: Risposta JSON getUserPlaylists (retry): " << request_retry.getContent();
 
             if (request_retry.status() == HttpReq::Status::REQ_SUCCESS) {
                 try {
@@ -313,12 +346,13 @@ std::vector<SpotifyPlaylist> SpotifyManager::getUserPlaylists()
                 } catch (const std::exception& e) {
                     LOG(LogError) << "Spotify: Errore nel parsing delle playlist (retry): " << e.what();
                 }
+            } else {
+                LOG(LogError) << "Spotify: Richiesta playlist (retry) fallita con stato: " << request_retry.status() << " - " << request_retry.getErrorMsg();
             }
             return playlists;
         }
     }
 
-    // Processiamo il risultato della prima richiesta
     if (request.status() == HttpReq::Status::REQ_SUCCESS) {
         try {
             auto json = nlohmann::json::parse(request.getContent());
@@ -339,22 +373,119 @@ std::vector<SpotifyPlaylist> SpotifyManager::getUserPlaylists()
     } else {
         LOG(LogError) << "Spotify: La richiesta delle playlist è fallita con stato: " << request.status() << " - " << request.getErrorMsg();
     }
-    
+
     return playlists;
 }
 
+std::vector<SpotifyTrack> SpotifyManager::getPlaylistTracks(const std::string& playlist_id)
+{
+    if (playlist_id.empty()) {
+        LOG(LogError) << "ERRORE: getPlaylistTracks chiamata con ID playlist vuoto!";
+        return {};
+    }
+    if (!isAuthenticated()) {
+        LOG(LogWarning) << "getPlaylistTracks: Non autenticato con Spotify.";
+        return {};
+    }
 
+    std::vector<SpotifyTrack> tracks;
+    HttpReqOptions options;
+    options.customHeaders.push_back("Authorization: Bearer " + getAccessToken());
 
+    std::string url = "https://api.spotify.com/v1/playlists/" + playlist_id + "/tracks";
 
+    do {
+        LOG(LogInfo) << "Spotify: Richiesta tracce playlist all'URL: " << url;
 
+        HttpReq request(url, &options);
+        request.wait();
+
+        LOG(LogDebug) << "Spotify: Risposta JSON getPlaylistTracks: " << request.getContent();
+
+        if (request.status() == 401) { // Token scaduto o non valido
+            if (this->refreshTokens()) { // Tentiamo di rinfrescare
+                LOG(LogInfo) << "Spotify: Token rinfrescato, ritento la richiesta delle tracce della playlist.";
+                HttpReqOptions newOptions;
+                newOptions.customHeaders.push_back("Authorization: Bearer " + getAccessToken());
+                HttpReq request_retry(url, &newOptions);
+                request_retry.wait();
+
+                LOG(LogDebug) << "Spotify: Risposta JSON getPlaylistTracks (retry): " << request_retry.getContent();
+
+                if (request_retry.status() == HttpReq::Status::REQ_SUCCESS) {
+                    try {
+                        auto json = nlohmann::json::parse(request_retry.getContent());
+                        if (json.contains("items")) {
+                            for (const auto& item : json["items"]) {
+                                if (item.contains("track") && !item["track"].is_null()) {
+                                    SpotifyTrack t;
+                                    t.name = item["track"].value("name", "N/A");
+                                    t.uri = item["track"].value("uri", "");
+                                    if (item["track"].contains("artists") && !item["track"]["artists"].empty()) {
+                                        t.artist = item["track"]["artists"][0].value("name", "N/A");
+                                    }
+                                    tracks.push_back(t);
+                                }
+                            }
+                        }
+                        url.clear(); // Non continuiamo dopo il retry
+                    } catch (const std::exception& e) {
+                        LOG(LogError) << "getPlaylistTracks (retry) JSON parse error: " << e.what();
+                    }
+                } else {
+                    LOG(LogError) << "Spotify: Richiesta tracce playlist (retry) fallita con stato: " << request_retry.status() << " - " << request_retry.getErrorMsg();
+                }
+                return tracks;
+            }
+        }
+
+        if (request.status() == HttpReq::Status::REQ_SUCCESS) {
+            try {
+                auto json = nlohmann::json::parse(request.getContent());
+                if (json.contains("items")) {
+                    for (const auto& item : json["items"]) {
+                        if (item.contains("track") && !item["track"].is_null()) {
+                            SpotifyTrack t;
+                            t.name = item["track"].value("name", "N/A");
+                            t.uri = item["track"].value("uri", "");
+                            if (item["track"].contains("artists") && !item["track"]["artists"].empty()) {
+                                t.artist = item["track"]["artists"][0].value("name", "N/A");
+                            }
+                            tracks.push_back(t);
+                        }
+                    }
+                }
+
+                // Gestione paginazione: aggiorno URL alla pagina successiva
+                if (json.contains("next") && !json["next"].is_null()) {
+                    url = json["next"].get<std::string>();
+                } else {
+                    url.clear();
+                }
+            } catch (const std::exception& e) {
+                LOG(LogError) << "getPlaylistTracks JSON parse error: " << e.what();
+                url.clear();
+            }
+        } else {
+            LOG(LogError) << "Spotify: Richiesta tracce playlist fallita con stato: " << request.status() << " - " << request.getErrorMsg();
+            url.clear();
+        }
+    } while (!url.empty());
+
+    return tracks;
+}
 
 std::string SpotifyManager::getActiveComputerDeviceId()
 {
-    if (!isAuthenticated()) return "";
+    if (!isAuthenticated()) {
+        LOG(LogWarning) << "Spotify: Non autenticato per ottenere i dispositivi.";
+        return "";
+    }
 
     HttpReqOptions options;
     options.customHeaders.push_back("Authorization: Bearer " + getAccessToken());
 
+    // *** URL GET DEVICES CORRETTO ***
     HttpReq request("https://api.spotify.com/v1/me/player/devices", &options);
     request.wait();
 
@@ -362,29 +493,57 @@ std::string SpotifyManager::getActiveComputerDeviceId()
         try {
             auto json = nlohmann::json::parse(request.getContent());
             if (json.contains("devices")) {
+                std::string foundActiveComputerId = "";
+                std::string foundAnyComputerId = "";
+
                 for (const auto& device : json["devices"]) {
-                    // Cerchiamo un computer attivo, o il primo computer che troviamo
-                    if (device.value("type", "") == "Computer") {
-                        // Se è attivo, lo prendiamo subito
-                        if (device.value("is_active", false)) {
-                            return device.value("id", "");
+                    std::string deviceName = device.value("name", "N/A");
+                    std::string deviceId = device.value("id", "N/A");
+                    std::string deviceType = device.value("type", "N/A");
+                    bool isActive = device.value("is_active", false);
+                    bool isRestricted = device.value("is_restricted", false); // Aggiunto per debug
+                    bool isPrivateSession = device.value("is_private_session", false); // Aggiunto per debug
+
+                    LOG(LogInfo) << "Spotify: Dispositivo trovato: Nome='" << deviceName
+                                 << "', ID='" << deviceId
+                                 << "', Tipo='" << deviceType
+                                 << "', Attivo=" << (isActive ? "SÌ" : "NO")
+                                 << ", Limitato=" << (isRestricted ? "SÌ" : "NO")
+                                 << ", Sessione privata=" << (isPrivateSession ? "SÌ" : "NO");
+
+                    if (deviceType == "Computer") {
+                        if (isActive && !isRestricted && !isPrivateSession) {
+                            LOG(LogInfo) << "Spotify: Trovato dispositivo computer ATTIVO e USABILE con ID: " << deviceId;
+                            return deviceId; // Restituisce subito il primo computer attivo e usabile
                         }
-                        // Altrimenti, continuiamo a cercare sperando di trovarne uno attivo
+                        if (foundAnyComputerId.empty()) { // Conserva il primo ID computer trovato, come fallback
+                            foundAnyComputerId = deviceId;
+                        }
                     }
                 }
-                // Se non ne abbiamo trovato uno attivo, proviamo a prendere il primo computer della lista
-                 for (const auto& device : json["devices"]) {
-                    if (device.value("type", "") == "Computer") {
-                         return device.value("id", "");
-                    }
-                 }
+                if (!foundActiveComputerId.empty()) {
+                    return foundActiveComputerId; // Questo non dovrebbe essere raggiunto se il primo if funziona
+                }
+                if (!foundAnyComputerId.empty()) {
+                    LOG(LogWarning) << "Spotify: Nessun dispositivo computer ATTIVO e USABILE trovato, ma è stato trovato un computer con ID: " << foundAnyComputerId << ". Potrebbe non essere riproducibile.";
+                    return foundAnyComputerId; // Restituisce il primo computer trovato, anche se non attivo/usabile
+                }
             }
         } catch (const std::exception& e) {
             LOG(LogError) << "Spotify: Errore nel parsing dei dispositivi: " << e.what();
         }
+    } else if (request.status() == 401) { // Token scaduto
+        if (refreshTokens()) {
+            LOG(LogInfo) << "Spotify: Token rinfrescato, ritento la richiesta dei dispositivi.";
+            // Riprova la richiesta dopo il refresh
+            return getActiveComputerDeviceId(); // Richiama la funzione per riprovare
+        }
+    } else {
+        LOG(LogError) << "Spotify: Richiesta dispositivi fallita con stato: " << request.status() << " - " << request.getErrorMsg()
+                      << " Contenuto: " << request.getContent();
     }
 
-    LOG(LogWarning) << "Spotify: Nessun dispositivo computer trovato o attivo.";
+    LOG(LogWarning) << "Spotify: Nessun dispositivo computer trovato o utilizzabile.";
     return "";
 }
 
@@ -395,26 +554,23 @@ SpotifyTrack SpotifyManager::getCurrentlyPlaying()
     HttpReqOptions options;
     options.customHeaders.push_back("Authorization: Bearer " + getAccessToken());
 
+    // *** URL GET CURRENTLY PLAYING CORRETTO ***
     std::string url = "https://api.spotify.com/v1/me/player/currently-playing";
-    
-    // 1. Prima richiesta
+
+    LOG(LogInfo) << "Spotify: Richiesta traccia attualmente in riproduzione all'URL: " << url;
+
     HttpReq request(url, &options);
     request.wait();
 
-    // 2. Se il token è scaduto, rinfresca e riprova
-    if (request.status() == 401)
-    {
-        if (this->refreshTokens())
-        {
+    if (request.status() == 401) { // Token scaduto
+        if (this->refreshTokens()) {
             LOG(LogInfo) << "Spotify: Token rinfrescato, ritento la richiesta della traccia attuale.";
             HttpReqOptions newOptions;
             newOptions.customHeaders.push_back("Authorization: Bearer " + getAccessToken());
-            
-            // Creiamo un NUOVO oggetto per la seconda richiesta
             HttpReq request_retry(url, &newOptions);
             request_retry.wait();
 
-            // Processiamo il risultato della SECONDA richiesta e usciamo
+            // Processiamo il risultato della SECONDA richiesta
             SpotifyTrack info;
             if (request_retry.status() == 200) {
                 try {
@@ -426,13 +582,18 @@ SpotifyTrack SpotifyManager::getCurrentlyPlaying()
                             info.artist = json["item"]["artists"][0].value("name", "N/A");
                         }
                     }
-                } catch (...) { /* gestione errore */ }
+                    LOG(LogInfo) << "Spotify: Traccia corrente (retry): " << info.name << " di " << info.artist;
+                } catch (const std::exception& e) {
+                    LOG(LogError) << "Spotify: Errore nel parsing della traccia attuale (retry): " << e.what();
+                }
+            } else if (request_retry.status() != 204) {
+                 LOG(LogWarning) << "Spotify: La richiesta della traccia attuale (retry) è fallita con stato: " << request_retry.status() << " - " << request_retry.getErrorMsg();
             }
             return info;
         }
     }
 
-    // 3. Altrimenti, processiamo il risultato della PRIMA richiesta
+    // Processiamo il risultato della PRIMA richiesta
     SpotifyTrack info;
     if (request.status() == 200) {
         try {
@@ -444,12 +605,14 @@ SpotifyTrack SpotifyManager::getCurrentlyPlaying()
                     info.artist = json["item"]["artists"][0].value("name", "N/A");
                 }
             }
+            LOG(LogInfo) << "Spotify: Traccia corrente: " << info.name << " di " << info.artist;
         } catch (const std::exception& e) {
             LOG(LogError) << "Spotify: Errore nel parsing della traccia attuale: " << e.what();
         }
-    } else if (request.status() != 204) {
-         LOG(LogWarning) << "Spotify: La richiesta della traccia attuale è fallita con stato: " << request.status();
+    } else if (request.status() != 204) { // 204 No Content significa che non c'è nulla in riproduzione
+        LOG(LogWarning) << "Spotify: La richiesta della traccia attuale è fallita con stato: " << request.status() << " - " << request.getErrorMsg();
     }
-    
+
     return info;
 }
+
