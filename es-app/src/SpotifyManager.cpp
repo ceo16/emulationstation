@@ -173,24 +173,46 @@ void SpotifyManager::pausePlayback() {
     std::thread([this]() {
         try {
             if (!isAuthenticated()) return;
+
+            // Trova il device Spotify
             std::string deviceId = getActiveComputerDeviceId();
-            if (deviceId.empty()) return;
-
-            HttpReqOptions options;
-            options.verb = "PUT";
-            options.customHeaders.push_back("Authorization: Bearer " + getAccessToken());
-            options.customHeaders.push_back("Content-Length: 0");
-            std::string url = "https://api.spotify.com/v1/me/player/pause";
-            if (!deviceId.empty()) url += "?device_id=" + deviceId;
-            
-            HttpReq request(url, &options);
-            request.wait();
-
-            // ! GESTIONE MIGLIORATA DELL'ERRORE 403 !
-            if (request.status() == 403) {
-                if (mWindow) mWindow->postToUiThread([w = mWindow] { w->displayNotificationMessage("Comando Player fallito: stop Richiesto Account Premium"); });
+            if (deviceId.empty()) {
+                LOG(LogWarning) << "Spotify: nessun device trovato per la pausa.";
+                return;
             }
-        } catch (const std::exception& e) { LOG(LogError) << "[Thread Pausa] Eccezione: " << e.what(); }
+
+            // Prepara la richiesta PUT /pause?device_id=...
+            HttpReqOptions opts;
+            opts.verb = "PUT";
+            opts.customHeaders.push_back("Authorization: Bearer " + getAccessToken());
+            opts.customHeaders.push_back("Content-Length: 0");
+
+            std::string url = "https://api.spotify.com/v1/me/player/pause?device_id=" + deviceId;
+            HttpReq req(url, &opts);
+            req.wait();
+
+            // Gestione del 403
+            if (req.status() == 403) {
+                if (mWindow) {
+                    mWindow->postToUiThread([w = mWindow] {
+                        w->displayNotificationMessage(
+                            _("Comando Player fallito: Richiesto Account Premium (pause)"),
+                            3000
+                        );
+                    });
+                }
+                return;
+            }
+
+            // Altri errori ignoro
+            if (req.status() != HttpReq::Status::REQ_SUCCESS && req.status() != 204) {
+                LOG(LogError) << "Spotify pause error: status=" << req.status()
+                              << " msg=" << req.getErrorMsg();
+            }
+        }
+        catch (const std::exception& e) {
+            LOG(LogError) << "[Thread pausePlayback] Eccezione: " << e.what();
+        }
     }).detach();
 }
 

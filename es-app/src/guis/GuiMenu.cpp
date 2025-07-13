@@ -4119,11 +4119,6 @@ s->addEntry(_("SFOGLIA SPOTIFY"), true, [this] {
 
 // --- FINE BLOCCO SPOTIFY ---
 
-
-
-
-
-
 	s->addGroup(_("SOUNDS"));
 
 	s->addSwitch(_("ENABLE NAVIGATION SOUNDS"), "EnableSounds", true, []
