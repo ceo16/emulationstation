@@ -939,7 +939,7 @@ bool ViewController::input(InputConfig* config, Input input)
 	if (((mState.viewing != GAME_LIST && config->isMappedTo("l3", input)) || config->isMappedTo("r3", input)) && input.value != 0)
 	{		
 		AudioManager::getInstance()->playRandomMusic(false);
-		startBackgroundMusicBasedOnSetting();
+		startBackgroundMusicBasedOnSetting(mWindow);
 		return true;
 	}
 

@@ -37,6 +37,7 @@ public:
 	static void saveState();
 
 	static ViewController* get();
+	Window* getWindow() const { return mWindow; }
 
 	virtual ~ViewController();
 

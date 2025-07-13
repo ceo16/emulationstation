@@ -7,62 +7,57 @@
 #include <functional>
 #include "Window.h"
 
-// Struttura per una traccia Spotify
 struct SpotifyTrack {
     std::string name;
     std::string artist;
-    std::string uri; // URI di Spotify (es. "spotify:track:...")
+    std::string uri;
 };
 
-// Struttura per una playlist Spotify
 struct SpotifyPlaylist {
     std::string name;
-    std::string id; // ID della playlist Spotify
-    std::string image_url; // URL dell'immagine di copertina
+    std::string id;
+    std::string image_url;
 };
 
 class SpotifyManager
 {
 public:
-    static SpotifyManager* getInstance();
+    static SpotifyManager* getInstance(Window* window = nullptr);
 
-    // Funzioni di autenticazione
+    // Funzioni aggiunte di nuovo perché usate da altre parti del codice
     void exchangeCodeForTokens(Window* window, const std::string& code);
+    std::string getAccessToken() const;
+
     void logout();
     bool isAuthenticated() const;
-    std::string getAccessToken() const;
-    bool refreshTokens(); // Resa pubblica per essere chiamata se il token scade
-
-    // Funzioni di riproduzione
+    
     void startPlayback(const std::string& track_uri = "");
     void pausePlayback();
-    void resumePlayback(); // Funzione per riprendere la riproduzione (implementata nel .cpp)
+    void resumePlayback();
 
-    // Funzioni per ottenere dati da Spotify
-    std::vector<SpotifyPlaylist> getUserPlaylists();
-    std::vector<SpotifyTrack> getPlaylistTracks(const std::string& playlist_id); // Resa pubblica per GuiSpotifyBrowser
-    SpotifyTrack getCurrentlyPlaying();
-	
+    void getUserPlaylists(const std::function<void(const std::vector<SpotifyPlaylist>&)>& callback);
+    void getPlaylistTracks(const std::string& playlist_id, const std::function<void(const std::vector<SpotifyTrack>&)>& callback);
 
 private:
-    SpotifyManager();
+    SpotifyManager(Window* window);
     ~SpotifyManager();
     SpotifyManager(const SpotifyManager&) = delete;
     SpotifyManager& operator=(const SpotifyManager&) = delete;
 
-    // Funzioni ausiliarie private
-    std::string getActiveComputerDeviceId(); // Ottiene l'ID del dispositivo attivo (computer)
+    bool refreshTokens();
+    std::string getActiveComputerDeviceId();
+    SpotifyTrack getCurrentlyPlaying();
 
-    void loadTokens();  // Carica i token dal file
-    void saveTokens();  // Salva i token nel file
-    void clearTokens(); // Cancella i token (logout)
+    void loadTokens();
+    void saveTokens();
+    void clearTokens();
 
-    // Membri privati per i token e il percorso del file
+    Window* mWindow;
     std::string mAccessToken;
     std::string mRefreshToken;
     std::string mTokensPath;
 
-    static SpotifyManager* sInstance; // Singleton instance
+    static SpotifyManager* sInstance;
 };
 
 #endif // ES_CORE_MANAGERS_SPOTIFY_MANAGER_H

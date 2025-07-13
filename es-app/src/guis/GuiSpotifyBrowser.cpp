@@ -1,76 +1,70 @@
 #include "guis/GuiSpotifyBrowser.h"
 #include "Window.h"
 #include "Log.h"
-#include "HttpReq.h" // Già presente, ma per completezza
-#include "json.hpp" // Già presente, ma per completezza
-#include "SpotifyManager.h" // Già presente, ma per completezza
-#include "guis/GuiMsgBox.h" // Aggiunta qui e in .h
+#include "SpotifyManager.h"
+#include "guis/GuiMsgBox.h"
+#include "views/ViewController.h"
 
 GuiSpotifyBrowser::GuiSpotifyBrowser(Window* window) : GuiComponent(window), mMenu(window, "SPOTIFY")
 {
     addChild(&mMenu);
-    loadPlaylists(); // Carica le playlist all'avvio della GUI
     setSize(Renderer::getScreenWidth(), Renderer::getScreenHeight());
+    loadPlaylists();
 }
 
 void GuiSpotifyBrowser::loadPlaylists()
 {
     mMenu.clear();
     mMenu.setTitle("LE TUE PLAYLIST");
+    mMenu.addEntry("Caricamento in corso...", false, nullptr);
 
-    // L'entry per tornare al menu audio
-    mMenu.addEntry(".. TORNA AL MENU AUDIO", false, [this] { delete this; });
+    // Chiama la funzione asincrona e le passa il codice da eseguire al completamento
+    SpotifyManager::getInstance(mWindow)->getUserPlaylists(
+        [this](const std::vector<SpotifyPlaylist>& playlists) {
+            // Questo codice viene eseguito sulla UI quando le playlist sono pronte
+            mMenu.clear();
+            mMenu.setTitle("LE TUE PLAYLIST");
+            mMenu.addEntry(".. TORNA AL MENU AUDIO", false, [this] { delete this; });
 
-    auto playlists = SpotifyManager::getInstance()->getUserPlaylists();
+            if (playlists.empty()) {
+                mMenu.addEntry("Nessuna playlist trovata.", false, nullptr);
+                return;
+            }
 
-    if (playlists.empty()) {
-        mMenu.addEntry("Nessuna playlist trovata o errore API", false, nullptr);
-        LOG(LogWarning) << "GuiSpotifyBrowser: Nessuna playlist caricata. Controllare i log di SpotifyManager per dettagli.";
-        return;
-    }
-
-for (const auto& p : playlists) {
-    const std::string idCopy = p.id;
-    const std::string nameCopy = p.name;
-    mMenu.addEntry(nameCopy, true, [this, idCopy] {
-        LOG(LogInfo) << "Playlist selezionata: idCopy = '" << idCopy << "'";
-        if (idCopy.empty()) {
-            mWindow->pushGui(new GuiMsgBox(mWindow, _("Errore"), _("ID playlist non valido.")));
-            return;
+            for (const auto& p : playlists) {
+                mMenu.addEntry(p.name, true, [this, id = p.id] {
+                    loadTracks(id);
+                });
+            }
         }
-        loadTracks(idCopy);
-    });
-}
+    );
 }
 
 void GuiSpotifyBrowser::loadTracks(std::string id)
 {
-    LOG(LogInfo) << "GuiSpotifyBrowser::loadTracks chiamato con ID: '" << id << "'";
     mMenu.clear();
     mMenu.setTitle("TRACCE DELLA PLAYLIST");
-    mMenu.addEntry(".. TORNA ALLE PLAYLIST", true, [this] {
-        loadPlaylists();
-    });
+    mMenu.addEntry("Caricamento tracce...", false, nullptr);
 
-    if (id.empty()) {
-        LOG(LogError) << "ID playlist in loadTracks è vuoto! Non dovrebbe accadere.";
-        mMenu.addEntry("Errore: ID playlist vuoto", false, nullptr);
-        return;
-    }
+    // Chiama la funzione asincrona e le passa il codice da eseguire al completamento
+    SpotifyManager::getInstance(mWindow)->getPlaylistTracks(id,
+        [this](const std::vector<SpotifyTrack>& tracks) {
+            // Questo codice viene eseguito sulla UI quando le tracce sono pronte
+            mMenu.clear();
+            mMenu.setTitle("TRACCE DELLA PLAYLIST");
+            mMenu.addEntry(".. TORNA ALLE PLAYLIST", true, [this] { loadPlaylists(); });
 
-    LOG(LogInfo) << "GuiSpotifyBrowser: Richiesta tracce per playlist ID: " << id;
+            if (tracks.empty()) {
+                mMenu.addEntry("Nessuna traccia trovata.", false, nullptr);
+                return;
+            }
 
-    auto tracks = SpotifyManager::getInstance()->getPlaylistTracks(id);
-
-    if (tracks.empty()) {
-        mMenu.addEntry("Nessuna traccia trovata o errore API", false, nullptr);
-        LOG(LogWarning) << "GuiSpotifyBrowser: Nessuna traccia caricata per playlist ID: " << id << ". Controllare log di SpotifyManager.";
-        return;
-    }
-
-    for (const auto& t : tracks) {
-        mMenu.addEntry(t.name + " - " + t.artist, true, [t] {
-            SpotifyManager::getInstance()->startPlayback(t.uri);
-        });
-    }
+            for (const auto& t : tracks) {
+                mMenu.addEntry(t.name + " - " + t.artist, true, [uri = t.uri] {
+                    // startPlayback è già asincrono, quindi la chiamata è sicura
+                    SpotifyManager::getInstance()->startPlayback(uri);
+                });
+            }
+        }
+    );
 }

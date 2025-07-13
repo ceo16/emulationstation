@@ -238,7 +238,7 @@ void SystemScreenSaver::stopScreenSaver()
 				AudioManager::getInstance()->changePlaylist(ViewController::get()->getState().getSystem()->getTheme(), true);
 			else
 				AudioManager::getInstance()->playRandomMusic();
-			    startBackgroundMusicBasedOnSetting();
+			    startBackgroundMusicBasedOnSetting(mWindow);
 		}
 	}
 }

@@ -38,6 +38,7 @@
 #include "GameStore/GameStoreManager.h" // <<< ADD THIS LINE
 #include "GameStore/Xbox/XboxStore.h" 
 #include "MusicStartupHelper.h"
+#include "views/ViewController.h"
 
 const std::string EMULATOR_LAUNCHER_EXE_PATH = "emulatorlauncher.exe"; 
 
@@ -910,7 +911,7 @@ bool FileData::launchGame(Window* window, LaunchGameOptions options)
     }
     VolumeControl::getInstance()->init();
     AudioManager::getInstance()->init();
-	startBackgroundMusicBasedOnSetting(); 
+	startBackgroundMusicBasedOnSetting(ViewController::get()->getWindow()); 
     window->normalizeNextUpdate();
     window->reactivateGui();
 

@@ -694,7 +694,7 @@ if (SDL_GAMELIST_UPDATED == ((Uint32)-1)) {
 	ApiSystem::getInstance()->setReadyFlag();
 
 AudioManager::getInstance()->init();
-startBackgroundMusicBasedOnSetting();
+startBackgroundMusicBasedOnSetting(ViewController::get()->getWindow());
 
 // *** NUOVO: Forza aggiornamento UI DOPO preload e PRIMA di goToStart ***
 	// Questo dovrebbe far "vedere" EGS alla SystemView prima che venga mostrata

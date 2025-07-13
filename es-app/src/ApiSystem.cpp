@@ -18,6 +18,7 @@
 #include "utils/VectorEx.h"
 #include "LocaleES.h"
 #include "MusicStartupHelper.h"
+#include "views/ViewController.h"
 
 #include <stdlib.h>
 #include <sstream>
@@ -416,7 +417,7 @@ void ApiSystem::launchExternalWindow_after(Window *window)
 	window->reactivateGui();
 
 	AudioManager::getInstance()->playRandomMusic();
-	startBackgroundMusicBasedOnSetting();
+	startBackgroundMusicBasedOnSetting(ViewController::get()->getWindow());
 
 	LOG(LogDebug) << "ApiSystem::launchExternalWindow_after OK";
 }
