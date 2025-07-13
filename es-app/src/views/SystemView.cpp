@@ -29,6 +29,7 @@
 #include "guis/GuiRetroAchievements.h"
 #include "components/CarouselComponent.h"
 #include "guis/GuiNegoziOnlineMenu.h" 
+#include "SpotifyManager.h"
 
 SystemView::SystemView(Window* window) : GuiComponent(window),
 	mViewNeedsReload(true),
@@ -619,18 +620,22 @@ void SystemView::updateExtraTextBinding()
 
 void SystemView::onCursorChanged(const CursorState& state)
 {
-	if (mCarousel.size() == 0)
-		return;
+    if (mCarousel.size() == 0)
+        return;
 
-	int mCursor = mCarousel.getCursorIndex();
+    int mCursor = mCarousel.getCursorIndex();
+    auto theme = getSelected()->getTheme();
 
- if (AudioManager::isInitialized() &&
+    // Se sto usando la musica locale, cambio playlist: altrimenti non tocco nulla
+    if (AudioManager::isInitialized() &&
         Settings::getInstance()->getString("audio.musicsource") != "spotify")
     {
-        AudioManager::getInstance()->changePlaylist(getSelected()->getTheme());
+        AudioManager::getInstance()->changePlaylist(theme);
     }
 
-	Utils::FileSystem::preloadFileSystemCache(mEntries.at(mCursor).object->getRootFolder()->getPath(), true);
+
+    Utils::FileSystem::preloadFileSystemCache(
+      mEntries.at(mCursor).object->getRootFolder()->getPath(), true);
 
 	// update help style
 	updateHelpPrompts();

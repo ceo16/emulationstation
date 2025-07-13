@@ -693,8 +693,37 @@ if (SDL_GAMELIST_UPDATED == ((Uint32)-1)) {
 	// Create a flag in  temporary directory to signal READY state
 	ApiSystem::getInstance()->setReadyFlag();
 
+static bool sSpotifyLaunched = false;
+
 AudioManager::getInstance()->init();
-startBackgroundMusicBasedOnSetting(ViewController::get()->getWindow());
+
+// Se l’utente ha disattivato la musica, ferma tutto e esci
+if (!Settings::getInstance()->getBool("audio.bgmusic"))
+{
+    SpotifyManager::getInstance(&window)->pausePlayback();
+    return 0;
+}
+
+auto src = Settings::getInstance()->getString("audio.musicsource");
+auto* mgr = SpotifyManager::getInstance(&window);
+
+if (src == "spotify")
+{
+    // solo al primo avvio della sessione
+    if (!sSpotifyLaunched && mgr->isAuthenticated())
+    {
+        sSpotifyLaunched = true;
+        AudioManager::getInstance()->stopMusic();
+        mgr->startPlayback();
+    }
+    // altrimenti non tocco nulla: Spotify continua in background
+}
+else // musicsource != "spotify"
+{
+    // se non abbiamo ancora lanciato locale, o se torniamo da Spotify
+    startBackgroundMusicBasedOnSetting(&window);
+}
+
 
 // *** NUOVO: Forza aggiornamento UI DOPO preload e PRIMA di goToStart ***
 	// Questo dovrebbe far "vedere" EGS alla SystemView prima che venga mostrata
@@ -1128,12 +1157,14 @@ startBackgroundMusicBasedOnSetting(ViewController::get()->getWindow());
 
 	while (window.peekGui() != nullptr)
 		delete window.peekGui();
-if (Settings::getInstance()->getString("audio.musicsource") == "spotify") {
-    if (SpotifyManager::getInstance()->isAuthenticated()) {
-        SpotifyManager::getInstance()->pausePlayback();
-    }
-} else {
-    AudioManager::getInstance()->stopMusic(true); // true per stop completo e cleanup
+{
+    auto src = Settings::getInstance()->getString("audio.musicsource");
+    auto* mgr = SpotifyManager::getInstance(&window);
+
+    if (src == "spotify" && mgr->isAuthenticated())
+        mgr->pausePlayback();            // solo Spotify
+    else
+        AudioManager::getInstance()->stopMusic(true); // solo motore locale
 }
 
 	window.deinit();

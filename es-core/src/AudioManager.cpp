@@ -213,6 +213,11 @@ bool AudioManager::songWasPlayedRecently(const std::string& song)
 
 void AudioManager::playRandomMusic(bool continueIfPlaying)
 {
+	if (Settings::getInstance()->getString("audio.musicsource") == "spotify")
+    {
+        LOG(LogInfo) << "[AudioManager] playRandomMusic SALTATO perché source=spotify";
+        return;
+    }
     if (!Settings::BackgroundMusic())
         return;
 
@@ -322,6 +327,8 @@ void AudioManager::musicEnd_callback()
 
 void AudioManager::stopMusic(bool fadeOut)
 {
+	  LOG(LogInfo) << "[AudioManager] stop() chiamato da " << __FILE__ << ":" << __LINE__;
+
 	if (mCurrentMusic == NULL)
 		return;
 
@@ -528,6 +535,11 @@ void AudioManager::playSong(const std::string& song)
 
 void AudioManager::changePlaylist(const std::shared_ptr<ThemeData>& theme, bool force)
 {
+	 if (Settings::getInstance()->getString("audio.musicsource") == "spotify" && !force)
+    {
+        LOG(LogInfo) << "[AudioManager] changePlaylist SALTATO perché source=spotify";
+        return;
+    }
 	if (theme == nullptr)
 		return;
 
