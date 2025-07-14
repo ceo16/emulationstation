@@ -50,6 +50,8 @@
 #include "GameStore/Amazon/AmazonGamesStore.h"
 #include "GameStore/GOG/GogGamesStore.h"
 #include "GameStore/GOG/GogScanner.h"
+#include "views/spotify/SpotifyRootView.h"
+#include "SpotifyManager.h"
 
 #if WIN32
 #include "Win32ApiSystem.h"
@@ -1028,6 +1030,22 @@ void SystemData::loadAdditionnalConfig(pugi::xml_node& srcSystems)
 	}
 }
 
+void SystemData::populateSpotifyVirtual(SystemData* spotifySystem)
+{
+    auto& mgr = SpotifyManager::getInstance();
+    if (!mgr.isAuthenticated())
+        return;
+
+    auto playlists = mgr.getUserPlaylists(); // vector<Playlist>
+    for (const auto& pl : playlists)
+    {
+        std::string pseudoPath = "spotify://playlist/" + pl.id;
+        FileData* fd = new FileData(FileType::GAME, pseudoPath, spotifySystem);
+        fd->metadata.set(MetaDataId::Name, pl.name);
+        spotifySystem->getRootFolder()->addChild(fd, false);
+    }
+}
+
 //creates systems from information located in a config file
  bool SystemData::loadConfig(Window* window) {
   deleteSystems();
@@ -1276,6 +1294,35 @@ if (Settings::getInstance()->getBool("EnableAmazonGames"))
     }
 }
 // --- FINE BLOCCO AMAZON ---
+
+// ------------------------ SPOTIFY ------------------------
+    {
+        auto spotify = std::make_shared<SystemData>(
+            "spotify",                        // key interna
+            "Spotify",                        // nome da mostrare
+            "",                               // nessun launcher esterno
+            FileData::Type::PLATFORM,          // tipo
+            ThemeData::getDefaultTheme(),      // tema di default
+            FileData::getFavoriteExtensions({})// nessuna estensione fisica
+        );
+
+        // Disabilita il launcher standard (niente splash/emulatore)
+        spotify->setLaunchCommand("");
+
+        // Associa la view factory radice (menu principale)
+        spotify->setGameListViewFactory(
+            [](Window* window, SystemData* system) {
+                return std::make_shared<SpotifyRootView>(window, system);
+            }
+        );
+
+        // Aggiungi Spotify alla lista dei sistemi
+        mSystems.push_back(spotify);
+
+        // Popola le playlist come "giochi virtuali"
+        populateSpotifyVirtual(spotify.get());
+    }
+    // ----------------------------------------------------------
 
 // --- GOG GAMES SYSTEM (LOGICA FINALE BASATA SUL MODELLO FUNZIONANTE DI EPIC/STEAM) ---
 LOG(LogInfo) << "[GogDynamic] Checking/Creating GOG.com system...";
