@@ -286,6 +286,117 @@ void SpotifyManager::getPlaylistTracks(const std::string& pid,
     }).detach();
 }
 
+void SpotifyManager::getUserLikedSongs(const std::function<void(const std::vector<SpotifyTrack>&)>& callback)
+{
+    std::thread([this, callback]() {
+        std::vector<SpotifyTrack> out;
+        try {
+            if (isAuthenticated()) {
+                std::string url = "https://api.spotify.com/v1/me/tracks"; // Endpoint per i brani piaciuti
+                HttpReqOptions o;
+                o.customHeaders.push_back("Authorization: Bearer " + getAccessToken());
+                do {
+                    HttpReq r(url, &o);
+                    r.wait();
+                    if (r.status() == HttpReq::Status::REQ_SUCCESS) {
+                        auto j = nlohmann::json::parse(r.getContent());
+                        for (auto& it : j["items"]) {
+                            auto& tr = it["track"];
+                            if (!tr.is_null())
+                                out.push_back({
+                                    tr.value("name","?"),
+                                    tr["artists"][0].value("name","?"),
+                                    tr.value("uri",""),
+                                    (tr.contains("album") && !tr["album"]["images"].empty()) ? tr["album"]["images"][0].value("url", "") : ""
+                                });
+                        }
+                        url = j.value("next", ""); // Per la paginazione, se ci sono più di 50 canzoni
+                    } else break;
+                } while (!url.empty());
+            }
+        } catch (...) {}
+        mWindow->postToUiThread([callback, out]{ callback(out); });
+    }).detach();
+}
+
+void SpotifyManager::search(const std::string& query, const std::string& types, const std::function<void(const nlohmann::json&)>& callback)
+{
+    std::thread([this, query, types, callback]() {
+        nlohmann::json result;
+        if (isAuthenticated() && !query.empty()) {
+            try {
+                // ==========================================================
+                // ===             LA CORREZIONE DEFINITIVA               ===
+                // ==========================================================
+                // Convertendo il primo pezzo in std::string, la concatenazione (+) funziona.
+                std::string url = std::string("https://api.spotify.com/v1/search") + "?q=" + HttpReq::urlEncode(query) + "&type=" + types;
+
+                HttpReqOptions o;
+                o.customHeaders.push_back("Authorization: Bearer " + getAccessToken());
+
+                HttpReq r(url, &o);
+                r.wait();
+
+                if (r.status() == HttpReq::Status::REQ_SUCCESS) {
+                    result = nlohmann::json::parse(r.getContent());
+                } else {
+                    LOG(LogError) << "Errore nella ricerca Spotify. URL: " << url << " | Errore: " << r.getErrorMsg();
+                }
+            } catch(...) {
+                LOG(LogError) << "Eccezione in search";
+            }
+        }
+        mWindow->postToUiThread([callback, result]{ callback(result); });
+    }).detach();
+}
+
+void SpotifyManager::getArtistTopTracks(const std::string& artistId, const std::function<void(const std::vector<SpotifyTrack>&)>& callback)
+{
+    // Rimosso std::thread per debug. Questa funzione ora bloccherà la UI.
+    LOG(LogInfo) << "[SYNC] Avviata getArtistTopTracks per ID: " << artistId;
+
+    std::vector<SpotifyTrack> out;
+    if (isAuthenticated() && !artistId.empty()) {
+        try {
+            std::string url = "https://api.spotify.com/v1/artists/" + artistId + "/top-tracks?market=IT";
+            LOG(LogInfo) << "[SYNC] Tento di recuperare le top tracks con URL: " << url;
+
+            HttpReqOptions o;
+            o.customHeaders.push_back("Authorization: Bearer " + getAccessToken());
+
+            HttpReq r(url, &o);
+            r.wait(); // Aspetta il completamento della richiesta
+
+            LOG(LogInfo) << "[SYNC] Risposta completa dall'API per le top tracks: " << r.getContent();
+
+            if (r.status() == HttpReq::Status::REQ_SUCCESS) {
+                auto j = nlohmann::json::parse(r.getContent());
+                if (j.contains("tracks")) {
+                    for (auto& tr : j["tracks"]) {
+                        if (!tr.is_null()) {
+                            out.push_back({
+                                tr.value("name", "?"),
+                                tr.contains("artists") && !tr["artists"].empty() ? tr["artists"][0].value("name", "?") : "N/A",
+                                tr.value("uri", ""),
+                                (tr.contains("album") && !tr["album"]["images"].empty()) ? tr["album"]["images"][0].value("url", "") : ""
+                            });
+                        }
+                    }
+                }
+            } else {
+                LOG(LogError) << "[SYNC] Errore nel recuperare le top tracks: " << r.getErrorMsg();
+            }
+        } catch(const std::exception& e) {
+            LOG(LogError) << "[SYNC] Eccezione: " << e.what();
+        }
+    } else {
+        LOG(LogWarning) << "[SYNC] Chiamata API saltata. Autenticato: " << isAuthenticated() << ", ID Artista: " << artistId;
+    }
+
+    // Esegui la callback direttamente, senza postToUiThread
+    callback(out);
+}
+
 // --- getCurrentlyPlaying, refresh, deviceId, tokens ---
 SpotifyTrack SpotifyManager::getCurrentlyPlaying() {
     if (!isAuthenticated()) return {};

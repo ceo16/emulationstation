@@ -11,11 +11,12 @@
 #include "utils/FileSystemUtil.h"
 #include "utils/StringUtil.h"
 #include "Paths.h"
+#include "guis/GuiTextEditPopupKeyboard.h"
 
 #include <thread>
 #include <fstream>
 
-// --- SpotifyItemComponent (Questo codice è corretto e rimane invariato) ---
+// --- SpotifyItemComponent (invariato) ---
 namespace {
     std::string getSpotifyImagePath() {
         std::string path = Paths::getUserEmulationStationPath() + "/roms/spotify/images";
@@ -29,32 +30,45 @@ SpotifyItemComponent::SpotifyItemComponent(Window* window, const std::string& te
 }
 void SpotifyItemComponent::render(const Transform4x4f& parentTrans)
 {
-    if (!mInitialized) {
+    if (!mInitialized)
+    {
         mInitialized = true;
+
         mImage = new ImageComponent(mWindow);
         mText = new TextComponent(mWindow, mTextStr, ThemeData::getMenuTheme()->Text.font, ThemeData::getMenuTheme()->Text.color);
         mText->setVerticalAlignment(ALIGN_CENTER);
+        
         addChild(mImage);
         addChild(mText);
-        if (!mImageUrl.empty()) {
+
+        if (!mImageUrl.empty())
+        {
+            // --- INIZIO BLOCCO CORRETTO PER IL NOME FILE ---
+            // Crea un nome di file sicuro dall'URL
             std::string safeName = Utils::String::replace(mImageUrl, "https://", "");
             safeName = Utils::String::replace(safeName, "/", "_");
             safeName = Utils::String::replace(safeName, ":", "_");
-            std::string ext = Utils::FileSystem::getExtension(safeName);
-            if (ext.find('?') != std::string::npos) ext = ext.substr(0, ext.find('?'));
-            std::string imagePath = getSpotifyImagePath() + "/" + safeName + ext;
-            if (Utils::FileSystem::exists(imagePath)) {
-                mImage->setImage(imagePath);
+            safeName = Utils::String::replace(safeName, "?", "_"); // Rimuovi anche i punti interrogativi
+            
+            // Definiamo un'estensione fissa, dato che gli URL di Spotify non ce l'hanno
+            std::string tempPath = getSpotifyImagePath() + "/" + safeName + ".jpg";
+            // --- FINE BLOCCO CORRETTO ---
+
+            if (Utils::FileSystem::exists(tempPath)) {
+                mImage->setImage(tempPath);
             } else {
-                std::thread([this, imagePath]() {
+                std::thread([this, tempPath]() {
                     HttpReq req(mImageUrl);
                     req.wait();
-                    if (req.status() == HttpReq::Status::REQ_SUCCESS) {
-                        std::ofstream file(imagePath, std::ios::binary);
+                    if (req.status() == HttpReq::Status::REQ_SUCCESS)
+                    {
+                        std::ofstream file(tempPath, std::ios::binary);
                         if (file) {
                             file.write(req.getContent().c_str(), req.getContent().length());
                             file.close();
-                            mWindow->postToUiThread([this, imagePath]() { if(mImage) mImage->setImage(imagePath); });
+                            mWindow->postToUiThread([this, tempPath]() {
+                                if(mImage) mImage->setImage(tempPath);
+                            });
                         }
                     } else {
                         LOG(LogError) << "Download fallito per: " << mImageUrl;
@@ -62,8 +76,10 @@ void SpotifyItemComponent::render(const Transform4x4f& parentTrans)
                 }).detach();
             }
         }
+        
         setSize(mSize);
     }
+
     GuiComponent::render(parentTrans);
 }
 void SpotifyItemComponent::onSizeChanged()
@@ -84,12 +100,10 @@ void SpotifyItemComponent::onSizeChanged()
 }
 
 
-// --- GuiSpotifyBrowser ---
-
 GuiSpotifyBrowser::GuiSpotifyBrowser(Window* window)
   : GuiComponent(window),
-    mMenu(window, _("SPOTIFY")),
-    mState(SpotifyViewState::Playlists)
+    mMenu(window, "SPOTIFY"),
+    mState(SpotifyViewState::MainMenu) // Iniziamo dal menu principale
 {
     std::string path = getSpotifyImagePath();
     if (!Utils::FileSystem::exists(path))
@@ -97,7 +111,7 @@ GuiSpotifyBrowser::GuiSpotifyBrowser(Window* window)
 
     addChild(&mMenu);
     setSize(Renderer::getScreenWidth(), Renderer::getScreenHeight());
-    loadPlaylists();
+    openMainMenu(); // La prima schermata è il menu principale
 }
 
 void GuiSpotifyBrowser::centerMenu()
@@ -108,64 +122,201 @@ void GuiSpotifyBrowser::centerMenu()
     mMenu.setPosition((sw - sz.x()) * 0.5f, (sh - sz.y()) * 0.5f);
 }
 
-void GuiSpotifyBrowser::loadPlaylists()
-{
+void GuiSpotifyBrowser::openMainMenu() {
+    mState = SpotifyViewState::MainMenu;
+    mMenu.clear();
+    mMenu.setTitle("SPOTIFY");
+    mMenu.addEntry("RICERCA", true, [this] { openSearchMenu(); });
+    mMenu.addEntry("LE TUE PLAYLIST", true, [this] { openPlaylists(); });
+    mMenu.addEntry("BRANI CHE TI PIACCIONO", true, [this] { openLikedSongs(); });
+    centerMenu();
+    updateHelpPrompts();
+}
+
+void GuiSpotifyBrowser::openSearchMenu() {
+    mState = SpotifyViewState::SearchMenu;
+    mMenu.clear();
+    mMenu.setTitle("COSA VUOI CERCARE?");
+    mMenu.addEntry("BRANI", true, [this] { openSearch("track"); });
+    mMenu.addEntry("ARTISTI", true, [this] { openSearch("artist"); });
+    centerMenu();
+    updateHelpPrompts();
+}
+
+void GuiSpotifyBrowser::openSearch(const std::string& type) {
+    std::string title = (type == "track") ? "CERCA UN BRANO" : "CERCA UN ARTISTA";
+    auto keyboard = new GuiTextEditPopupKeyboard(mWindow, title, "", [this, type](const std::string& query) {
+        if (!query.empty()) {
+            mMenu.clear();
+            mMenu.setTitle("RICERCA IN CORSO...");
+            mMenu.addEntry("...", false, nullptr);
+            centerMenu();
+            SpotifyManager::getInstance(mWindow)->search(query, type, [this, type](const nlohmann::json& results) {
+                if (type == "track") showTrackResults(results);
+                else if (type == "artist") showArtistResults(results);
+            });
+        }
+    }, false);
+    mWindow->pushGui(keyboard);
+}
+
+void GuiSpotifyBrowser::openPlaylists() {
     mState = SpotifyViewState::Playlists;
     mMenu.clear();
-    mMenu.setTitle(_("LE TUE PLAYLIST"));
-    // RIMOSSO -> mMenu.addButton(...);
-
-    mMenu.addEntry(_("Caricamento..."), false, nullptr);
+    mMenu.setTitle("LE TUE PLAYLIST");
+    mMenu.addEntry("Caricamento...", false, nullptr);
     centerMenu();
-
-    SpotifyManager::getInstance(mWindow)->getUserPlaylists(
-      [this](const std::vector<SpotifyPlaylist>& playlists)
-    {
+    updateHelpPrompts();
+    SpotifyManager::getInstance(mWindow)->getUserPlaylists([this](const std::vector<SpotifyPlaylist>& playlists) {
         mMenu.clear();
-        mMenu.setTitle(_("LE TUE PLAYLIST"));
-        // RIMOSSO -> mMenu.addButton(...);
-
-        if (playlists.empty()) {
-            mMenu.addEntry(_("Nessuna playlist trovata."), false, nullptr);
-        } else {
-            for (auto& p : playlists) {
-                ComponentListRow row;
-                auto item = std::make_shared<SpotifyItemComponent>(mWindow, p.name, p.image_url);
-                row.addElement(item, true);
-                item->setSize(mMenu.getSize().x(), 74.0f);
-                row.makeAcceptInputHandler([this, id = p.id] { loadTracks(id); });
-                mMenu.addRow(row);
-            }
+        mMenu.setTitle("LE TUE PLAYLIST");
+        if (playlists.empty()) mMenu.addEntry("Nessuna playlist trovata.", false, nullptr);
+        else for (auto& p : playlists) {
+            ComponentListRow row;
+            auto item = std::make_shared<SpotifyItemComponent>(mWindow, p.name, p.image_url);
+            row.addElement(item, true);
+            item->setSize(mMenu.getSize().x(), 74.0f);
+            row.makeAcceptInputHandler([this, id = p.id, name = p.name] { openTracks(id, name); });
+            mMenu.addRow(row);
         }
         centerMenu();
     });
 }
 
-void GuiSpotifyBrowser::loadTracks(std::string id)
-{
+void GuiSpotifyBrowser::openTracks(const std::string& playlistId, const std::string& playlistName) {
     mState = SpotifyViewState::Tracks;
+    mCurrentPlaylistId = playlistId;
+    mCurrentPlaylistName = playlistName;
     mMenu.clear();
-    mMenu.setTitle(_("TRACCE DELLA PLAYLIST"));
-    // RIMOSSO -> mMenu.addButton(...);
-
-    mMenu.addEntry(_("Caricamento tracce..."), false, nullptr);
+    mMenu.setTitle(playlistName);
+    mMenu.addEntry("Caricamento tracce...", false, nullptr);
     centerMenu();
+    updateHelpPrompts();
+    SpotifyManager::getInstance(mWindow)->getPlaylistTracks(playlistId, [this](const std::vector<SpotifyTrack>& tracks) {
+        mMenu.clear();
+        mMenu.setTitle(mCurrentPlaylistName);
+        if (tracks.empty()) mMenu.addEntry("Nessuna traccia trovata.", false, nullptr);
+        else for (const auto& t : tracks) {
+            ComponentListRow row;
+            auto item = std::make_shared<SpotifyItemComponent>(mWindow, t.name + " — " + t.artist, t.image_url);
+            row.addElement(item, true);
+            item->setSize(mMenu.getSize().x(), 74.0f);
+            row.makeAcceptInputHandler([uri = t.uri] { SpotifyManager::getInstance()->startPlayback(uri); });
+            mMenu.addRow(row);
+        }
+        centerMenu();
+    });
+}
 
-    SpotifyManager::getInstance(mWindow)->getPlaylistTracks(
-        id,
-        [this, id](const std::vector<SpotifyTrack>& tracks)
+void GuiSpotifyBrowser::openLikedSongs() {
+    mState = SpotifyViewState::LikedSongs;
+    mMenu.clear();
+    mMenu.setTitle("BRANI CHE TI PIACCIONO");
+    mMenu.addEntry("Caricamento...", false, nullptr);
+    centerMenu();
+    updateHelpPrompts();
+    SpotifyManager::getInstance(mWindow)->getUserLikedSongs([this](const std::vector<SpotifyTrack>& tracks) {
+        mMenu.clear();
+        mMenu.setTitle("BRANI CHE TI PIACCIONO");
+        if (tracks.empty()) mMenu.addEntry("Nessun brano trovato.", false, nullptr);
+        else for (const auto& t : tracks) {
+            ComponentListRow row;
+            auto item = std::make_shared<SpotifyItemComponent>(mWindow, t.name + " — " + t.artist, t.image_url);
+            row.addElement(item, true);
+            item->setSize(mMenu.getSize().x(), 74.0f);
+            row.makeAcceptInputHandler([uri = t.uri] { SpotifyManager::getInstance()->startPlayback(uri); });
+            mMenu.addRow(row);
+        }
+        centerMenu();
+    });
+}
+
+void GuiSpotifyBrowser::showTrackResults(const nlohmann::json& results) {
+    mState = SpotifyViewState::SearchResults;
+    mMenu.clear();
+    mMenu.setTitle("RISULTATI RICERCA BRANI");
+    if (!results.contains("tracks") || !results["tracks"].contains("items") || results["tracks"]["items"].empty()) {
+        mMenu.addEntry("Nessun brano trovato.", false, nullptr);
+    } else for (const auto& tr : results["tracks"]["items"]) {
+        if (!tr.is_null()) {
+            std::string label = tr.value("name", "?") + " — " + (tr["artists"][0].value("name", "?"));
+            std::string imageUrl = (tr.contains("album") && !tr["album"]["images"].empty()) ? tr["album"]["images"][0].value("url", "") : "";
+            ComponentListRow row;
+            auto item = std::make_shared<SpotifyItemComponent>(mWindow, label, imageUrl);
+            row.addElement(item, true);
+            item->setSize(mMenu.getSize().x(), 74.0f);
+            row.makeAcceptInputHandler([uri = tr.value("uri", "")] { SpotifyManager::getInstance()->startPlayback(uri); });
+            mMenu.addRow(row);
+        }
+    }
+    centerMenu();
+    updateHelpPrompts();
+}
+
+void GuiSpotifyBrowser::showArtistResults(const nlohmann::json& results)
+{
+    mState = SpotifyViewState::SearchResults;
+    mMenu.clear();
+    mMenu.setTitle("RISULTATI RICERCA ARTISTI");
+
+    if (!results.contains("artists") || !results["artists"].contains("items") || results["artists"]["items"].empty()) {
+        mMenu.addEntry("Nessun artista trovato.", false, nullptr);
+    } else {
+        for (const auto& artist : results["artists"]["items"]) {
+            if (artist.is_null()) continue;
+
+            // ==========================================================
+            // ===      LA SOLUZIONE DEFINITIVA È QUI                 ===
+            // ==========================================================
+            // Creiamo puntatori intelligenti per garantire che le stringhe
+            // esistano ancora quando l'utente cliccherà.
+            auto artistNamePtr = std::make_shared<std::string>(artist.value("name", "?"));
+            auto artistIdPtr = std::make_shared<std::string>(artist.value("id", ""));
+            auto imageUrl = (!artist["images"].empty()) ? artist["images"][0].value("url", "") : "";
+            
+            ComponentListRow row;
+            auto item = std::make_shared<SpotifyItemComponent>(mWindow, *artistNamePtr, imageUrl);
+            row.addElement(item, true);
+            item->setSize(mMenu.getSize().x(), 74.0f);
+            
+            // Catturiamo i puntatori. Ora siamo sicuri che i dati saranno validi.
+            row.makeAcceptInputHandler([this, artistIdPtr, artistNamePtr] {
+                LOG(LogInfo) << "CLICK RILEVATO per l'artista: " << *artistNamePtr << " con ID: " << *artistIdPtr;
+                if (!artistIdPtr->empty()) {
+                    openArtistTopTracks(*artistIdPtr, *artistNamePtr);
+                }
+            });
+            mMenu.addRow(row);
+        }
+    }
+    centerMenu();
+    updateHelpPrompts();
+}
+
+void GuiSpotifyBrowser::openArtistTopTracks(const std::string& artistId, const std::string& artistName)
+{
+    // Log di debug per confermare l'esecuzione della funzione
+    LOG(LogInfo) << "Funzione openArtistTopTracks avviata per l'artista: " << artistName;
+
+    mState = SpotifyViewState::ArtistTopTracks;
+    mMenu.clear();
+    mMenu.setTitle(artistName);
+    mMenu.addEntry("Caricamento tracce...", false, nullptr);
+    centerMenu();
+    updateHelpPrompts();
+
+    SpotifyManager::getInstance(mWindow)->getArtistTopTracks(artistId,
+        [this, artistName](const std::vector<SpotifyTrack>& tracks)
         {
             mMenu.clear();
-            mMenu.setTitle(_("TRACCE DELLA PLAYLIST"));
-            // RIMOSSO -> mMenu.addButton(...);
+            mMenu.setTitle(artistName);
 
             if (tracks.empty()) {
-                mMenu.addEntry(_("Nessuna traccia trovata."), false, nullptr);
+                mMenu.addEntry("Nessuna traccia trovata per questo artista.", false, nullptr);
             } else {
                 for (const auto& t : tracks) {
                     ComponentListRow row;
-                    const std::string label = t.name + " — " + t.artist;
-                    auto item = std::make_shared<SpotifyItemComponent>(mWindow, label, t.image_url);
+                    auto item = std::make_shared<SpotifyItemComponent>(mWindow, t.name, t.image_url);
                     row.addElement(item, true);
                     item->setSize(mMenu.getSize().x(), 74.0f);
                     row.makeAcceptInputHandler([uri = t.uri] { SpotifyManager::getInstance()->startPlayback(uri); });
@@ -177,37 +328,25 @@ void GuiSpotifyBrowser::loadTracks(std::string id)
     );
 }
 
-bool GuiSpotifyBrowser::input(InputConfig* config, Input input)
-{
-    if (GuiComponent::input(config, input))
-        return true;
-
-    if ((config->isMappedTo(BUTTON_BACK, input) || config->isMappedTo("start", input)) && input.value != 0)
-    {
-        if (mState == SpotifyViewState::Tracks)
-        {
-            loadPlaylists();
-        }
-        else
-        {
-            delete this;
+bool GuiSpotifyBrowser::input(InputConfig* config, Input input) {
+    if (GuiComponent::input(config, input)) return true;
+    if ((config->isMappedTo(BUTTON_BACK, input) || config->isMappedTo("start", input)) && input.value != 0) {
+        switch (mState) {
+            case SpotifyViewState::Tracks: openPlaylists(); break;
+            case SpotifyViewState::ArtistTopTracks: openSearchMenu(); break;
+            case SpotifyViewState::Playlists: case SpotifyViewState::LikedSongs: case SpotifyViewState::SearchResults: case SpotifyViewState::SearchMenu: openMainMenu(); break;
+            case SpotifyViewState::MainMenu: default: delete this; break;
         }
         return true;
     }
-
     return false;
 }
 
-std::vector<HelpPrompt> GuiSpotifyBrowser::getHelpPrompts()
-{
+std::vector<HelpPrompt> GuiSpotifyBrowser::getHelpPrompts() {
     std::vector<HelpPrompt> prompts;
     prompts.push_back(HelpPrompt("up/down", _("CHOOSE")));
     prompts.push_back(HelpPrompt(BUTTON_OK, _("SELECT")));
-
-    if (mState == SpotifyViewState::Tracks) {
-        prompts.push_back(HelpPrompt(BUTTON_BACK, _("BACK")));
-    } else {
-        prompts.push_back(HelpPrompt("start", _("CLOSE")));
-    }
+    if (mState != SpotifyViewState::MainMenu) prompts.push_back(HelpPrompt(BUTTON_BACK, _("BACK")));
+    else prompts.push_back(HelpPrompt("start", _("CLOSE")));
     return prompts;
 }
