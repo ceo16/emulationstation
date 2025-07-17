@@ -227,12 +227,19 @@ void SpotifyManager::getUserPlaylists(const std::function<void(const std::vector
                 HttpReq r("https://api.spotify.com/v1/me/playlists", &o); r.wait();
                 if (r.status() == HttpReq::Status::REQ_SUCCESS) {
                     auto j = nlohmann::json::parse(r.getContent());
-                    for (auto& i : j["items"])
+                    for (auto& i : j["items"]) {
+                        std::string imageUrl = (i["images"].empty() ? "" : i["images"][0].value("url", ""));
+                        std::string name = i.value("name", "?");
+                        
+                        // -- LOG AGGIUNTO QUI --
+                        LOG(LogInfo) << "SpotifyManager -> Playlist: " << name << " | Image URL: " << imageUrl;
+
                         out.push_back({
-                            i.value("name","?"),
+                            name,
                             i.value("id",""),
-                            (i["images"].empty()?"":i["images"][0].value("url",""))
+                            imageUrl
                         });
+                    }
                 }
             }
         } catch(...) {}
@@ -255,12 +262,20 @@ void SpotifyManager::getPlaylistTracks(const std::string& pid,
                         auto j = nlohmann::json::parse(r.getContent());
                         for (auto& it : j["items"]) {
                             auto& tr = it["track"];
-                            if (!tr.is_null())
+                            if (!tr.is_null()) {
+                                std::string trackName = tr.value("name","?");
+                                std::string imageUrl = (tr.contains("album") && !tr["album"]["images"].empty()) ? tr["album"]["images"][0].value("url", "") : "";
+
+                                // -- LOG AGGIUNTO QUI --
+                                LOG(LogInfo) << "SpotifyManager -> Track: " << trackName << " | Image URL: " << imageUrl;
+
                                 out.push_back({
-                                    tr.value("name","?"),
+                                    trackName,
                                     tr["artists"][0].value("name","?"),
-                                    tr.value("uri","")
+                                    tr.value("uri",""),
+                                    imageUrl
                                 });
+                            }
                         }
                         url = j.value("next",""); 
                     } else break;

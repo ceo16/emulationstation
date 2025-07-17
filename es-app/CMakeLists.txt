@@ -147,13 +147,6 @@ set(ES_HEADERS
     ${CMAKE_CURRENT_SOURCE_DIR}/src/views/gamelist/VideoGameListView.h
     ${CMAKE_CURRENT_SOURCE_DIR}/src/views/gamelist/DetailedContainer.h
     ${CMAKE_CURRENT_SOURCE_DIR}/src/views/gamelist/GameNameFormatter.h
-	${CMAKE_CURRENT_SOURCE_DIR}/src/views/spotify/SpotifyRootView.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/views/spotify/SpotifyPlaylistView.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/views/spotify/SpotifySongListView.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/views/spotify/SpotifyHomeView.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/views/spotify/SpotifySearchView.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/views/spotify/SpotifyPhotoGalleryView.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/views/spotify/SpotifyArtistDetailView.h
     ${CMAKE_CURRENT_SOURCE_DIR}/src/views/SystemView.h
     ${CMAKE_CURRENT_SOURCE_DIR}/src/views/ViewController.h
     ${CMAKE_CURRENT_SOURCE_DIR}/src/views/UIModeController.h
@@ -305,13 +298,6 @@ set(ES_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/src/views/gamelist/VideoGameListView.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/views/gamelist/DetailedContainer.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/views/gamelist/GameNameFormatter.cpp
-	${CMAKE_CURRENT_SOURCE_DIR}/src/views/spotify/SpotifyRootView.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/views/spotify/SpotifyPlaylistView.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/views/spotify/SpotifySongListView.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/views/spotify/SpotifyHomeView.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/views/spotify/SpotifySearchView.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/views/spotify/SpotifyPhotoGalleryView.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/views/spotify/SpotifyArtistDetailView.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/views/SystemView.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/views/ViewController.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/views/UIModeController.cpp

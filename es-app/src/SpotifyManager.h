@@ -11,6 +11,7 @@ struct SpotifyTrack {
     std::string name;
     std::string artist;
     std::string uri;
+	std::string image_url;
 };
 
 struct SpotifyPlaylist {
@@ -38,6 +39,8 @@ public:
     void getUserPlaylists(const std::function<void(const std::vector<SpotifyPlaylist>&)>& callback);
     void getPlaylistTracks(const std::string& playlist_id, const std::function<void(const std::vector<SpotifyTrack>&)>& callback);
 	SpotifyTrack getCurrentlyPlaying();
+	static constexpr char CLIENT_ID[]    = "b0532e0f304c4fb68cb5ed528fd46b37";
+    static constexpr char CLIENT_SECRET[] = "e619644b3d854b1b8056a33b73e02299";
 
 private:
     SpotifyManager(Window* window);
@@ -58,8 +61,7 @@ private:
     std::string mRefreshToken;
     std::string mTokensPath;
 	
-	static constexpr char CLIENT_ID[]    = "b0532e0f304c4fb68cb5ed528fd46b37";
-    static constexpr char CLIENT_SECRET[] = "e619644b3d854b1b8056a33b73e02299";
+	
 
     static SpotifyManager* sInstance;
 };

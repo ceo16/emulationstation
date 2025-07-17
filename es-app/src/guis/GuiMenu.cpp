@@ -4066,19 +4066,18 @@ s->addSaveFunc([spotifySourceSwitch] {
 // Pulsante per il Login
 s->addEntry(_("LOGIN WITH SPOTIFY"), true, [this]
 {
-    const auto clientId     = SystemConf::getInstance()->get("spotify.client.id");
-    const auto clientSecret = SystemConf::getInstance()->get("spotify.client.secret");
-    if (clientId.empty() || clientSecret.empty())
-    {
-        mWindow->pushGui(new GuiMsgBox(mWindow,
-            _("INSERISCI CLIENT ID E SECRET NELLE IMPOSTAZIONI"), _("OK")));
-        return;
-    }
+    // Usa direttamente le costanti definite in SpotifyManager
+    const std::string clientId = SpotifyManager::CLIENT_ID;
+
+    // NOTA: Poiché CLIENT_SECRET è privato, lo recuperiamo tramite il manager.
+    // In alternativa, potresti renderlo pubblico come CLIENT_ID se preferisci.
+    // Ai fini di questo esempio, assumiamo che rimanga privato e che il manager
+    // gestisca l'autenticazione internamente.
 
     const std::string redirect = "es-spotify://callback";
     const std::string scopes   = "user-modify-playback-state user-read-playback-state";
     std::string authUrl = "https://accounts.spotify.com/authorize?"
-        "client_id="   + HttpReq::urlEncode(clientId) +
+        "client_id="     + HttpReq::urlEncode(clientId) +
         "&response_type=code"
         "&redirect_uri=" + HttpReq::urlEncode(redirect) +
         "&scope="        + HttpReq::urlEncode(scopes) +
