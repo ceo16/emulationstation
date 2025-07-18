@@ -21,6 +21,14 @@ struct SpotifyPlaylist {
     std::string image_url;
 };
 
+// Aggiunta la struttura per gli Album
+struct SpotifyAlbum {
+    std::string name;
+    std::string id;
+    std::string image_url;
+};
+
+
 class SpotifyManager
 {
 public:
@@ -36,12 +44,13 @@ public:
     void resumePlayback();
 
     void getUserPlaylists(const std::function<void(const std::vector<SpotifyPlaylist>&)>& callback);
-    void getPlaylistTracks(const std::string& playlist_id, const std::function<void(const std::vector<SpotifyTrack>&)>& callback);
+    // Modificata per accettare l'ID per valore e usare il market di default
+    void getPlaylistTracks(std::string playlistId, const std::function<void(const std::vector<SpotifyTrack>&)>& callback, const std::string& market = "");
     void getUserLikedSongs(const std::function<void(const std::vector<SpotifyTrack>&)>& callback);
-    void search(const std::string& query, const std::string& types, const std::function<void(const nlohmann::json&)>& callback);
-	void getArtistTopTracks(const std::string& artistId, const std::function<void(const std::vector<SpotifyTrack>&)>& callback);
-
-
+    void search(const std::string& query, const std::string& types, const std::function<void(const nlohmann::json&)>& callback, const std::string& market = "");
+    void getArtistTopTracks(const std::string& artistId, const std::function<void(const std::vector<SpotifyTrack>&)>& callback, const std::string& market = "");
+    // Nuova funzione per ottenere le tracce di un album
+    void getAlbumTracks(const std::string& albumId, const std::function<void(const std::vector<SpotifyTrack>&)>& callback, const std::string& market = "");
 
 
 	SpotifyTrack getCurrentlyPlaying();
@@ -56,6 +65,9 @@ private:
 
     bool refreshTokens();
     std::string getActiveComputerDeviceId();
+    
+    // Funzione helper per ottenere il mercato di default dalla lingua del sistema
+    std::string getDefaultMarket();
 
     void loadTokens();
     void saveTokens();

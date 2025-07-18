@@ -3,6 +3,7 @@
 #include "Log.h"
 #include "Paths.h"
 #include "Settings.h"
+#include "SystemConf.h" 
 #include "Window.h"
 #include "guis/GuiLoading.h"
 #include "utils/FileSystemUtil.h"
@@ -62,6 +63,14 @@ SpotifyManager* SpotifyManager::getInstance(Window* window)
         sInstance->mWindow = window;
     }
     return sInstance;
+}
+
+std::string SpotifyManager::getDefaultMarket() {
+    std::string lang = SystemConf::getInstance()->get("system.language"); // es. "it_IT"
+    if (lang.length() >= 5 && lang[2] == '_') {
+        return Utils::String::toUpper(lang.substr(3, 2)); // Estrae "IT"
+    }
+    return "US"; // Fallback
 }
 
 SpotifyManager::SpotifyManager(Window* window)
@@ -219,70 +228,132 @@ void SpotifyManager::pausePlayback() {
 // --- getUserPlaylists & getPlaylistTracks (stesso pattern) ---
 void SpotifyManager::getUserPlaylists(const std::function<void(const std::vector<SpotifyPlaylist>&)>& callback)
 {
-    std::thread([this,callback]() {
+    std::thread([this, callback]() {
         std::vector<SpotifyPlaylist> out;
         try {
             if (isAuthenticated()) {
-                HttpReqOptions o; o.customHeaders.push_back("Authorization: Bearer " + getAccessToken());
-                HttpReq r("https://api.spotify.com/v1/me/playlists", &o); r.wait();
+                HttpReqOptions o;
+                o.customHeaders.push_back("Authorization: Bearer " + getAccessToken());
+                HttpReq r("https://api.spotify.com/v1/me/playlists", &o);
+                r.wait();
+                
                 if (r.status() == HttpReq::Status::REQ_SUCCESS) {
                     auto j = nlohmann::json::parse(r.getContent());
-                    for (auto& i : j["items"]) {
-                        std::string imageUrl = (i["images"].empty() ? "" : i["images"][0].value("url", ""));
-                        std::string name = i.value("name", "?");
-                        
-                        // -- LOG AGGIUNTO QUI --
-                        LOG(LogInfo) << "SpotifyManager -> Playlist: " << name << " | Image URL: " << imageUrl;
+                    if (j.contains("items")) {
+                        for (auto& i : j["items"]) {
+                            std::string name = i.value("name", "?");
+                            std::string id = i.value("id", ""); // Estraiamo l'ID qui
 
-                        out.push_back({
-                            name,
-                            i.value("id",""),
-                            imageUrl
-                        });
+                            // ==========================================================
+                            // ===                LOG DI DEBUG CRUCIALE               ===
+                            // ==========================================================
+                            // Questo log ci mostrerà l'ID di ogni playlist trovata.
+                            // Se l'ID è vuoto qui, il problema è nella risposta dell'API.
+                            LOG(LogInfo) << "[SpotifyManager] Playlist Trovata: '" << name << "', ID Estratto: '" << id << "'";
+
+                            out.push_back({
+                                name,
+                                id, // Usiamo l'ID che abbiamo appena loggato
+                                (i["images"].empty() ? "" : i["images"][0].value("url", ""))
+                            });
+                        }
                     }
+                } else {
+                    LOG(LogError) << "[SpotifyManager] Errore API in getUserPlaylists: " << r.getErrorMsg();
                 }
             }
-        } catch(...) {}
-        mWindow->postToUiThread([callback,out]{ callback(out); });
+        } catch(const std::exception& e) {
+            LOG(LogError) << "[SpotifyManager] Eccezione in getUserPlaylists: " << e.what();
+        }
+        
+        mWindow->postToUiThread([callback, out]{ callback(out); });
     }).detach();
 }
 
-void SpotifyManager::getPlaylistTracks(const std::string& pid,
-    const std::function<void(const std::vector<SpotifyTrack>&)>& callback)
+void SpotifyManager::getPlaylistTracks(
+    std::string playlistId,
+    const std::function<void(const std::vector<SpotifyTrack>&)>& callback,
+    const std::string& market)
 {
-    std::thread([this,pid,callback]() {
+    LOG(LogInfo) << "[SpotifyManager] Chiamata a getPlaylistTracks con ID: " << playlistId;
+
+    std::thread([this, playlistId = std::move(playlistId), callback, market]() mutable {
         std::vector<SpotifyTrack> out;
-        try {
-            if (isAuthenticated() && !pid.empty()) {
-                std::string url = "https://api.spotify.com/v1/playlists/" + pid + "/tracks";
-                HttpReqOptions o; o.customHeaders.push_back("Authorization: Bearer " + getAccessToken());
+        if (isAuthenticated() && !playlistId.empty()) {
+            try {
+                std::string currentMarket = market.empty() ? getDefaultMarket() : market;
+                std::string url = "https://api.spotify.com/v1/playlists/" + playlistId + "/tracks?market=" + currentMarket;
+                
+                HttpReqOptions o;
+                o.customHeaders.push_back("Authorization: Bearer " + getAccessToken());
+
                 do {
-                    HttpReq r(url, &o); r.wait();
+                    HttpReq r(url, &o);
+                    r.wait();
                     if (r.status() == HttpReq::Status::REQ_SUCCESS) {
                         auto j = nlohmann::json::parse(r.getContent());
                         for (auto& it : j["items"]) {
                             auto& tr = it["track"];
                             if (!tr.is_null()) {
-                                std::string trackName = tr.value("name","?");
-                                std::string imageUrl = (tr.contains("album") && !tr["album"]["images"].empty()) ? tr["album"]["images"][0].value("url", "") : "";
-
-                                // -- LOG AGGIUNTO QUI --
-                                LOG(LogInfo) << "SpotifyManager -> Track: " << trackName << " | Image URL: " << imageUrl;
-
                                 out.push_back({
-                                    trackName,
-                                    tr["artists"][0].value("name","?"),
-                                    tr.value("uri",""),
-                                    imageUrl
+                                    tr.value("name", "?"),
+                                    tr.contains("artists") && !tr["artists"].empty() ? tr["artists"][0].value("name", "?") : "?",
+                                    tr.value("uri", ""),
+                                    tr.contains("album") && !tr["album"]["images"].empty() ? tr["album"]["images"][0].value("url", "") : ""
                                 });
                             }
                         }
-                        url = j.value("next",""); 
-                    } else break;
+                        url = j.value("next", "");
+                    } else {
+                        LOG(LogError) << "Errore in getPlaylistTracks: " << r.getErrorMsg();
+                        break;
+                    }
                 } while (!url.empty());
+            } catch (const std::exception& e) {
+                LOG(LogError) << "Eccezione in getPlaylistTracks: " << e.what();
             }
-        } catch(...) {}
-        mWindow->postToUiThread([callback,out]{ callback(out); });
+        }
+        mWindow->postToUiThread([callback, out] { callback(out); });
+    }).detach();
+}
+
+void SpotifyManager::getAlbumTracks(const std::string& albumId, const std::function<void(const std::vector<SpotifyTrack>&)>& callback, const std::string& market) {
+    LOG(LogInfo) << "[SpotifyManager] Chiamata a getAlbumTracks con ID: " << albumId;
+
+    std::thread([this, albumId, callback, market]() {
+        std::vector<SpotifyTrack> out;
+        if (isAuthenticated() && !albumId.empty()) {
+            try {
+                std::string currentMarket = market.empty() ? getDefaultMarket() : market;
+                std::string url = "https://api.spotify.com/v1/albums/" + albumId + "/tracks?market=" + currentMarket;
+
+                HttpReqOptions o;
+                o.customHeaders.push_back("Authorization: Bearer " + getAccessToken());
+                
+                HttpReq r(url, &o);
+                r.wait();
+
+                if (r.status() == HttpReq::Status::REQ_SUCCESS) {
+                    auto j = nlohmann::json::parse(r.getContent());
+                    for (auto& tr : j["items"]) {
+                        if (!tr.is_null()) {
+                            // La struttura delle tracce di un album è leggermente diversa
+                            out.push_back({
+                                tr.value("name", "?"),
+                                tr.contains("artists") && !tr["artists"].empty() ? tr["artists"][0].value("name", "?") : "?",
+                                tr.value("uri", ""),
+                                "" // L'album non contiene l'immagine per ogni traccia, andrebbe recuperata dall'album principale se necessario
+                            });
+                        }
+                    }
+                } else {
+                    LOG(LogError) << "Errore in getAlbumTracks: " << r.getErrorMsg();
+                }
+            } catch (const std::exception& e) {
+                LOG(LogError) << "Eccezione in getAlbumTracks: " << e.what();
+            }
+        }
+        mWindow->postToUiThread([callback, out] { callback(out); });
     }).detach();
 }
 
@@ -319,17 +390,42 @@ void SpotifyManager::getUserLikedSongs(const std::function<void(const std::vecto
     }).detach();
 }
 
-void SpotifyManager::search(const std::string& query, const std::string& types, const std::function<void(const nlohmann::json&)>& callback)
+void SpotifyManager::search(const std::string& query, const std::string& types, const std::function<void(const nlohmann::json&)>& callback, const std::string& market)
 {
-    std::thread([this, query, types, callback]() {
+    std::thread([this, query, types, callback, market]() {
         nlohmann::json result;
         if (isAuthenticated() && !query.empty()) {
             try {
-                // ==========================================================
-                // ===             LA CORREZIONE DEFINITIVA               ===
-                // ==========================================================
-                // Convertendo il primo pezzo in std::string, la concatenazione (+) funziona.
-                std::string url = std::string("https://api.spotify.com/v1/search") + "?q=" + HttpReq::urlEncode(query) + "&type=" + types;
+                std::string currentMarket = market.empty() ? getDefaultMarket() : market;
+                std::string url = "https://api.spotify.com/v1/search?q=" + HttpReq::urlEncode(query) + "&type=" + types + "&market=" + currentMarket;
+
+                HttpReqOptions o;
+                o.customHeaders.push_back("Authorization: Bearer " + getAccessToken());
+                HttpReq r(url, &o);
+                r.wait();
+                if (r.status() == HttpReq::Status::REQ_SUCCESS) {
+                    result = nlohmann::json::parse(r.getContent());
+                } else {
+                    LOG(LogError) << "Errore nella ricerca Spotify. URL: " << url << " | Errore: " << r.getErrorMsg();
+                }
+            } catch(const std::exception& e) {
+                LOG(LogError) << "Eccezione in search: " << e.what();
+            }
+        }
+        mWindow->postToUiThread([callback, result]{ callback(result); });
+    }).detach();
+}
+
+void SpotifyManager::getArtistTopTracks(const std::string& artistId, const std::function<void(const std::vector<SpotifyTrack>&)>& callback, const std::string& market)
+{
+    LOG(LogInfo) << "[SpotifyManager] Chiamata a getArtistTopTracks per ID: " << artistId;
+    
+    std::thread([this, artistId, callback, market]() {
+        std::vector<SpotifyTrack> out;
+        if (isAuthenticated() && !artistId.empty()) {
+            try {
+                std::string currentMarket = market.empty() ? getDefaultMarket() : market;
+                std::string url = "https://api.spotify.com/v1/artists/" + artistId + "/top-tracks?market=" + currentMarket;
 
                 HttpReqOptions o;
                 o.customHeaders.push_back("Authorization: Bearer " + getAccessToken());
@@ -338,63 +434,28 @@ void SpotifyManager::search(const std::string& query, const std::string& types, 
                 r.wait();
 
                 if (r.status() == HttpReq::Status::REQ_SUCCESS) {
-                    result = nlohmann::json::parse(r.getContent());
-                } else {
-                    LOG(LogError) << "Errore nella ricerca Spotify. URL: " << url << " | Errore: " << r.getErrorMsg();
-                }
-            } catch(...) {
-                LOG(LogError) << "Eccezione in search";
-            }
-        }
-        mWindow->postToUiThread([callback, result]{ callback(result); });
-    }).detach();
-}
-
-void SpotifyManager::getArtistTopTracks(const std::string& artistId, const std::function<void(const std::vector<SpotifyTrack>&)>& callback)
-{
-    // Rimosso std::thread per debug. Questa funzione ora bloccherà la UI.
-    LOG(LogInfo) << "[SYNC] Avviata getArtistTopTracks per ID: " << artistId;
-
-    std::vector<SpotifyTrack> out;
-    if (isAuthenticated() && !artistId.empty()) {
-        try {
-            std::string url = "https://api.spotify.com/v1/artists/" + artistId + "/top-tracks?market=IT";
-            LOG(LogInfo) << "[SYNC] Tento di recuperare le top tracks con URL: " << url;
-
-            HttpReqOptions o;
-            o.customHeaders.push_back("Authorization: Bearer " + getAccessToken());
-
-            HttpReq r(url, &o);
-            r.wait(); // Aspetta il completamento della richiesta
-
-            LOG(LogInfo) << "[SYNC] Risposta completa dall'API per le top tracks: " << r.getContent();
-
-            if (r.status() == HttpReq::Status::REQ_SUCCESS) {
-                auto j = nlohmann::json::parse(r.getContent());
-                if (j.contains("tracks")) {
-                    for (auto& tr : j["tracks"]) {
-                        if (!tr.is_null()) {
-                            out.push_back({
-                                tr.value("name", "?"),
-                                tr.contains("artists") && !tr["artists"].empty() ? tr["artists"][0].value("name", "?") : "N/A",
-                                tr.value("uri", ""),
-                                (tr.contains("album") && !tr["album"]["images"].empty()) ? tr["album"]["images"][0].value("url", "") : ""
-                            });
+                    auto j = nlohmann::json::parse(r.getContent());
+                    if (j.contains("tracks")) {
+                        for (auto& tr : j["tracks"]) {
+                            if (!tr.is_null()) {
+                                out.push_back({
+                                    tr.value("name", "?"),
+                                    tr.contains("artists") && !tr["artists"].empty() ? tr["artists"][0].value("name", "?") : "N/A",
+                                    tr.value("uri", ""),
+                                    (tr.contains("album") && !tr["album"]["images"].empty()) ? tr["album"]["images"][0].value("url", "") : ""
+                                });
+                            }
                         }
                     }
+                } else {
+                    LOG(LogError) << "[ASYNC] Errore nel recuperare le top tracks: " << r.getErrorMsg();
                 }
-            } else {
-                LOG(LogError) << "[SYNC] Errore nel recuperare le top tracks: " << r.getErrorMsg();
+            } catch(const std::exception& e) {
+                LOG(LogError) << "[ASYNC] Eccezione: " << e.what();
             }
-        } catch(const std::exception& e) {
-            LOG(LogError) << "[SYNC] Eccezione: " << e.what();
         }
-    } else {
-        LOG(LogWarning) << "[SYNC] Chiamata API saltata. Autenticato: " << isAuthenticated() << ", ID Artista: " << artistId;
-    }
-
-    // Esegui la callback direttamente, senza postToUiThread
-    callback(out);
+        mWindow->postToUiThread([callback, out] { callback(out); });
+    }).detach();
 }
 
 // --- getCurrentlyPlaying, refresh, deviceId, tokens ---

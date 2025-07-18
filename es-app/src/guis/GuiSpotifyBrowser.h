@@ -9,9 +9,11 @@
 #include "InputConfig.h"
 #include "components/ImageComponent.h"
 #include "components/TextComponent.h"
-#include "json.hpp" // Necessario per nlohmann::json
+#include "json.hpp"
+#include <memory>
+#include <vector>
 
-// --- COMPONENTE PER LA RIGA (INVARIATO) ---
+// --- SpotifyItemComponent (invariato) ---
 class SpotifyItemComponent : public GuiComponent
 {
 public:
@@ -26,6 +28,13 @@ private:
     bool mInitialized;
 };
 
+// Aggiunta per coerenza, anche se usata solo qui
+struct SpotifyArtist {
+    std::string name;
+    std::string id;
+    std::string image_url;
+};
+
 
 // --- CLASSE PRINCIPALE DEL BROWSER ---
 class GuiSpotifyBrowser : public GuiComponent
@@ -37,28 +46,36 @@ public:
     std::vector<HelpPrompt> getHelpPrompts() override;
 
 private:
-    // --- DICHIARAZIONI COMPLETE DI TUTTE LE FUNZIONI ---
     void openMainMenu();
     void openSearchMenu();
     void openSearch(const std::string& type);
     void openPlaylists();
-    void openTracks(const std::string& playlistId, const std::string& playlistName);
-    void openArtistTopTracks(const std::string& artistId, const std::string& artistName);
     void openLikedSongs();
-    
+
+    void openMyPlaylistTracks(const std::string& playlistId, const std::string& playlistName);
+    void openSearchPlaylistTracks(const std::string& playlistId, const std::string& playlistName);
+    void openAlbumTracks(const std::string& albumId, const std::string& albumName, const std::string& albumImageUrl);
+    void openArtistTopTracks(const std::string& artistId, const std::string& artistName);
+
     void showTrackResults(const nlohmann::json& results);
     void showArtistResults(const nlohmann::json& results);
+    void showAlbumResults(const nlohmann::json& results);
+    void showPlaylistResults(const nlohmann::json& results);
 
     void centerMenu();
 
-    // --- STATO ---
-    enum class SpotifyViewState { MainMenu, SearchMenu, Playlists, Tracks, LikedSongs, SearchResults, ArtistTopTracks };
+    enum class SpotifyViewState { MainMenu, SearchMenu, Playlists, MyPlaylistTracks, LikedSongs, SearchResults, ArtistTopTracks, AlbumTracks, SearchPlaylistTracks };
     SpotifyViewState mState;
 
-    std::string mCurrentPlaylistId;
-    std::string mCurrentPlaylistName;
-
     MenuComponent mMenu;
+
+    // Variabili separate per ogni tipo di lista
+    std::vector<SpotifyPlaylist> mLoadedPlaylists;
+    std::vector<SpotifyPlaylist> mFoundPlaylists;
+    std::vector<SpotifyAlbum>    mLoadedAlbums;
+    std::vector<SpotifyArtist>   mFoundArtists; // Variabile dedicata per gli artisti
+    
+    nlohmann::json mLastSearchResults;
 };
 
 #endif // ES_APP_GUIS_GUISPOTIFYBROWSER_H
