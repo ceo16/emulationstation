@@ -118,8 +118,10 @@ void GuiSpotifyBrowser::openMainMenu() {
     mMenu.clear();
     mMenu.setTitle("SPOTIFY");
     mMenu.addEntry("RICERCA", true, [this] { openSearchMenu(); });
+	 mMenu.addEntry("CREATO PER TE", true, [this] { openFeaturedPlaylists(); });
     mMenu.addEntry("LE TUE PLAYLIST", true, [this] { openPlaylists(); });
     mMenu.addEntry("BRANI CHE TI PIACCIONO", true, [this] { openLikedSongs(); });
+	mMenu.addEntry("SFOGLIA CATEGORIE", true, [this] { openCategories(); });
     centerMenu();
 }
 
@@ -244,6 +246,43 @@ void GuiSpotifyBrowser::openMyPlaylistTracks(const std::string& playlistId, cons
     });
 }
 
+void GuiSpotifyBrowser::openFeaturedPlaylists() {
+    mState = SpotifyViewState::FeaturedPlaylists;
+    mMenu.clear();
+    mMenu.setTitle("CARICAMENTO...");
+    mMenu.addEntry("...", false, nullptr);
+    centerMenu();
+    
+    SpotifyManager::getInstance(mWindow)->getFeaturedPlaylists([this](const std::vector<SpotifyPlaylist>& playlists, const std::string& title) {
+        mFeaturedPlaylists = playlists;
+        mMenu.clear();
+        mMenu.setTitle(Utils::String::toUpper(title));
+        
+        if (mFeaturedPlaylists.empty()) {
+            mMenu.addEntry("Nessun contenuto trovato.", false, nullptr);
+        } else {
+            for (size_t i = 0; i < mFeaturedPlaylists.size(); ++i) {
+                const auto& p = mFeaturedPlaylists[i];
+                ComponentListRow row;
+                auto item = std::make_shared<SpotifyItemComponent>(mWindow, p.name, p.image_url);
+                row.addElement(item, true);
+                item->setSize(mMenu.getSize().x(), 74.0f);
+                
+                row.makeAcceptInputHandler([this, index = i] {
+                    if (index < mFeaturedPlaylists.size()) {
+                        const auto& clickedPlaylist = mFeaturedPlaylists[index];
+                        // Riusiamo la funzione per le tracce delle playlist cercate,
+                        // perché il comportamento "indietro" è lo stesso (torna a una lista, non al menu).
+                        openSearchPlaylistTracks(clickedPlaylist.id, clickedPlaylist.name);
+                    }
+                });
+                mMenu.addRow(row);
+            }
+        }
+        centerMenu();
+    });
+}
+
 void GuiSpotifyBrowser::openSearchPlaylistTracks(const std::string& playlistId, const std::string& playlistName) {
     mState = SpotifyViewState::SearchPlaylistTracks;
     mMenu.clear();
@@ -265,6 +304,77 @@ void GuiSpotifyBrowser::openSearchPlaylistTracks(const std::string& playlistId, 
                 item->setSize(mMenu.getSize().x(), 74.0f);
                 row.makeAcceptInputHandler([uriPtr] {
                     if (!uriPtr->empty()) SpotifyManager::getInstance()->startPlayback(*uriPtr);
+                });
+                mMenu.addRow(row);
+            }
+        }
+        centerMenu();
+    });
+}
+
+void GuiSpotifyBrowser::openCategories() {
+    mState = SpotifyViewState::Categories;
+    mMenu.clear();
+    mMenu.setTitle("CATEGORIE");
+    mMenu.addEntry("Caricamento...", false, nullptr);
+    centerMenu();
+    
+    SpotifyManager::getInstance(mWindow)->getCategories([this](const std::vector<SpotifyCategory>& categories) {
+        mCategories = categories;
+        mMenu.clear();
+        mMenu.setTitle("CATEGORIE");
+        
+        if (mCategories.empty()) {
+            mMenu.addEntry("Nessuna categoria trovata.", false, nullptr);
+        } else {
+            for (size_t i = 0; i < mCategories.size(); ++i) {
+                const auto& c = mCategories[i];
+                ComponentListRow row;
+                auto item = std::make_shared<SpotifyItemComponent>(mWindow, c.name, c.image_url);
+                row.addElement(item, true);
+                item->setSize(mMenu.getSize().x(), 74.0f);
+                
+                row.makeAcceptInputHandler([this, index = i] {
+                    if (index < mCategories.size()) {
+                        const auto& clickedCategory = mCategories[index];
+                        openCategoryPlaylists(clickedCategory.id, clickedCategory.name);
+                    }
+                });
+                mMenu.addRow(row);
+            }
+        }
+        centerMenu();
+    });
+}
+
+void GuiSpotifyBrowser::openCategoryPlaylists(const std::string& categoryId, const std::string& categoryName) {
+    mState = SpotifyViewState::CategoryPlaylists;
+    mMenu.clear();
+    mMenu.setTitle(Utils::String::toUpper(categoryName));
+    mMenu.addEntry("Caricamento playlist...", false, nullptr);
+    centerMenu();
+
+    SpotifyManager::getInstance(mWindow)->getCategoryPlaylists(categoryId, [this, categoryName](const std::vector<SpotifyPlaylist>& playlists) {
+        mCategoryPlaylists = playlists;
+        mMenu.clear();
+        mMenu.setTitle(Utils::String::toUpper(categoryName));
+
+        if (mCategoryPlaylists.empty()) {
+            mMenu.addEntry("Nessuna playlist trovata in questa categoria.", false, nullptr);
+        } else {
+            for (size_t i = 0; i < mCategoryPlaylists.size(); ++i) {
+                const auto& p = mCategoryPlaylists[i];
+                ComponentListRow row;
+                auto item = std::make_shared<SpotifyItemComponent>(mWindow, p.name, p.image_url);
+                row.addElement(item, true);
+                item->setSize(mMenu.getSize().x(), 74.0f);
+
+                row.makeAcceptInputHandler([this, index = i] {
+                    if (index < mCategoryPlaylists.size()) {
+                        const auto& clickedPlaylist = mCategoryPlaylists[index];
+                        // Riusiamo la funzione delle tracce cercate
+                        openSearchPlaylistTracks(clickedPlaylist.id, clickedPlaylist.name);
+                    }
                 });
                 mMenu.addRow(row);
             }
@@ -489,29 +599,33 @@ bool GuiSpotifyBrowser::input(InputConfig* config, Input input) {
             case SpotifyViewState::MyPlaylistTracks:
                 openPlaylists();
                 break;
-
             case SpotifyViewState::SearchPlaylistTracks:
-                showPlaylistResults(mLastSearchResults);
+                // Se veniamo da una ricerca, torniamo ai risultati. Se da una categoria, alla lista playlist.
+                if (!mLastSearchResults.empty()) {
+                    showPlaylistResults(mLastSearchResults);
+                } else {
+                    // Dato che non abbiamo il nome della categoria qui, torniamo alla lista delle categorie
+                    openCategories();
+                }
                 break;
-
             case SpotifyViewState::AlbumTracks:
                 showAlbumResults(mLastSearchResults);
                 break;
-            
             case SpotifyViewState::ArtistTopTracks:
                 showArtistResults(mLastSearchResults);
                 break;
-
-            case SpotifyViewState::SearchResults:
-                openSearchMenu();
+            // --- NUOVI CASI PER IL TASTO INDIETRO ---
+            case SpotifyViewState::CategoryPlaylists:
+                openCategories();
                 break;
-
+            case SpotifyViewState::Categories:
             case SpotifyViewState::Playlists:
             case SpotifyViewState::LikedSongs:
             case SpotifyViewState::SearchMenu:
+            case SpotifyViewState::SearchResults:
+			case SpotifyViewState::FeaturedPlaylists:
                 openMainMenu();
                 break;
-
             case SpotifyViewState::MainMenu:
             default:
                 delete this;

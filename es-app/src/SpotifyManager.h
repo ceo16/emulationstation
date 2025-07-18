@@ -28,6 +28,12 @@ struct SpotifyAlbum {
     std::string image_url;
 };
 
+struct SpotifyCategory {
+    std::string name;
+    std::string id;
+    std::string image_url;
+};
+
 
 class SpotifyManager
 {
@@ -51,6 +57,11 @@ public:
     void getArtistTopTracks(const std::string& artistId, const std::function<void(const std::vector<SpotifyTrack>&)>& callback, const std::string& market = "");
     // Nuova funzione per ottenere le tracce di un album
     void getAlbumTracks(const std::string& albumId, const std::function<void(const std::vector<SpotifyTrack>&)>& callback, const std::string& market = "");
+	void getFeaturedPlaylists(const std::function<void(const std::vector<SpotifyPlaylist>&, const std::string&)>& callback, const std::string& market = "");
+	 void getCategories(const std::function<void(const std::vector<SpotifyCategory>&)>& callback, const std::string& market = "");
+    void getCategoryPlaylists(const std::string& categoryId, const std::function<void(const std::vector<SpotifyPlaylist>&)>& callback, const std::string& market = "");
+
+
 
 
 	SpotifyTrack getCurrentlyPlaying();

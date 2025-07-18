@@ -225,6 +225,122 @@ void SpotifyManager::pausePlayback() {
     }).detach();
 }
 
+void SpotifyManager::getFeaturedPlaylists(const std::function<void(const std::vector<SpotifyPlaylist>&, const std::string&)>& callback, const std::string& market)
+{
+    std::thread([this, callback, market]() {
+        std::vector<SpotifyPlaylist> out;
+        std::string message = "In primo piano"; // Messaggio di default
+
+        if (isAuthenticated()) {
+            try {
+                std::string currentMarket = market.empty() ? getDefaultMarket() : market;
+                std::string url = "https://api.spotify.com/v1/browse/featured-playlists?country=IT&locale=it_IT&limit=20";
+
+                HttpReqOptions o;
+                o.customHeaders.push_back("Authorization: Bearer " + getAccessToken());
+                HttpReq r(url, &o);
+                r.wait();
+
+                if (r.status() == HttpReq::Status::REQ_SUCCESS) {
+                    auto j = nlohmann::json::parse(r.getContent());
+                    message = j.value("message", message); // Spotify fornisce un titolo per la sezione
+
+                    if (j.contains("playlists") && j["playlists"].contains("items")) {
+                        for (auto& p : j["playlists"]["items"]) {
+                            if (p.is_null()) continue;
+                            out.push_back({
+                                p.value("name", "?"),
+                                p.value("id", ""),
+                                (!p["images"].empty()) ? p["images"][0].value("url", "") : ""
+                            });
+                        }
+                    }
+                } else {
+                    LOG(LogError) << "[SpotifyManager] Errore API in getFeaturedPlaylists: " << r.getErrorMsg();
+                }
+            } catch (const std::exception& e) {
+                LOG(LogError) << "[SpotifyManager] Eccezione in getFeaturedPlaylists: " << e.what();
+            }
+        }
+        
+        mWindow->postToUiThread([callback, out, message]{ callback(out, message); });
+    }).detach();
+}
+
+void SpotifyManager::getCategories(const std::function<void(const std::vector<SpotifyCategory>&)>& callback, const std::string& market)
+{
+    std::thread([this, callback, market]() {
+        std::vector<SpotifyCategory> out;
+        if (isAuthenticated()) {
+            try {
+                std::string currentMarket = market.empty() ? getDefaultMarket() : market;
+                std::string url = "https://developer.spotify.com/documentation/web-api/reference/get-track8" + currentMarket + "&limit=50"; // Limite massimo di categorie
+
+                HttpReqOptions o;
+                o.customHeaders.push_back("Authorization: Bearer " + getAccessToken());
+                HttpReq r(url, &o);
+                r.wait();
+
+                if (r.status() == HttpReq::Status::REQ_SUCCESS) {
+                    auto j = nlohmann::json::parse(r.getContent());
+                    if (j.contains("categories") && j["categories"].contains("items")) {
+                        for (auto& c : j["categories"]["items"]) {
+                            if (c.is_null()) continue;
+                            out.push_back({
+                                c.value("name", "?"),
+                                c.value("id", ""),
+                                (!c["icons"].empty()) ? c["icons"][0].value("url", "") : ""
+                            });
+                        }
+                    }
+                } else {
+                    LOG(LogError) << "[SpotifyManager] Errore API in getCategories: " << r.getErrorMsg();
+                }
+            } catch (const std::exception& e) {
+                LOG(LogError) << "[SpotifyManager] Eccezione in getCategories: " << e.what();
+            }
+        }
+        mWindow->postToUiThread([callback, out]{ callback(out); });
+    }).detach();
+}
+
+void SpotifyManager::getCategoryPlaylists(const std::string& categoryId, const std::function<void(const std::vector<SpotifyPlaylist>&)>& callback, const std::string& market)
+{
+    std::thread([this, categoryId, callback, market]() {
+        std::vector<SpotifyPlaylist> out;
+        if (isAuthenticated() && !categoryId.empty()) {
+            try {
+                std::string currentMarket = market.empty() ? getDefaultMarket() : market;
+                std::string url = "https://developer.spotify.com/documentation/web-api/reference/get-track9" + categoryId + "/playlists?country=" + currentMarket;
+
+                HttpReqOptions o;
+                o.customHeaders.push_back("Authorization: Bearer " + getAccessToken());
+                HttpReq r(url, &o);
+                r.wait();
+
+                if (r.status() == HttpReq::Status::REQ_SUCCESS) {
+                    auto j = nlohmann::json::parse(r.getContent());
+                    if (j.contains("playlists") && j["playlists"].contains("items")) {
+                        for (auto& p : j["playlists"]["items"]) {
+                            if (p.is_null()) continue;
+                            out.push_back({
+                                p.value("name", "?"),
+                                p.value("id", ""),
+                                (!p["images"].empty()) ? p["images"][0].value("url", "") : ""
+                            });
+                        }
+                    }
+                } else {
+                    LOG(LogError) << "[SpotifyManager] Errore API in getCategoryPlaylists: " << r.getErrorMsg();
+                }
+            } catch (const std::exception& e) {
+                LOG(LogError) << "[SpotifyManager] Eccezione in getCategoryPlaylists: " << e.what();
+            }
+        }
+        mWindow->postToUiThread([callback, out]{ callback(out); });
+    }).detach();
+}
+
 // --- getUserPlaylists & getPlaylistTracks (stesso pattern) ---
 void SpotifyManager::getUserPlaylists(const std::function<void(const std::vector<SpotifyPlaylist>&)>& callback)
 {
