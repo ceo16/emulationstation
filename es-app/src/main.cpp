@@ -1157,15 +1157,18 @@ else // musicsource != "spotify"
 
 	while (window.peekGui() != nullptr)
 		delete window.peekGui();
-{
-    auto src = Settings::getInstance()->getString("audio.musicsource");
-    auto* mgr = SpotifyManager::getInstance(&window);
 
-    if (src == "spotify" && mgr->isAuthenticated())
-        mgr->pausePlayback();            // solo Spotify
-    else
-        AudioManager::getInstance()->stopMusic(true); // solo motore locale
-}
+ auto* spotifyMgr = SpotifyManager::getInstance(&window);
+auto* audioMgr = AudioManager::getInstance();
+
+// Invia il comando di stop a ENTRAMBI i sistemi.
+// Quello inattivo semplicemente ignorerà il comando.
+spotifyMgr->pausePlayback();
+audioMgr->stopMusic(true);
+
+// Aggiungi una piccola attesa per dare alla richiesta di rete di Spotify
+// il tempo di partire prima che l'applicazione termini.
+std::this_thread::sleep_for(std::chrono::milliseconds(500)); 
 
 	window.deinit();
 	Utils::Platform::processQuitMode();

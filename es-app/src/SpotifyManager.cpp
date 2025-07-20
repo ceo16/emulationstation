@@ -574,6 +574,118 @@ void SpotifyManager::getArtistTopTracks(const std::string& artistId, const std::
     }).detach();
 }
 
+void SpotifyManager::getAvailableDevices(const std::function<void(const std::vector<SpotifyDevice>&)>& callback)
+{
+    std::thread([this, callback]() {
+        std::vector<SpotifyDevice> out;
+        if (isAuthenticated()) {
+            try {
+                std::string url = "https://api.spotify.com/v1/me/player/devices"; // GET /me/player/devices
+
+                HttpReqOptions o;
+                o.customHeaders.push_back("Authorization: Bearer " + getAccessToken());
+                HttpReq r(url, &o);
+                r.wait();
+
+                if (r.status() == HttpReq::Status::REQ_SUCCESS) {
+                    auto j = nlohmann::json::parse(r.getContent());
+                    if (j.contains("devices")) {
+                        for (auto& d : j["devices"]) {
+                            if (d.is_null()) continue;
+                            out.push_back({
+                                d.value("name", "?"),
+                                d.value("id", ""),
+                                d.value("type", "Sconosciuto"),
+                                d.value("is_active", false)
+                            });
+                        }
+                    }
+                } else {
+                    LOG(LogError) << "[SpotifyManager] Errore API in getAvailableDevices: " << r.getErrorMsg();
+                }
+            } catch (const std::exception& e) {
+                LOG(LogError) << "[SpotifyManager] Eccezione in getAvailableDevices: " << e.what();
+            }
+        }
+        mWindow->postToUiThread([callback, out]{ callback(out); });
+    }).detach();
+}
+
+void SpotifyManager::startPlaybackContextual(const std::string& context_uri, const std::string& track_uri_to_start)
+{
+    if (context_uri.empty() || !isAuthenticated()) {
+        return;
+    }
+
+    std::thread([this, context_uri, track_uri_to_start]() {
+        try {
+            std::string deviceId = getActiveComputerDeviceId();
+            if (deviceId.empty()) return;
+
+            std::string url = "https://api.spotify.com/v1/me/player/play"; // PUT /me/player/play
+
+            nlohmann::json body;
+            body["context_uri"] = context_uri;
+
+            // Specifichiamo da quale traccia iniziare
+            if (!track_uri_to_start.empty()) {
+                body["offset"] = { {"uri", track_uri_to_start} };
+            }
+
+            HttpReqOptions o;
+            o.verb = "PUT";
+            o.customHeaders.push_back("Authorization: Bearer " + getAccessToken());
+            o.customHeaders.push_back("Content-Type: application/json");
+            o.dataToPost = body.dump();
+
+            HttpReq r(url + "?device_id=" + deviceId, &o);
+            r.wait();
+
+            if (r.status() != 204 && r.status() != 202) {
+                LOG(LogError) << "[SpotifyManager] Errore API in startPlaybackContextual: " << r.getErrorMsg();
+            } else {
+                LOG(LogInfo) << "[SpotifyManager] Riproduzione contestuale avviata per: " << context_uri;
+            }
+        } catch (const std::exception& e) {
+            LOG(LogError) << "[SpotifyManager] Eccezione in startPlaybackContextual: " << e.what();
+        }
+    }).detach();
+}
+
+void SpotifyManager::transferPlayback(const std::string& deviceId)
+{
+    if (deviceId.empty() || !isAuthenticated()) {
+        return;
+    }
+
+    std::thread([this, deviceId]() {
+        try {
+            std::string url = "https://api.spotify.com/v1/me/player"; // PUT /me/player
+
+            nlohmann::json body;
+            body["device_ids"] = { deviceId };
+            body["play"] = true; // Avvia la riproduzione subito dopo il trasferimento
+
+            HttpReqOptions o;
+            o.verb = "PUT";
+            o.customHeaders.push_back("Authorization: Bearer " + getAccessToken());
+            o.customHeaders.push_back("Content-Type: application/json");
+            o.dataToPost = body.dump();
+
+            HttpReq r(url, &o);
+            r.wait();
+
+            if (r.status() != 204) { // Spotify risponde 204 (No Content) in caso di successo
+                LOG(LogError) << "[SpotifyManager] Errore API in transferPlayback: " << r.getErrorMsg();
+            } else {
+                LOG(LogInfo) << "[SpotifyManager] Riproduzione trasferita al dispositivo ID: " << deviceId;
+            }
+        } catch (const std::exception& e) {
+            LOG(LogError) << "[SpotifyManager] Eccezione in transferPlayback: " << e.what();
+        }
+    }).detach();
+}
+
 // --- getCurrentlyPlaying, refresh, deviceId, tokens ---
 SpotifyTrack SpotifyManager::getCurrentlyPlaying() {
     if (!isAuthenticated()) return {};

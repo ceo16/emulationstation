@@ -64,10 +64,12 @@ private:
     void showArtistResults(const nlohmann::json& results);
     void showAlbumResults(const nlohmann::json& results);
     void showPlaylistResults(const nlohmann::json& results);
+	    void openDeviceList();
+
 
     void centerMenu();
 
-    enum class SpotifyViewState { MainMenu, SearchMenu, Playlists, MyPlaylistTracks, LikedSongs, SearchResults, ArtistTopTracks, AlbumTracks, SearchPlaylistTracks, FeaturedPlaylists, Categories, CategoryPlaylists };
+    enum class SpotifyViewState { MainMenu, SearchMenu, Playlists, MyPlaylistTracks, LikedSongs, SearchResults, ArtistTopTracks, AlbumTracks, SearchPlaylistTracks, FeaturedPlaylists, Categories, CategoryPlaylists, DeviceList };
     SpotifyViewState mState;
 
     MenuComponent mMenu;
@@ -80,7 +82,7 @@ private:
     std::vector<SpotifyArtist>   mFoundArtists; // Variabile dedicata per gli artisti
 	std::vector<SpotifyCategory> mCategories; // Aggiunto
 	std::vector<SpotifyPlaylist> mCategoryPlaylists; // Aggiunto
-    
+    std::vector<SpotifyDevice>   mDevices;
     nlohmann::json mLastSearchResults;
 };
 

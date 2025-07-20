@@ -34,6 +34,13 @@ struct SpotifyCategory {
     std::string image_url;
 };
 
+struct SpotifyDevice {
+    std::string name;
+    std::string id;
+    std::string type;
+    bool is_active;
+};
+
 
 class SpotifyManager
 {
@@ -46,6 +53,8 @@ public:
     bool isAuthenticated() const;
     
     void startPlayback(const std::string& track_uri = "");
+    void startPlaybackContextual(const std::string& context_uri, const std::string& track_uri_to_start);
+
     void pausePlayback();
     void resumePlayback();
 
@@ -60,6 +69,8 @@ public:
 	void getFeaturedPlaylists(const std::function<void(const std::vector<SpotifyPlaylist>&, const std::string&)>& callback, const std::string& market = "");
 	 void getCategories(const std::function<void(const std::vector<SpotifyCategory>&)>& callback, const std::string& market = "");
     void getCategoryPlaylists(const std::string& categoryId, const std::function<void(const std::vector<SpotifyPlaylist>&)>& callback, const std::string& market = "");
+	void getAvailableDevices(const std::function<void(const std::vector<SpotifyDevice>&)>& callback);
+    void transferPlayback(const std::string& deviceId);
 
 
 
