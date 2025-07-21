@@ -2,8 +2,8 @@
 #include "scrapers/Scraper.h"
 #include <set> // Necessario per std::set
 
-// La classe UniversalSteamScraper eredita dalla classe base Scraper.
-// Questo è il modo corretto per creare un nuovo scraper nel tuo progetto.
+
+
 class UniversalSteamScraper : public Scraper
 {
 public:

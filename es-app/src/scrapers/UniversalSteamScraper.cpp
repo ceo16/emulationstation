@@ -10,6 +10,7 @@
 #include <sstream>   // Per std::stringstream
 #include <regex>     // Per la ricerca dei numeri nei titoli
 
+
 using json = nlohmann::json;
 
 namespace {
@@ -124,8 +125,14 @@ if (gameData.contains("publishers") && !gameData["publishers"].empty())
             result.urls[MetaDataId::FanArt] = ScraperSearchItem(gameData.value("background_raw", ""), ".jpg");
         }
 
-        std::string imageUrl = "https://cdn.akamai.steamstatic.com/steam/apps/" + appIdStr + "/library_600x900.jpg";
-        result.urls[MetaDataId::Image] = ScraperSearchItem(imageUrl, ".jpg");
+std::string imageUrl = "https://cdn.akamai.steamstatic.com/steam/apps/" + appIdStr + "/library_600x900_2x.jpg";
+
+// Opzione B: Usa sempre la copertina standard (600x900). Qualità inferiore ma presente per quasi tutti i giochi.
+// std::string imageUrl = "https://cdn.akamai.steamstatic.com/steam/apps/" + appIdStr + "/library_600x900.jpg";
+// =========================================================================================
+
+result.urls[MetaDataId::Image] = ScraperSearchItem(imageUrl, ".jpg");
+
 
         std::string thumbUrl;
         if (gameData.contains("library_assets") && gameData["library_assets"].is_object() && gameData["library_assets"].contains("header")) thumbUrl = gameData["library_assets"].value("header", "");
@@ -147,43 +154,149 @@ if (gameData.contains("publishers") && !gameData["publishers"].empty())
     }
 };
 
+struct SteamSearchResult {
+    std::string name;
+    std::string appId;
+};
+
+// Aggiungi questa funzione helper per i numeri romani
+std::string toRoman(int number) {
+    if (number < 1 || number > 3999) return std::to_string(number); // Non gestibile
+    const std::vector<std::pair<int, std::string>> roman_map = {
+        {1000, "M"}, {900, "CM"}, {500, "D"}, {400, "CD"}, {100, "C"},
+        {90, "XC"}, {50, "L"}, {40, "XL"}, {10, "X"}, {9, "IX"},
+        {5, "V"}, {4, "IV"}, {1, "I"}
+    };
+    std::string result;
+    for (const auto& pair : roman_map) {
+        while (number >= pair.first) {
+            result += pair.second;
+            number -= pair.first;
+        }
+    }
+    return result;
+}
+
+std::string normalizeName(const std::string& name) {
+    std::string lowerName = Utils::String::toLower(name);
+    // Aggiungi questa riga per rimuovere i simboli speciali
+    lowerName = std::regex_replace(lowerName, std::regex("[®™©]"), "");
+    lowerName = std::regex_replace(lowerName, std::regex("[']"), "");
+    lowerName = std::regex_replace(lowerName, std::regex("[:!-]"), " ");
+    lowerName = std::regex_replace(lowerName, std::regex("\\s+"), " "); // Rimuovi spazi doppi
+    return Utils::String::trim(lowerName);
+}
+
+std::string findBestMatch(const std::string& originalName, const std::vector<SteamSearchResult>& searchResults)
+{
+    // Funzione interna per cercare nella lista
+    auto findInList = [&](const std::string& nameToFind) -> std::string {
+        std::string normalizedNameToFind = normalizeName(nameToFind);
+        for (const auto& result : searchResults) {
+            if (normalizeName(result.name) == normalizedNameToFind) {
+                LOG(LogInfo) << "Match trovato per \"" << nameToFind << "\" -> [" << result.name << ", AppID: " << result.appId << "]";
+                return result.appId;
+            }
+        }
+        return "";
+    };
+
+    std::string appId;
+    std::string currentSearchName = originalName;
+
+    // Tentativo 1: Corrispondenza diretta
+    appId = findInList(currentSearchName);
+    if (!appId.empty()) return appId;
+
+    // Tentativo 2: Sostituzione con numeri romani
+    std::string romanName;
+    try {
+        std::regex num_regex("\\d+");
+        auto matches_begin = std::sregex_iterator(currentSearchName.begin(), currentSearchName.end(), num_regex);
+        auto matches_end = std::sregex_iterator();
+        auto last_match_end = currentSearchName.cbegin();
+
+        for (std::sregex_iterator i = matches_begin; i != matches_end; ++i) {
+            const std::smatch& match = *i;
+            romanName.append(last_match_end, match.prefix().second);
+            romanName.append(toRoman(std::stoi(match.str())));
+            last_match_end = match.suffix().first;
+        }
+        romanName.append(last_match_end, currentSearchName.cend());
+
+    } catch (const std::exception& e) {
+        LOG(LogError) << "Errore durante la conversione in numeri romani: " << e.what();
+        romanName = currentSearchName; // In caso di errore, non fare nulla
+    }
+
+    // Qui c'era la duplicazione. Questo è il blocco singolo e corretto.
+    if (romanName != currentSearchName) {
+        appId = findInList(romanName);
+        if (!appId.empty()) return appId;
+    }
+    
+    // Tentativo 3: Aggiunta di "The"
+    appId = findInList("The " + currentSearchName);
+    if (!appId.empty()) return appId;
+
+    // Tentativo 4: Sostituzione di " & " con " and " (e viceversa)
+    if (currentSearchName.find(" & ") != std::string::npos) {
+         appId = findInList(std::regex_replace(currentSearchName, std::regex(" & "), " and "));
+         if (!appId.empty()) return appId;
+    } else if (currentSearchName.find(" and ") != std::string::npos) {
+         appId = findInList(std::regex_replace(currentSearchName, std::regex(" and "), " & "));
+         if (!appId.empty()) return appId;
+    }
+    
+    // Tentativo 5: Ricerca senza sottotitolo (es. "Gioco: Sottotitolo" -> "Gioco")
+    size_t colonPos = currentSearchName.find(':');
+    if (colonPos != std::string::npos) {
+        appId = findInList(Utils::String::trim(currentSearchName.substr(0, colonPos)));
+        if (!appId.empty()) return appId;
+    }
+    
+    // Nessuna corrispondenza trovata dopo tutti i tentativi
+    return "";
+}
+
 std::string findSteamAppId(const std::string& gameName)
 {
     if (gameName.empty()) return "";
 
-    std::string lang = "italian";
-    std::string searchUrl = "https://store.steampowered.com/search/suggest?term=" + HttpReq::urlEncode(gameName) + "&f=games&cc=IT&l=" + lang;
-    
-    // CORREZIONE: Aggiungiamo un User-Agent per far sembrare la richiesta legittima.
+    // 1. Esegui la richiesta HTTP una sola volta
+    std::string searchUrl = "https://store.steampowered.com/search/suggest?term=" + HttpReq::urlEncode(gameName) + "&f=games&cc=IT&l=italian";
     HttpReqOptions options;
     options.customHeaders.push_back("User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36");
-
     HttpReq req(searchUrl, &options);
     req.wait();
-    
-    // Non logghiamo più l'intero HTML per non intasare i log, ma lo lasciamo in caso di debug futuro
-    // LOG(LogInfo) << "[Debug] Risposta da Steam per \"" << gameName << "\":\n" << req.getContent();
 
-    if (req.status() == HttpReq::REQ_SUCCESS) 
-    {
-        std::string content = req.getContent();
-        const std::string searchString = "data-ds-appid=\"";
-        size_t startPos = content.find(searchString);
-
-        if (startPos != std::string::npos) 
-        {
-            startPos += searchString.length();
-            size_t endPos = content.find("\"", startPos);
-            if (endPos != std::string::npos) 
-            {
-                return content.substr(startPos, endPos - startPos);
-            }
-        }
-    } else {
+    if (req.status() != HttpReq::REQ_SUCCESS) {
         LOG(LogError) << "Richiesta di ricerca a Steam fallita con status: " << req.status();
+        return "";
     }
-    
-    return "";
+
+    // 2. Analizza l'HTML per estrarre TUTTI i risultati
+    std::vector<SteamSearchResult> results;
+    std::string content = req.getContent();
+	LOG(LogDebug) << "CONTENUTO HTML RICEVUTO DA STEAM per '" << gameName << "':\n" << content;
+    std::regex search_regex("<a.*?data-ds-appid=\"(\\d+)\".*?<div class=\"match_name\">(.*?)</div>");
+    auto matches_begin = std::sregex_iterator(content.begin(), content.end(), search_regex);
+    auto matches_end = std::sregex_iterator();
+
+    for (std::sregex_iterator i = matches_begin; i != matches_end; ++i) {
+        std::smatch match = *i;
+        if (match.size() == 3) {
+            results.push_back({ Utils::String::trim(match[2].str()), match[1].str() });
+        }
+    }
+
+    if (results.empty()) {
+        LOG(LogWarning) << "Nessun risultato trovato nella pagina di ricerca di Steam per \"" << gameName << "\"";
+        return "";
+    }
+
+    // 3. Chiama la nuova funzione di matching per trovare la migliore corrispondenza
+    return findBestMatch(gameName, results);
 }
 
 // Funzione helper per verificare se una stringa è un probabile ID e non un nome
