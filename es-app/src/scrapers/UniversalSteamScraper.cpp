@@ -75,11 +75,26 @@ protected:
         result.mdl.set("name", gameData.value("name", ""));
         result.mdl.set("desc", gameData.value("short_description", ""));
 
-        if (gameData.contains("developers") && !gameData["developers"].empty())
-            result.mdl.set("developer", gameData["developers"][0].get<std::string>());
-        
-        if (gameData.contains("publishers") && !gameData["publishers"].empty())
-            result.mdl.set("publisher", gameData["publishers"][0].get<std::string>());
+if (gameData.contains("developers") && !gameData["developers"].empty())
+{
+    // 1. Estrai il nome del developer
+    std::string developer_name = gameData["developers"][0].get<std::string>();
+    
+    // 2. Controlla che non sia vuoto e non sia "N/A" prima di salvarlo
+    if (!developer_name.empty() && developer_name != "N/A")
+        result.mdl.set("developer", developer_name);
+}
+
+// Gestione Publisher con controllo
+if (gameData.contains("publishers") && !gameData["publishers"].empty())
+{
+    // 1. Estrai il nome del publisher
+    std::string publisher_name = gameData["publishers"][0].get<std::string>();
+    
+    // 2. Controlla che non sia vuoto e non sia "N/A" prima di salvarlo
+    if (!publisher_name.empty() && publisher_name != "N/A")
+        result.mdl.set("publisher", publisher_name);
+}
         
         if (gameData.contains("release_date") && gameData["release_date"].is_object() && gameData["release_date"].contains("date")) {
             std::string esDate = convertSteamDateToESFormat(gameData["release_date"].value("date", ""));
