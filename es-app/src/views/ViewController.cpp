@@ -268,118 +268,117 @@ bool ViewController::goToGameList(const std::string& systemName, bool forceImmed
 
 void ViewController::goToGameList(SystemData* system, bool forceImmediate)
 {
+	if (system == nullptr)
+		return;
 
 	SystemData* destinationSystem = system;
-	FolderData* collectionFolder = nullptr; 
+	FolderData* collectionFolder = nullptr;
+
 	if (system->isCollection())
 	{
-		LOG(LogDebug) << "System is a collection: " << system->getName();
 		SystemData* bundle = CollectionSystemManager::get()->getCustomCollectionsBundle();
 		if (bundle != nullptr)
 		{
-			LOG(LogDebug) << "Checking custom collection bundle: " << bundle->getName();
-			destinationSystem = bundle; // La vista appartiene al sistema bundle
-			// Cerca la cartella specifica della collezione all'interno del bundle
 			for (auto child : bundle->getRootFolder()->getChildren())
 			{
 				if (child->getType() == FOLDER && child->getName() == system->getName())
 				{
 					collectionFolder = (FolderData*)child;
-					LOG(LogDebug) << "Found collection folder: " << collectionFolder->getName();
+					destinationSystem = bundle;
 					break;
 				}
 			}
-			if (!collectionFolder) {
-				LOG(LogWarning) << "Collection folder '" << system->getName() << "' not found within bundle '" << bundle->getName() << "'";
-				// Potrebbe essere un problema o una collezione dinamica/auto
-			}
-		} else {
-			LOG(LogWarning) << "System is a collection but custom collection bundle not found.";
-			// Se è una collezione automatica (es. Favorites), destinationSystem rimane 'system'
-			// e collectionFolder rimane nullptr, che è probabilmente corretto.
-			destinationSystem = system;
 		}
 	}
 
-	// Ottieni (o crea se non esiste) la vista per il destinationSystem
-	LOG(LogDebug) << "Getting game list view for destination system: " << destinationSystem->getName();
-	std::shared_ptr<IGameListView> view = getGameListView(destinationSystem); // getGameListView dovrebbe creare la vista se non esiste
+	std::shared_ptr<IGameListView> view = getGameListView(destinationSystem);
 
-	if (!view) {
-		LOG(LogError) << "Failed to get or create GameListView for system: " << destinationSystem->getName();
-		// Qui potresti voler mostrare un messaggio di errore all'utente o tornare indietro
-		// MWindow->pushGui(new GuiMsgBox(MWindow, "Error loading game list view!"));
-		return;
-	}
 
-	// Logica di transizione (sembra essere corretta dal tuo codice precedente)
 	if (mState.viewing == SYSTEM_SELECT)
 	{
-		LOG(LogDebug) << "Transitioning from System Select view.";
-		auto sysList = getSystemListView(); // Assumi che esista
-		if (sysList) {
-			float offX = sysList->getPosition().x();
-			sysList->setPosition(view->getPosition().x(), sysList->getPosition().y());
-			offX = sysList->getPosition().x() - offX;
-			mCamera.translation().x() -= offX;
-			LOG(LogDebug) << "Moved System View and adjusted camera X by: " << -offX;
-		} else {
-			LOG(LogWarning) << "SystemListView is null during transition from SYSTEM_SELECT.";
-		}
-	}
-	else if (mState.viewing == GAME_LIST && mState.system != nullptr && mState.system != destinationSystem)
+		// move system list
+		auto sysList = getSystemListView();
+		float offX = sysList->getPosition().x();
+		sysList->setPosition(view->getPosition().x(), sysList->getPosition().y());
+		offX = sysList->getPosition().x() - offX;
+		mCamera.translation().x() -= offX;
+	}	
+	else if (mState.viewing == GAME_LIST && mState.system != nullptr)
 	{
-		LOG(LogDebug) << "Transitioning from Game List view of system: " << mState.system->getName();
-		// Potrebbe essere necessaria la logica di riallineamento/rotazione delle viste qui,
-		// se vuoi l'effetto carosello anche tra sistemi diversi (era commentata nel tuo codice originale)
-		// La logica di rotazione con std::rotate era presente nel codice che hai fornito,
-		// puoi ripristinarla se quell'effetto è desiderato.
-		LOG(LogDebug) << "Simple transition, no view rotation implemented here currently.";
-	}
+		// Realign current view to center
+		auto currentView = getGameListView(mState.system, false);
+		if (currentView != nullptr)
+		{
+			int currentIndex = 0;
 
-	// Imposta il nuovo stato
+			std::vector<std::pair<int, SystemData*>> ids;
+			for (auto sys : SystemData::sSystemVector)
+			{
+				if (sys->isVisible())
+				{
+					if (sys == destinationSystem)
+						currentIndex = ids.size();
+
+					ids.push_back(std::pair<int, SystemData*>(ids.size(), sys));
+				}
+			}
+
+			if (ids.size() > 2)
+			{
+				int rotateBy = (ids.size() / 2) - currentIndex;
+				if (rotateBy != 0)
+				{
+					if (rotateBy < 0)
+						std::rotate(ids.begin(), ids.begin() - rotateBy, ids.end());
+					else
+						std::rotate(ids.rbegin(), ids.rbegin() + rotateBy, ids.rend());
+
+					for (auto gameList : mGameListViews)
+					{
+						for (int idx = 0; idx < ids.size(); idx++)
+						{
+							if (gameList.first == ids[idx].second)
+							{
+								gameList.second->setPosition(idx * (float)Renderer::getScreenWidth(), (float)Renderer::getScreenHeight() * 2);
+								break;
+							}
+						}
+					}
+
+					mCamera.translation().x() = -currentView->getPosition().x();
+				}
+			}
+		}
+	}	
+	
 	mState.viewing = GAME_LIST;
-	mState.system = destinationSystem; // Il sistema che contiene la vista (es. il bundle per collezioni custom)
-
-	// Se stavamo andando a una collezione specifica, naviga alla sua cartella
+	mState.system = destinationSystem;
+	
 	if (collectionFolder != nullptr)
 	{
 		ISimpleGameListView* simpleView = dynamic_cast<ISimpleGameListView*>(view.get());
-		if (simpleView != nullptr) {
-			LOG(LogDebug) << "Moving view to collection folder: " << collectionFolder->getName();
+		if (simpleView != nullptr)
 			simpleView->moveToFolder(collectionFolder);
-		} else {
-			LOG(LogWarning) << "View for collection system " << destinationSystem->getName() << " is not an ISimpleGameListView, cannot move to folder.";
-		}
-	}
+	}	
 
-if (AudioManager::isInitialized() &&
-        Settings::getInstance()->getString("audio.musicsource") != "spotify")
-    {
-        LOG(LogDebug) << "Changing playlist for system: " << destinationSystem->getName();
-        AudioManager::getInstance()->changePlaylist(destinationSystem->getTheme());
-    }
+	if (AudioManager::isInitialized())
+		AudioManager::getInstance()->changePlaylist(system->getTheme());
 
-	// Gestisci la transizione
 	mDeferPlayViewTransitionTo = nullptr;
+
 	if (forceImmediate || Settings::TransitionStyle() == "fade")
 	{
-		LOG(LogDebug) << "Performing immediate or fade transition.";
-		if (mCurrentView) {
-			LOG(LogDebug) << "Hiding current view.";
+		if (mCurrentView)
 			mCurrentView->onHide();
-		}
+
 		mCurrentView = view;
-		playViewTransition(forceImmediate); // Mostra la nuova vista e anima
+		playViewTransition(forceImmediate);
 	}
 	else
 	{
-		LOG(LogDebug) << "Deferring transition animation.";
-		// La transizione avverrà nel ciclo di update
+		cancelAnimation(0);
 		mDeferPlayViewTransitionTo = view;
 	}
-
-	LOG(LogDebug) << "ViewController::goToGameList finished for system: " << system->getName();
 }
 
 

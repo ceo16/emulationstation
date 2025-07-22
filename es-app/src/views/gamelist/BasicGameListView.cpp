@@ -11,10 +11,7 @@
 #include "LocaleES.h"
 #include "GameNameFormatter.h"
 #include "TextToSpeech.h"
-#include "ThemeData.h"
-#include "Window.h" 
-#include "components/TextListComponent.h"
-#include "Log.h"
+
 
 BasicGameListView::BasicGameListView(Window* window, FolderData* root)
 	: ISimpleGameListView(window, root), mList(window)
@@ -64,59 +61,36 @@ void BasicGameListView::onFileChanged(FileData* file, FileChangeType change)
 
 void BasicGameListView::populateList(const std::vector<FileData*>& files)
 {
-	updateHeaderLogoAndText(); // Invariato
+	updateHeaderLogoAndText();
 
-	mList.clear(); // Invariato
+	mList.clear();
 
-	if (files.size() > 0) // Se ci sono file da mostrare
+	if (files.size() > 0)
 	{
-		// Gestione cartella parent ".." (invariato)
-		bool showParentFolder = false;
-        if (mRoot != nullptr && mRoot->getSystem() != nullptr)
-		    showParentFolder = mRoot->getSystem()->getShowParentFolder();
-
+		bool showParentFolder = mRoot->getSystem()->getShowParentFolder();
 		if (showParentFolder && mCursorStack.size())
-			mList.add(". .", createParentFolderData(), 0xFFFFFFFF); // Colore default per ".."
+			mList.add(". .", createParentFolderData(), true);
 
+		GameNameFormatter formatter(mRoot->getSystem());
 
-		// --- INIZIO MODIFICHE ---
+		for (auto file : files)		
+			mList.add(formatter.getDisplayName(file), file, file->getType() == FOLDER);
 
-		GameNameFormatter formatter(mRoot->getSystem()); // Invariato
-
-		// Definisci i colori (Valori predefiniti - Modificali se necessario per il tuo tema!)
-		unsigned int installedColor = 0x303030FF; // Grigio scuro quasi nero (RGBA)
-		unsigned int uninstalledColor = 0xAAAAAAFF; // Grigio chiaro (RGBA)
-
-		// Cicla sui FileData ricevuti nel vettore 'files'
-		for (auto file : files) // 'file' è un FileData*
-		{
-			std::string name = formatter.getDisplayName(file); // Usa il nome formattato
-
-			// Determina il colore
-			unsigned int color = file->isInstalled() ? installedColor : uninstalledColor;
-
-			// Aggiungi la voce alla lista visiva (mList) passando il colore
-			mList.add(name, file, color);
-
-		} // Fine ciclo for
-
-		// --- FINE MODIFICHE ---
-
-
-		// Gestione cursore se c'è ".." (invariato)
+		// if we have the ".." PLACEHOLDER, then select the first game instead of the placeholder
 		if (showParentFolder && mCursorStack.size() && mList.size() > 1 && mList.getCursorIndex() == 0)
 			mList.setCursorIndex(1);
 	}
-	else // Se 'files' è vuoto
+	else
 	{
-		addPlaceholder(); // Invariato
+		addPlaceholder();
 	}
 
-	updateFolderPath(); // Invariato
+	updateFolderPath();
 
-	if (mShowing) // Invariato
+	if (mShowing)
 		onShow();
 }
+
 FileData* BasicGameListView::getCursor()
 {
 	if (mList.size() == 0)
