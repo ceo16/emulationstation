@@ -1885,6 +1885,9 @@ std::string steamStoreName = "SteamStore"; // O "steam" - VERIFICA il nome regis
 // --- XBOX SYSTEM CREATION/POPULATION ---
 LOG(LogInfo) << "[XboxDynamic] Checking/Creating/Populating Xbox system...";
 
+if (Settings::getInstance()->getBool("EnableXboxStore"))
+{
+
 std::string esSystemLanguage = Settings::getInstance()->getString("Language");
 if (esSystemLanguage.empty()) {
     esSystemLanguage = SystemConf::getInstance()->get("system.language");
@@ -2154,6 +2157,7 @@ if (xboxSystem) {
     }
 } else { 
     LOG(LogError) << "[XboxDynamic] Xbox system object is definitively null. Cannot proceed with Xbox population logic.";
+}
 }
 // --- FINE BLOCCO XBOX ---
 // --- BLOCCO EA GAMES PER SystemData::loadConfig ---
