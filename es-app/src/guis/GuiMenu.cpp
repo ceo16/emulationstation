@@ -4075,7 +4075,7 @@ s->addEntry(_("LOGIN WITH SPOTIFY"), true, [this]
     // gestisca l'autenticazione internamente.
 
     const std::string redirect = "es-spotify://callback";
-    const std::string scopes   = "user-modify-playback-state user-read-playback-state";
+    const std::string scopes   = "user-library-read playlist-read-private user-modify-playback-state user-read-playback-state";
     std::string authUrl = "https://accounts.spotify.com/authorize?"
         "client_id="     + HttpReq::urlEncode(clientId) +
         "&response_type=code"

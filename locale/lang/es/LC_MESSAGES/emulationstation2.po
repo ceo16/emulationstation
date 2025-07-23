@@ -3620,6 +3620,558 @@ msgstr ""
 "CALIBRANDO PISTOLA\n"
 "Dispara a los objetivos para calibrar"
 
+msgid "IMPOSTAZIONI NEGOZI ONLINE"
+msgstr "AJUSTES DE TIENDAS ONLINE"
+
+msgid "VISUALIZZA AMAZON GAMES STORE"
+msgstr "MOSTRAR TIENDA AMAZON GAMES"
+
+msgid "VISUALIZZA EA GAMES STORE"
+msgstr "MOSTRAR TIENDA EA GAMES"
+
+msgid "VISUALIZZA EPIC GAMES STORE"
+msgstr "MOSTRAR TIENDA EPIC GAMES"
+
+msgid "VISUALIZZA GOG.COM STORE"
+msgstr "MOSTRAR TIENDA GOG.COM"
+
+msgid "VISUALIZZA STEAM"
+msgstr "MOSTRAR STEAM"
+
+msgid "VISUALIZZA XBOX GAME PASS"
+msgstr "MOSTRAR XBOX GAME PASS"
+
+msgid "APRI AMAZON GAMES STORE"
+msgstr "ABRIR TIENDA AMAZON GAMES"
+
+msgid "APRI EA GAMES STORE"
+msgstr "ABRIR TIENDA EA GAMES"
+
+msgid "ERRORE"
+msgstr "ERROR"
+
+msgid "EAGame STORE NON ANCORA IMPLEMENTATO CORRETTAMENTE."
+msgstr "LA TIENDA EA Games AÚN NO ESTÁ IMPLEMENTADA CORRECTAMENTE."
+
+msgid "APRI EPIC GAMES STORE"
+msgstr "ABRIR TIENDA EPIC GAMES"
+
+msgid "APRI GOG.COM STORE"
+msgstr "ABRIR TIENDA GOG.COM"
+
+msgid "APRI STEAM STORE"
+msgstr "ABRIR TIENDA STEAM"
+
+msgid "STEAM STORE NON ANCORA IMPLEMENTATO CORRETTAMENTE."
+msgstr "LA TIENDA STEAM AÚN NO ESTÁ IMPLEMENTADA CORRECTAMENTE."
+
+msgid "APRI XBOX STORE"
+msgstr "ABRIR TIENDA XBOX"
+
+msgid "XBOX STORE NON ANCORA IMPLEMENTATO CORRETTAMENTE."
+msgstr "LA TIENDA XBOX AÚN NO ESTÁ IMPLEMENTADA CORRECTAMENTE."
+
+msgid "AMAZON GAMES STORE"
+msgstr "TIENDA AMAZON GAMES"
+
+msgid "DISCONNETTI ACCOUNT"
+msgstr "DESCONECTAR CUENTA"
+
+msgid "SINCRONIZZA LIBRERIA"
+msgstr "SINCRONIZAR BIBLIOTECA"
+
+msgid "ACCEDI ALL'ACCOUNT"
+msgstr "INICIAR SESIÓN EN LA CUENTA"
+
+msgid "ATTENDERE..."
+msgstr "ESPERE POR FAVOR..."
+
+msgid "ANNULLA"
+msgstr "CANCELAR"
+
+msgid "LOGIN EFFETTUATO"
+msgstr "INICIO DE SESIÓN REALIZADO"
+
+msgid "OTTIMO!"
+msgstr "¡ESTUPENDO!"
+
+msgid "LOGIN FALLITO"
+msgstr "INICIO DE SESIÓN FALLIDO"
+
+msgid "SINCRONIZZAZIONE IN CORSO..."
+msgstr "SINCRONIZANDO..."
+
+msgid "SINCRONIZZAZIONE COMPLETATA"
+msgstr "SINCRONIZACIÓN COMPLETADA"
+
+msgid "ERRORE DI SINCRONIZZAZIONE"
+msgstr "ERROR DE SINCRONIZACIÓN"
+
+msgid "EA GAMES STORE"
+msgstr "TIENDA EA GAMES"
+
+msgid "Could not initialize the EA Games module."
+msgstr "No se pudo inicializar el módulo de EA Games."
+
+msgid "OK"
+msgstr "OK"
+
+msgid "Logged in to your EA Account"
+msgstr "Conectado a tu cuenta de EA"
+
+msgid "EA PLAY STATUS"
+msgstr "ESTADO DE EA PLAY"
+
+msgid "LOADING..."
+msgstr "CARGANDO..."
+
+msgid "NO ACTIVE SUBSCRIPTION"
+msgstr "SIN SUSCRIPCIÓN ACTIVA"
+
+msgid "ACTIVE"
+msgstr "ACTIVO"
+
+msgid "INCLUDE EA PLAY IN GAME LIST"
+msgstr "INCLUIR EA PLAY EN LA LISTA DE JUEGOS"
+
+msgid "REFRESH GAME LIST"
+msgstr "ACTUALIZAR LISTA DE JUEGOS"
+
+msgid "LOGOUT"
+msgstr "CERRAR SESIÓN"
+
+msgid "You are not logged in"
+msgstr "No has iniciado sesión"
+
+msgid "LOGIN TO EA ACCOUNT"
+msgstr "INICIAR SESIÓN EN LA CUENTA EA"
+
+msgid "Initiating EA Login..."
+msgstr "Iniciando sesión en EA..."
+
+msgid "Login process completed successfully."
+msgstr "Proceso de inicio de sesión completado con éxito."
+
+msgid "Login process failed or was cancelled."
+msgstr "El proceso de inicio de sesión falló o fue cancelado."
+
+msgid "YOU NEED TO BE LOGGED IN TO IMPORT GAMES."
+msgstr "NECESITAS INICIAR SESIÓN PARA IMPORTAR JUEGOS."
+
+msgid "Syncing EA games... This may take a while."
+msgstr "Sincronizando juegos de EA... Esto puede tomar un tiempo."
+
+msgid "EA Games synced successfully!"
+msgstr "¡Juegos de EA sincronizados con éxito!"
+
+msgid "Failed to sync EA Games."
+msgstr "Fallo al sincronizar los juegos de EA."
+
+msgid "EPIC GAMES STORE"
+msgstr "TIENDA EPIC GAMES"
+
+msgid "ACCEDI CON EPIC GAMES"
+msgstr "INICIAR SESIÓN CON EPIC GAMES"
+
+msgid "Login Fallito: Timeout nella lettura del codice."
+msgstr "Inicio de sesión fallido: Tiempo de espera agotado al leer el código."
+
+msgid "LOGIN COMPLETATO!"
+msgstr "¡INICIO DE SESIÓN COMPLETADO!"
+
+msgid "AGGIORNAMENTO EPIC IN CORSO..."
+msgstr "ACTUALIZACIÓN DE EPIC EN PROGRESO..."
+
+msgid "Scarica/Aggiorna Libreria Giochi Online"
+msgstr "Descargar/Actualizar Biblioteca de Juegos Online"
+
+msgid "LOGOUT"
+msgstr "CERRAR SESIÓN"
+
+msgid "Epic Games Library"
+msgstr "Biblioteca de Epic Games"
+
+msgid "Nessun gioco trovato."
+msgstr "Ningún juego encontrado."
+
+msgid "GOG.COM STORE"
+msgstr "TIENDA GOG.COM"
+
+msgid "LO STORE GOG NON E' STATO INIZIALIZZATO."
+msgstr "LA TIENDA GOG NO HA SIDO INICIALIZADA."
+
+msgid "OK"
+msgstr "OK"
+
+msgid "DISCONNETTI ACCOUNT"
+msgstr "DESCONECTAR CUENTA"
+
+msgid "SINCRONIZZA LIBRERIA ONLINE"
+msgstr "SINCRONIZAR BIBLIOTECA EN LÍNEA"
+
+msgid "ACCEDI ALL'ACCOUNT"
+msgstr "INICIAR SESIÓN EN LA CUENTA"
+
+msgid "Il logout automatico per GOG non è supportato.\n\nPer completare l'operazione e cancellare i dati della sessione, è necessario chiudere e riavviare l'applicazione."
+msgstr "El cierre de sesión automático para GOG no es compatible.\n\nPara completar la operación y borrar los datos de la sesión, es necesario cerrar y reiniciar la aplicación."
+
+msgid "HO CAPITO"
+msgstr "ENTENDIDO"
+
+msgid "ACCESSO EFFETTUATO"
+msgstr "ACCESO REALIZADO"
+
+msgid "LOGIN FALLITO"
+msgstr "INICIO DE SESIÓN FALLIDO"
+
+msgid "SINCRONIZZAZIONE IN CORSO..."
+msgstr "SINCRONIZACIÓN EN CURSO..."
+
+msgid "ANNULLA"
+msgstr "CANCELAR"
+
+msgid "SINCRONIZZAZIONE COMPLETATA"
+msgstr "SINCRONIZACIÓN COMPLETADA"
+
+msgid "ERRORE DI SINCRONIZZAZIONE"
+msgstr "ERROR DE SINCRONIZACIÓN"
+
+msgid "ERRORE LOGIN STEAM"
+msgstr "ERROR DE INICIO DE SESIÓN DE STEAM"
+
+msgid "Impossibile avviare il processo di login."
+msgstr "No se pudo iniciar el proceso de inicio de sesión."
+
+msgid "OK"
+msgstr "OK"
+
+msgid "STEAM LOGOUT"
+msgstr "CERRAR SESIÓN DE STEAM"
+
+msgid "Logout effettuato."
+msgstr "Cierre de sesión realizado."
+
+msgid "STEAM"
+msgstr "STEAM"
+
+msgid "Devi essere autenticato per aggiornare la lista giochi."
+msgstr "Debes estar autenticado para actualizar la lista de juegos."
+
+msgid "AGGIORNAMENTO LIBRERIA STEAM..."
+msgstr "ACTUALIZANDO BIBLIOTECA DE STEAM..."
+
+msgid "ERRORE"
+msgstr "ERROR"
+
+msgid "Impossibile caricare le impostazioni Steam."
+msgstr "No se pueden cargar los ajustes de Steam."
+
+msgid "Modulo di autenticazione Steam non disponibile."
+msgstr "Módulo de autenticación de Steam no disponible."
+
+msgid "IMPOSTAZIONI ACCOUNT STEAM"
+msgstr "AJUSTES DE CUENTA DE STEAM"
+
+msgid "STATO: AUTENTICATO COME "
+msgstr "ESTADO: AUTENTICADO COMO "
+
+msgid "STATO: CREDENZIALI PRESENTI (API Key: "
+msgstr "ESTADO: CREDENCIALES PRESENTES (Clave API: "
+
+msgid "NO"
+msgstr "NO"
+
+msgid "SI"
+msgstr "SÍ"
+
+msgid ", SteamID: "
+msgstr ", SteamID: "
+
+msgid ") - NON VALIDATE"
+msgstr ") - NO VALIDADAS"
+
+msgid "STATO: NON AUTENTICATO (NESSUNA CREDENZIALE)"
+msgstr "ESTADO: NO AUTENTICADO (NINGUNA CREDENCIAL)"
+
+msgid "LOGOUT"
+msgstr "CERRAR SESIÓN"
+
+msgid "AGGIORNA LISTA GIOCHI ONLINE"
+msgstr "ACTUALIZAR LISTA DE JUEGOS ONLINE"
+
+msgid "LOGIN STEAM"
+msgstr "INICIAR SESIÓN EN STEAM"
+
+msgid "CONFIGURA API KEY E STEAMID"
+msgstr "CONFIGURAR CLAVE API Y STEAMID"
+
+msgid "STEAM API KEY"
+msgstr "CLAVE API DE STEAM"
+
+msgid "STEAMID64"
+msgstr "STEAMID64"
+
+msgid "API KEY e STEAMID64 non possono essere vuoti."
+msgstr "La CLAVE API y el STEAMID64 no pueden estar vacíos."
+
+msgid "VALIDAZIONE IN CORSO...\nAttendere prego."
+msgstr "VALIDANDO...\nEspere por favor."
+
+msgid "Credenziali Steam validate e salvate!\nUtente: "
+msgstr "¡Credenciales de Steam validadas y guardadas!\nUsuario: "
+
+msgid "SUCCESSO"
+msgstr "ÉXITO"
+
+msgid "ERRORE VALIDAZIONE"
+msgstr "ERROR DE VALIDACIÓN"
+
+msgid "API Key o SteamID64 non validi, oppure errore di rete.\nVerifica le credenziali e la connessione."
+msgstr "Clave API o SteamID64 no válidos, o error de red.\nVerifique las credenciales y la conexión."
+
+msgid "ES. 76561197960287930"
+msgstr "EJ. 76561197960287930"
+
+msgid "ES. XXXXXXXXXXXXXXXXXXXXXXXX"
+msgstr "EJ. XXXXXXXXXXXXXXXXXXXXXXXX"
+
+msgid "CANCELLA CREDENZIALI SALVATE"
+msgstr "BORRAR CREDENCIALES GUARDADAS"
+
+msgid "Sei sicuro di voler cancellare le credenziali Steam salvate?"
+msgstr "¿Estás seguro de que quieres borrar las credenciales de Steam guardadas?"
+
+msgid "SI"
+msgstr "SÍ"
+
+msgid "NO"
+msgstr "NO"
+
+msgid "COME OTTENERE API KEY E STEAMID64?"
+msgstr "CÓMO OBTENER LA CLAVE API Y EL STEAMID64?"
+
+msgid "Per accedere ai dati della tua libreria Steam:\n\n"
+msgstr "Para acceder a los datos de tu biblioteca de Steam:\n\n"
+
+msgid "1. VAI AL SITO WEB DI STEAM:\n"
+msgstr "1. VE AL SITIO WEB DE STEAM:\n"
+
+msgid "   - Login tramite browser web.\n"
+msgstr "   - Inicia sesión a través del navegador web.\n"
+
+msgid "   - Per la CHIAVE API (se necessaria per altre funzioni):\n"
+msgstr "   - Para la CLAVE API (si es necesaria para otras funciones):\n"
+
+msgid "     Visita: https://steamcommunity.com/dev/apikey\n"
+msgstr "     Visita: https://steamcommunity.com/dev/apikey\n"
+
+msgid "     Accetta i termini e genera la chiave.\n"
+msgstr "     Acepta los términos y genera la clave.\n"
+
+msgid "   - Per il tuo STEAMID64 (ID numerico):\n"
+msgstr "   - Para tu STEAMID64 (ID numérico):\n"
+
+msgid "     Il tuo SteamID64 si trova nell'URL del tuo profilo Steam, ad es:\n"
+msgstr "     Tu SteamID64 se encuentra en la URL de tu perfil de Steam, p. ej.:\n"
+
+msgid "     https://steamcommunity.com/profiles/VULNERABILE\n"
+msgstr "     https://steamcommunity.com/profiles/VULNERABLE\n"
+
+msgid "     (VULNERABILE è il tuo SteamID64 numerico).\n"
+msgstr "     (VULNERABLE es tu SteamID64 numérico).\n"
+
+msgid "     Puoi anche usare siti come steamid.io per convertirlo.\n\n"
+msgstr "     También puedes usar sitios como steamid.io para convertirlo.\n\n"
+
+msgid "2. INSERISCI LE CREDENZIALI IN EMULATIONSTATION:"
+msgstr "2. INTRODUCE LAS CREDENCIALES EN EMULATIONSTATION:"
+
+msgid "XBOX LIVE"
+msgstr "XBOX LIVE"
+
+msgid "ERRORE CRITICO XBOX"
+msgstr "ERROR CRÍTICO DE XBOX"
+
+msgid "Impossibile inizializzare il menu Xbox."
+msgstr "No se pudo inicializar el menú de Xbox."
+
+msgid "OK"
+msgstr "OK"
+
+msgid "ERRORE AUTENTICAZIONE"
+msgstr "ERROR DE AUTENTICACIÓN"
+
+msgid "INDIETRO"
+msgstr "ATRÁS"
+
+msgid "esci"
+msgstr "salir"
+
+msgid "UTENTE: "
+msgstr "USUARIO: "
+
+msgid "N/D"
+msgstr "N/D"
+
+msgid "XUID utente connesso"
+msgstr "XUID del usuario conectado"
+
+msgid "LOGOUT"
+msgstr "CERRAR SESIÓN"
+
+msgid "AGGIORNA LISTA GIOCHI"
+msgstr "ACTUALIZAR LISTA DE JUEGOS"
+
+msgid "LOGIN XBOX LIVE"
+msgstr "INICIAR SESIÓN EN XBOX LIVE"
+
+msgid "torna indietro"
+msgstr "volver atrás"
+
+msgid "ERRORE LOGIN XBOX"
+msgstr "ERROR DE INICIO DE SESIÓN DE XBOX"
+
+msgid "Impossibile avviare il processo di login."
+msgstr "No se pudo iniciar el proceso de inicio de sesión."
+
+msgid "XBOX LOGOUT"
+msgstr "CERRAR SESIÓN DE XBOX"
+
+msgid "Logout effettuato."
+msgstr "Cierre de sesión realizado."
+
+msgid "XBOX"
+msgstr "XBOX"
+
+msgid "Devi essere autenticato per aggiornare."
+msgstr "Debes estar autenticado para actualizar."
+
+msgid "AGGIORNAMENTO LIBRERIA XBOX..."
+msgstr "ACTUALIZANDO BIBLIOTECA DE XBOX..."
+
+msgid "SPOTIFY"
+msgstr "SPOTIFY"
+
+msgid "RICERCA"
+msgstr "BÚSQUEDA"
+
+msgid "LE TUE PLAYLIST"
+msgstr "TUS LISTAS DE REPRODUCCIÓN"
+
+msgid "BRANI CHE TI PIACCIONO"
+msgstr "CANCIONES QUE TE GUSTAN"
+
+msgid "SELEZIONA DISPOSITIVO"
+msgstr "SELECCIONAR DISPOSITIVO"
+
+msgid "COSA VUOI CERCARE?"
+msgstr "¿QUÉ QUIERES BUSCAR?"
+
+msgid "BRANI"
+msgstr "CANCIONES"
+
+msgid "ARTISTI"
+msgstr "ARTISTAS"
+
+msgid "ALBUM"
+msgstr "ÁLBUMES"
+
+msgid "PLAYLIST"
+msgstr "LISTAS DE REPRODUCCIÓN"
+
+msgid "CERCA "
+msgstr "BUSCAR "
+
+msgid "RICERCA IN CORSO..."
+msgstr "BUSCANDO..."
+
+msgid "Caricamento..."
+msgstr "Cargando..."
+
+msgid "Nessuna playlist trovata."
+msgstr "No se encontraron listas de reproducción."
+
+msgid "Nessun brano trovato."
+msgstr "No se encontraron canciones."
+
+msgid "Caricamento tracce..."
+msgstr "Cargando pistas..."
+
+msgid "Nessuna traccia trovata."
+msgstr "No se encontraron pistas."
+
+msgid "Nessuna traccia trovata per questo artista."
+msgstr "No se encontraron pistas para este artista."
+
+msgid "RISULTATI RICERCA BRANI"
+msgstr "RESULTADOS DE BÚSQUEDA DE CANCIONES"
+
+msgid "RISULTATI RICERCA ARTISTI"
+msgstr "RESULTADOS DE BÚSQUEDA DE ARTISTAS"
+
+msgid "Nessun artista trovato."
+msgstr "No se encontraron artistas."
+
+msgid "RISULTATI RICERCA ALBUM"
+msgstr "RESULTADOS DE BÚSQUEDA DE ÁLBUMES"
+
+msgid "Nessun album trovato."
+msgstr "No se encontraron álbumes."
+
+msgid "RISULTATI RICERCA PLAYLIST"
+msgstr "RESULTADOS DE BÚSQUEDA DE LISTAS DE REPRODUCCIÓN"
+
+msgid "DISPOSITIVI DISPONIBILI"
+msgstr "DISPOSITIVOS DISPONIBLES"
+
+msgid "Assicurati che Spotify sia aperto"
+msgstr "Asegúrate de que Spotify esté abierto"
+
+msgid "su un altro dispositivo."
+msgstr "en otro dispositivo."
+
+msgid " - ATTIVO"
+msgstr " - ACTIVO"
+
+msgid "Riproduzione trasferita a:\n"
+msgstr "Reproducción transferida a:\n"
+
+msgid "CHOOSE"
+msgstr "ELEGIR"
+
+msgid "SELECT"
+msgstr "SELECCIONAR"
+
+msgid "BACK"
+msgstr "ATRÁS"
+
+msgid "CLOSE"
+msgstr "CERRAR"
+
+msgid "SPOTIFY"
+msgstr "SPOTIFY"
+
+msgid "USA SPOTIFY PER LA MUSICA DI SOTTOFONDO"
+msgstr "USAR SPOTIFY PARA LA MÚSICA DE FONDO"
+
+msgid "LOGIN WITH SPOTIFY"
+msgstr "INICIAR SESIÓN CON SPOTIFY"
+
+msgid "LOGOUT FROM SPOTIFY"
+msgstr "CERRAR SESIÓN DE SPOTIFY"
+
+msgid "DISCONNESSO DA SPOTIFY"
+msgstr "DESCONECTADO DE SPOTIFY"
+
+msgid "OK"
+msgstr "OK"
+
+msgid "SFOGLIA SPOTIFY"
+msgstr "EXPLORAR SPOTIFY"
+
+msgid "EFFETTUA PRIMA IL LOGIN A SPOTIFY"
+msgstr "POR FAVOR, INICIA SESIÓN EN SPOTIFY PRIMERO"
+
 #~ msgid "THE USER INTERFACE MODE IS NOW UNLOCKED"
 #~ msgstr "LA INTERFAZ DE USUARIO HA SIDO DESBLOQUEADA"
 
