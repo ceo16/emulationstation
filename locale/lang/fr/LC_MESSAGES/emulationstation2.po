@@ -4083,6 +4083,30 @@ msgstr "Aucun morceau trouvé."
 msgid "Caricamento tracce..."
 msgstr "Chargement des morceaux..."
 
+msgid "SPOTIFY"
+msgstr "SPOTIFY"
+
+msgid "USA SPOTIFY PER LA MUSICA DI SOTTOFONDO"
+msgstr "UTILISER SPOTIFY POUR LA MUSIQUE DE FOND"
+
+msgid "LOGIN WITH SPOTIFY"
+msgstr "CONNEXION À SPOTIFY"
+
+msgid "LOGOUT FROM SPOTIFY"
+msgstr "DÉCONNEXION DE SPOTIFY"
+
+msgid "DISCONNESSO DA SPOTIFY"
+msgstr "DÉCONNECTÉ DE SPOTIFY"
+
+msgid "OK"
+msgstr "OK"
+
+msgid "SFOGLIA SPOTIFY"
+msgstr "PARCOURIR SPOTIFY"
+
+msgid "EFFETTUA PRIMA IL LOGIN A SPOTIFY"
+msgstr "VEUILLEZ VOUS CONNECTER À SPOTIFY D'ABORD"
+
 msgid "Nessuna traccia trovata."
 msgstr "Aucun morceau trouvé."
 
