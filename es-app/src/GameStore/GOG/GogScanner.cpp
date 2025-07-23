@@ -1,6 +1,13 @@
 #include "GogScanner.h"
 #include "Log.h"
 #include "utils/StringUtil.h"
+#include <fstream>
+#include <filesystem>
+#include "json.hpp" // Assicurati che il percorso del file json.hpp sia corretto
+
+// Per convenienza
+namespace fs = std::filesystem;
+using json = nlohmann::json;
 
 #ifdef _WIN32
 #include <Windows.h>
@@ -12,7 +19,7 @@ std::vector<GOG::InstalledGameInfo> GogScanner::findInstalledGames()
 {
     std::vector<GOG::InstalledGameInfo> installedGames;
 #ifdef _WIN32
-    LOG(LogInfo) << "[GOG Scanner] Avvio scansione del registro per giochi installati...";
+    LOG(LogInfo) << "[GOG Scanner] Avvio scansione del registro per giochi installati (con filtro DLC)...";
     
     const char* regKeys[] = {
         "SOFTWARE\\WOW6432Node\\GOG.com\\Games",
@@ -43,6 +50,31 @@ std::vector<GOG::InstalledGameInfo> GogScanner::findInstalledGames()
                     }
 
                     if (!game.id.empty() && !game.name.empty() && !game.installDirectory.empty()) {
+                        
+                        // --- INIZIO MODIFICA: LOGICA FILTRAGGIO DLC ---
+
+                        fs::path manifestPath = fs::path(game.installDirectory) / ("goggame-" + game.id + ".info");
+
+                        if (fs::exists(manifestPath)) {
+                            try {
+                                std::ifstream f(manifestPath);
+                                json data = json::parse(f);
+
+                                // Controlla se 'rootGameId' esiste ed è diverso dall'ID del gioco stesso.
+                                // Se è così, questo è un DLC e va saltato.
+                                if (data.contains("rootGameId") && data["rootGameId"].get<std::string>() != game.id) {
+                                    LOG(LogInfo) << "[GOG Scanner] Saltato DLC '" << game.name << "' (ID: " << game.id << "). Appartiene al gioco " << data["rootGameId"].get<std::string>();
+                                    RegCloseKey(gameKey);
+                                    continue; // Salta al prossimo gioco nel registro
+                                }
+                            } catch (const json::parse_error& e) {
+                                // Se il file è corrotto, logga l'errore ma procedi come se non esistesse
+                                LOG(LogError) << "[GOG Scanner] Errore nel parsing del manifesto DLC " << manifestPath << ": " << e.what();
+                            }
+                        }
+                        
+                        // --- FINE MODIFICA ---
+
                         LOG(LogInfo) << "[GOG Scanner] Trovato: " << game.name << " (ID: " << game.id << ")";
                         installedGames.push_back(game);
                     }
@@ -52,7 +84,7 @@ std::vector<GOG::InstalledGameInfo> GogScanner::findInstalledGames()
             RegCloseKey(hKey);
         }
     }
-    LOG(LogInfo) << "[GOG Scanner] Scansione completata. Trovati " << installedGames.size() << " giochi.";
+    LOG(LogInfo) << "[GOG Scanner] Scansione completata. Trovati " << installedGames.size() << " giochi (filtrati i DLC).";
 #endif
     return installedGames;
 }
