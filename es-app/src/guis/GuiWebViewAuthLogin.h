@@ -73,6 +73,8 @@ public:
     void executeScriptAndGetResult(const std::string& script, const std::function<void(const std::string&)>& callback);
 	const std::string& getAuthCode() const { return mAuthCode; }
 
+   void addCookie(const std::string& name, const std::string& value, const std::string& domain); // <-- AGGIUNGI QUESTA RIGA
+
 
 private: 
 #ifdef _WIN32

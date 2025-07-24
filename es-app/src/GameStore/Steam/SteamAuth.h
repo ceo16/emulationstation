@@ -32,6 +32,7 @@ public:
 
     // Metodo per cancellare le credenziali salvate
     void clearCredentials();
+	std::string getCookie(const std::string& name) const;
 
 private:
     // Carica API Key e SteamID da Settings::getInstance()
@@ -45,6 +46,8 @@ private:
     std::string mUserPersonaName; // Memorizza il nome utente recuperato
     bool mIsAuthenticated;        // Flag che indica se le credenziali sono state validate con successo
 	std::string mCredentialsPath;
+	std::string mSessionIdCookie;
+    std::string mSteamLoginSecureCookie;
 };
 
 #endif // ES_APP_GAMESTORE_STEAM_AUTH_H

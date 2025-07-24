@@ -254,3 +254,14 @@ void SteamAuth::clearCredentials()
         Utils::FileSystem::removeFile(mCredentialsPath);
     }
 }
+
+std::string SteamAuth::getCookie(const std::string& name) const
+{
+    if (name == "sessionid") {
+        return mSessionIdCookie;
+    }
+    if (name == "steamLoginSecure") {
+        return mSteamLoginSecureCookie;
+    }
+    return "";
+}

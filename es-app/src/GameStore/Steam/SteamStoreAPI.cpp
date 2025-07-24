@@ -327,6 +327,27 @@ void SteamStoreAPI::getOwnedGamesViaScraping(Window* window, const std::string& 
     false // <--- DIGLI DI ESSERE INVISIBILE
 );
 
+// --- INIZIO MODIFICA ---
+// Recupera i cookie di sessione dal gestore di autenticazione.
+// NOTA: Questo presume che la tua classe SteamAuth salvi e fornisca questi cookie.
+// Potrebbe essere necessario aggiungere le funzioni getCookie() a SteamAuth.
+std::string sessionCookie = mAuth->getCookie("sessionid"); 
+std::string secureCookie = mAuth->getCookie("steamLoginSecure"); 
+
+if (!sessionCookie.empty() && !secureCookie.empty())
+{
+    LOG(LogInfo) << "[SteamStoreAPI] Inserimento cookie di sessione nella WebView per lo scraping.";
+    // Inserisce i cookie.
+    // NOTA: La funzione addCookie è ipotetica, adatta il nome se la tua si chiama diversamente.
+    webViewScraper->addCookie("sessionid", sessionCookie, "steamcommunity.com");
+    webViewScraper->addCookie("steamLoginSecure", secureCookie, "steamcommunity.com");
+}
+else
+{
+    LOG(LogWarning) << "[SteamStoreAPI] Cookie di sessione non trovati in SteamAuth. Lo scraping potrebbe fallire e richiedere il login.";
+}
+// --- FINE MODIFICA ---
+
     LOG(LogDebug) << "[SteamStoreAPI] GuiWebViewAuthLogin created. About to push to window.";
     Log::flush();
 

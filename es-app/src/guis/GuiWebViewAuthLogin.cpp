@@ -914,6 +914,51 @@ void GuiWebViewAuthLogin::close()
      return nullptr;
  #endif
  }
+ 
+void GuiWebViewAuthLogin::addCookie(const std::string& name, const std::string& value, const std::string& domain)
+{
+#ifdef _WIN32
+    if (!mWebView) {
+        LOG(LogError) << "[" << mStoreNameForLogging << "] addCookie fallito: mWebView è nullo.";
+        return;
+    }
+
+    // --- INIZIO CORREZIONE ---
+    Microsoft::WRL::ComPtr<ICoreWebView2CookieManager> cookieManager;
+    Microsoft::WRL::ComPtr<ICoreWebView2_2> webView_versioned; // Usa l'interfaccia giusta
+
+    // Ottieni l'interfaccia ICoreWebView2_2 che contiene get_CookieManager
+    if (SUCCEEDED(mWebView.As(&webView_versioned)) && webView_versioned) {
+        webView_versioned->get_CookieManager(&cookieManager);
+    } else {
+        LOG(LogError) << "[" << mStoreNameForLogging << "] addCookie fallito: impossibile ottenere l'interfaccia ICoreWebView2_2.";
+        return;
+    }
+    // --- FINE CORREZIONE ---
+    
+    if (!cookieManager) {
+        LOG(LogError) << "[" << mStoreNameForLogging << "] addCookie fallito: impossibile ottenere il CookieManager.";
+        return;
+    }
+
+    Microsoft::WRL::ComPtr<ICoreWebView2Cookie> cookie;
+    HRESULT hr = cookieManager->CreateCookie(
+        Utils::String::convertToWideString(name).c_str(),
+        Utils::String::convertToWideString(value).c_str(),
+        Utils::String::convertToWideString(domain).c_str(),
+        L"/",
+        &cookie);
+
+    if (FAILED(hr) || !cookie) {
+        LOG(LogError) << "[" << mStoreNameForLogging << "] addCookie fallito: impossibile creare l'oggetto cookie.";
+        return;
+    }
+    
+    cookieManager->AddOrUpdateCookie(cookie.Get());
+    LOG(LogInfo) << "[" << mStoreNameForLogging << "] Cookie '" << name << "' aggiunto per il dominio '" << domain << "'.";
+#endif
+}
+ 
 void GuiWebViewAuthLogin::getSteamCookies() {
     if (!mWebView) return;
     Microsoft::WRL::ComPtr<ICoreWebView2CookieManager> cookieManager;
