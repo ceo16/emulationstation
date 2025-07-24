@@ -10,7 +10,16 @@
 
 // Aggiungi l'implementazione della nuova funzione privata
 std::string GogAuth::getAuthFilePath() const {
-    return Paths::getHomePath() + "/.emulationstation/gog_auth.json";
+    // Definisce il percorso base corretto usando la funzione di sistema
+    std::string basePath = Utils::FileSystem::getEsConfigPath() + "/gog/";
+
+    // Crea la cartella se non esiste
+    if (!Utils::FileSystem::exists(basePath)) {
+        Utils::FileSystem::createDirectory(basePath);
+    }
+
+    // Restituisce il percorso completo del file di autenticazione
+    return basePath + "gog_auth.json";
 }
 
 

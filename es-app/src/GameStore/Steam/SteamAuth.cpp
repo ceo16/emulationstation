@@ -11,7 +11,15 @@ SteamAuth::SteamAuth()
     : mIsAuthenticated(false)
 {
     LOG(LogInfo) << "SteamAuth: Inizializzazione modulo autenticazione Steam.";
-    loadCredentials(); // Ora questa funzione carica e basta, senza cancellare nulla.
+
+    // Definisce e crea il percorso standardizzato
+    std::string basePath = Utils::FileSystem::getEsConfigPath() + "/steam/";
+    if (!Utils::FileSystem::exists(basePath)) {
+        Utils::FileSystem::createDirectory(basePath);
+    }
+    mCredentialsPath = basePath + "steam_credentials.json";
+
+    loadCredentials(); 
 
     // Se abbiamo una API Key, proviamo a ri-validare (per aggiornare il nome utente, ecc.)
     if (!mApiKey.empty()) {
@@ -33,25 +41,42 @@ SteamAuth::~SteamAuth()
 
 void SteamAuth::loadCredentials()
 {
-    mApiKey = Settings::getInstance()->getString("SteamApiKey");
-    mSteamId = Settings::getInstance()->getString("SteamUserId");
-    mUserPersonaName = Settings::getInstance()->getString("SteamUserPersonaName");
-    mIsAuthenticated = Settings::getInstance()->getBool("SteamIsAuthenticated");
+    if (!Utils::FileSystem::exists(mCredentialsPath)) {
+        return; // Nessun file da caricare
+    }
 
-    LOG(LogInfo) << "SteamAuth: Credenziali caricate -> Stato Autenticato: " << (mIsAuthenticated ? "Sì" : "No")
-                 << ", SteamID: " << (mSteamId.empty() ? "N/D" : mSteamId)
-                 << ", Nome Utente: " << (mUserPersonaName.empty() ? "N/D" : mUserPersonaName)
-                 << ", Chiave API Presente: " << (!mApiKey.empty() ? "Sì" : "No");
+    std::string content = Utils::FileSystem::readAllText(mCredentialsPath);
+    if (content.empty()) {
+        return;
+    }
+
+    try {
+        nlohmann::json j = nlohmann::json::parse(content);
+        mApiKey = j.value("api_key", "");
+        mSteamId = j.value("steam_id", "");
+        mUserPersonaName = j.value("persona_name", "");
+        mIsAuthenticated = j.value("is_authenticated", false);
+    } catch (const std::exception& e) {
+        LOG(LogError) << "SteamAuth: Errore nel parsing di steam_credentials.json: " << e.what();
+        clearCredentials(); // Pulisce se il file è corrotto
+    }
 }
 
 void SteamAuth::saveCredentials()
 {
-    Settings::getInstance()->setString("SteamApiKey", mApiKey);
-    Settings::getInstance()->setString("SteamUserId", mSteamId);
-    Settings::getInstance()->setString("SteamUserPersonaName", mUserPersonaName);
-    Settings::getInstance()->setBool("SteamIsAuthenticated", mIsAuthenticated); // Salva lo stato
-    Settings::getInstance()->saveFile();
-    LOG(LogInfo) << "SteamAuth: Credenziali e stato di autenticazione salvati.";
+    nlohmann::json j;
+    j["api_key"] = mApiKey;
+    j["steam_id"] = mSteamId;
+    j["persona_name"] = mUserPersonaName;
+    j["is_authenticated"] = mIsAuthenticated;
+
+    std::string content = j.dump(4);
+    
+    // Chiama la funzione direttamente, senza la condizione 'if'
+    Utils::FileSystem::writeAllText(mCredentialsPath, content);
+    
+    // Logga semplicemente che l'operazione è stata eseguita
+    LOG(LogInfo) << "SteamAuth: Credenziali salvate in " << mCredentialsPath;
 }
 
 bool SteamAuth::hasCredentials() const
@@ -224,5 +249,8 @@ void SteamAuth::clearCredentials()
     mSteamId = "";
     mUserPersonaName = "";
     mIsAuthenticated = false;
-    saveCredentials(); // Salva lo stato vuoto su disco
+
+    if (Utils::FileSystem::exists(mCredentialsPath)) {
+        Utils::FileSystem::removeFile(mCredentialsPath);
+    }
 }

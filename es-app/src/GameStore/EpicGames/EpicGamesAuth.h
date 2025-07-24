@@ -47,7 +47,7 @@ private:
     std::chrono::time_point<std::chrono::system_clock> mTokenExpiry;
     bool mHasValidTokenInfo;
 
-    std::filesystem::path mTokenStoragePath;
+    std::string mTokenStoragePath;
 
     // Costanti della classe
     static const std::string EPIC_CLIENT_ID;

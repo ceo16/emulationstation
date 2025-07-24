@@ -288,12 +288,20 @@ namespace EAGames {
         return "qrc:///html/login_successful.html"; // TRE barre per la registrazione con EA
     }
 
-    EAGamesAuth::EAGamesAuth(Window* window)
-        : mWindow(window), mIsLoggedIn(false), mTokenExpiryTime(0)
-    {
-        LOG(LogDebug) << "EAGamesAuth: Constructor (JUNO_PC_CLIENT flow)";
-        loadCredentials();
+   EAGamesAuth::EAGamesAuth(Window* window)
+    : mWindow(window), mIsLoggedIn(false), mTokenExpiryTime(0)
+{
+    LOG(LogDebug) << "EAGamesAuth: Constructor (JUNO_PC_CLIENT flow)";
+
+    // Usa la funzione corretta e inizializza la nuova variabile membro
+    std::string basePath = Utils::FileSystem::getEsConfigPath() + "/ea/";
+    if (!Utils::FileSystem::exists(basePath)) {
+        Utils::FileSystem::createDirectory(basePath);
     }
+    mCredentialsPath = basePath + EA_AUTH_CREDENTIALS_FILENAME;
+
+    loadCredentials();
+}
 
     bool EAGamesAuth::isUserLoggedIn() const {
         if (mIsLoggedIn && !mAccessToken.empty()) {
@@ -963,9 +971,8 @@ namespace EAGames {
     }
 
     void EAGamesAuth::loadCredentials() {
-        std::string path = Paths::getUserEmulationStationPath() + "/" + EA_AUTH_CREDENTIALS_FILENAME;
-        if (!Utils::FileSystem::exists(path)) return;
-        std::string content = Utils::FileSystem::readAllText(path);
+        if (!Utils::FileSystem::exists(mCredentialsPath)) return;
+        std::string content = Utils::FileSystem::readAllText(mCredentialsPath);;
         if (content.empty()) return;
         try {
             auto j = nlohmann::json::parse(content);
@@ -987,48 +994,50 @@ namespace EAGames {
             }
         } catch (const std::exception& e) {
             LOG(LogError) << "EA Games Auth: Error parsing credentials file: " << e.what();
-            Utils::FileSystem::removeFile(path);
+            Utils::FileSystem::removeFile(mCredentialsPath);
             clearCredentials();
         }
     }
 
-    void EAGamesAuth::saveCredentials() {
-        if (mAccessToken.empty() && mRefreshToken.empty()) {
-            std::string path = Paths::getUserEmulationStationPath() + "/" + EA_AUTH_CREDENTIALS_FILENAME;
-            if (Utils::FileSystem::exists(path)) Utils::FileSystem::removeFile(path);
-            return;
+void EAGamesAuth::saveCredentials() {
+    if (mAccessToken.empty() && mRefreshToken.empty()) {
+        // Usa la variabile membro per controllare e rimuovere il file
+        if (Utils::FileSystem::exists(mCredentialsPath)) {
+            Utils::FileSystem::removeFile(mCredentialsPath);
         }
-        nlohmann::json j;
-        j["access_token"] = mAccessToken;
-        j["refresh_token"] = mRefreshToken;
-        j["pid"] = mPid;
-        j["persona_id"] = mPersonaId;
-        j["user_name"] = mUserName;
-        j["token_expiry_time_s"] = mTokenExpiryTime;
-
-        std::string path = Paths::getUserEmulationStationPath() + "/" + EA_AUTH_CREDENTIALS_FILENAME;
-        try {
-            if (!helper_write_text_to_file(path, j.dump(2))) {
-                 LOG(LogError) << "EA Games Auth: Failed to save credentials to " << path;
-            }
-        } catch (const std::exception& e) {
-            LOG(LogError) << "EA Games Auth: Error saving credentials: " << e.what();
-        }
+        return;
     }
+    nlohmann::json j;
+    j["access_token"] = mAccessToken;
+    j["refresh_token"] = mRefreshToken;
+    j["pid"] = mPid;
+    j["persona_id"] = mPersonaId;
+    j["user_name"] = mUserName;
+    j["token_expiry_time_s"] = mTokenExpiryTime;
+
+    // Rimuovi la definizione di 'path' e usa la variabile membro per scrivere
+    try {
+        if (!helper_write_text_to_file(mCredentialsPath, j.dump(2))) {
+            LOG(LogError) << "EA Games Auth: Failed to save credentials to " << mCredentialsPath;
+        }
+    } catch (const std::exception& e) {
+        LOG(LogError) << "EA Games Auth: Error saving credentials: " << e.what();
+    }
+}
 
     void EAGamesAuth::clearCredentials() {
-        mAccessToken.clear();
-        mRefreshToken.clear();
-        mPid.clear();
-        mPersonaId.clear();
-        mUserName.clear();
-        mTokenExpiryTime = 0;
-        mIsLoggedIn = false;
+    mAccessToken.clear();
+    mRefreshToken.clear();
+    mPid.clear();
+    mPersonaId.clear();
+    mUserName.clear();
+    mTokenExpiryTime = 0;
+    mIsLoggedIn = false;
 
-        std::string path = Paths::getUserEmulationStationPath() + "/" + EA_AUTH_CREDENTIALS_FILENAME;
-        if (Utils::FileSystem::exists(path)) {
-            Utils::FileSystem::removeFile(path);
-        }
+    // Usa la variabile membro per trovare e rimuovere il file
+    if (Utils::FileSystem::exists(mCredentialsPath)) {
+        Utils::FileSystem::removeFile(mCredentialsPath);
     }
+}
 
 } // namespace EAGames

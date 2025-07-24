@@ -44,6 +44,7 @@ private:
     std::string mApiKey;          // Memorizza l'API Key
     std::string mUserPersonaName; // Memorizza il nome utente recuperato
     bool mIsAuthenticated;        // Flag che indica se le credenziali sono state validate con successo
+	std::string mCredentialsPath;
 };
 
 #endif // ES_APP_GAMESTORE_STEAM_AUTH_H

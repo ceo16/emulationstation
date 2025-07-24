@@ -51,6 +51,7 @@ namespace EAGames {
         void loadCredentials();
         void saveCredentials();
         void clearCredentials();
+		 std::string mCredentialsPath; 
 
         std::string generatePcSign();
         bool getWindowsHardwareInfo(std::string& bbm, std::string& bsn, int& gid, std::string& hsn, std::string& msn, std::string& mac, std::string& osn, std::string& osi_timestamp_str);

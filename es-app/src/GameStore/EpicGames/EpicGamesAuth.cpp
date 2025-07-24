@@ -1,5 +1,3 @@
-// Sostituisci completamente il tuo emulationstation-master/es-app/src/GameStore/EpicGames/EpicGamesAuth.cpp
-
 #include "GameStore/EpicGames/EpicGamesAuth.h"
 #include "Log.h"
 #include "HttpReq.h"
@@ -8,10 +6,11 @@
 #include "utils/FileSystemUtil.h"
 #include "utils/StringUtil.h"
 #include "Paths.h"
-#include "views/ViewController.h" // Aggiunto per ricaricare la UI
+#include "views/ViewController.h"
 
 #include <fstream>
 #include <iomanip>
+#include <filesystem> // Necessario per std::filesystem::path
 
 using json = nlohmann::json;
 
@@ -46,9 +45,12 @@ bool writeStringToFileAuth(const std::filesystem::path& p, const std::string& co
 }
 
 EpicGamesAuth::EpicGamesAuth() : mHasValidTokenInfo(false) {
-    mTokenStoragePath = std::filesystem::path(Paths::getEmulationStationPath()) / "epic_tokens";
-     if (!Utils::FileSystem::exists(mTokenStoragePath.string())) {
-        Utils::FileSystem::createDirectory(mTokenStoragePath.string());
+    // Il percorso è una stringa, quindi questo costruttore è corretto.
+    mTokenStoragePath = Utils::FileSystem::getEsConfigPath() + "/epic/";
+
+    // Assicurati che la logica per creare la cartella esista
+    if (!Utils::FileSystem::exists(mTokenStoragePath)) {
+        Utils::FileSystem::createDirectory(mTokenStoragePath);
     }
     loadTokenData();
 }
@@ -116,8 +118,7 @@ std::string EpicGamesAuth::getRefreshToken() const {
     return mRefreshToken;
 }
 
-// --- Implementazioni Funzioni Core (con correzioni) ---
-// (Il resto del file .cpp rimane come nella versione precedente che ti ho dato, te lo rimetto per sicurezza)
+// --- Implementazioni Funzioni Core ---
 
 bool EpicGamesAuth::exchangeAuthCodeForToken(const std::string& authCode) {
     LOG(LogInfo) << "Exchanging authorization code for tokens...";
@@ -172,21 +173,23 @@ bool EpicGamesAuth::processTokenResponse(const nlohmann::json& response, bool is
 
 void EpicGamesAuth::saveTokenData() {
     if (mTokenStoragePath.empty()) return;
-    writeStringToFileAuth(mTokenStoragePath / "epic_access_token.txt", mAccessToken);
-    writeStringToFileAuth(mTokenStoragePath / "epic_refresh_token.txt", mRefreshToken);
-    writeStringToFileAuth(mTokenStoragePath / "epic_account_id.txt", mAccountId);
-    writeStringToFileAuth(mTokenStoragePath / "epic_display_name.txt", mDisplayName);
+    // Queste funzioni sono corrette perché accettano std::filesystem::path
+    writeStringToFileAuth(std::filesystem::path(mTokenStoragePath) / "epic_access_token.txt", mAccessToken);
+    writeStringToFileAuth(std::filesystem::path(mTokenStoragePath) / "epic_refresh_token.txt", mRefreshToken);
+    writeStringToFileAuth(std::filesystem::path(mTokenStoragePath) / "epic_account_id.txt", mAccountId);
+    writeStringToFileAuth(std::filesystem::path(mTokenStoragePath) / "epic_display_name.txt", mDisplayName);
     time_t expiryTimestamp = std::chrono::system_clock::to_time_t(mTokenExpiry);
-    writeStringToFileAuth(mTokenStoragePath / "epic_expiry.txt", std::to_string(expiryTimestamp));
+    writeStringToFileAuth(std::filesystem::path(mTokenStoragePath) / "epic_expiry.txt", std::to_string(expiryTimestamp));
 }
 
 bool EpicGamesAuth::loadTokenData() {
     if (mTokenStoragePath.empty()) return false;
-    mAccessToken = readFileToStringAuth(mTokenStoragePath / "epic_access_token.txt");
-    mRefreshToken = readFileToStringAuth(mTokenStoragePath / "epic_refresh_token.txt");
-    mAccountId = readFileToStringAuth(mTokenStoragePath / "epic_account_id.txt");
-    mDisplayName = readFileToStringAuth(mTokenStoragePath / "epic_display_name.txt");
-    std::string expiryStr = readFileToStringAuth(mTokenStoragePath / "epic_expiry.txt");
+    // Queste funzioni sono corrette perché accettano std::filesystem::path
+    mAccessToken = readFileToStringAuth(std::filesystem::path(mTokenStoragePath) / "epic_access_token.txt");
+    mRefreshToken = readFileToStringAuth(std::filesystem::path(mTokenStoragePath) / "epic_refresh_token.txt");
+    mAccountId = readFileToStringAuth(std::filesystem::path(mTokenStoragePath) / "epic_account_id.txt");
+    mDisplayName = readFileToStringAuth(std::filesystem::path(mTokenStoragePath) / "epic_display_name.txt");
+    std::string expiryStr = readFileToStringAuth(std::filesystem::path(mTokenStoragePath) / "epic_expiry.txt");
     if (mAccessToken.empty() || mAccountId.empty() || expiryStr.empty()) { mHasValidTokenInfo = false; return false; }
     try {
         time_t expiryTimestamp = std::stoll(expiryStr);
@@ -202,11 +205,14 @@ void EpicGamesAuth::clearAllTokenData() {
     mTokenExpiry = std::chrono::system_clock::from_time_t(0);
     mHasValidTokenInfo = false;
     if (!mTokenStoragePath.empty()) {
-        Utils::FileSystem::removeFile((mTokenStoragePath / "epic_access_token.txt").string());
-        Utils::FileSystem::removeFile((mTokenStoragePath / "epic_refresh_token.txt").string());
-        Utils::FileSystem::removeFile((mTokenStoragePath / "epic_account_id.txt").string());
-        Utils::FileSystem::removeFile((mTokenStoragePath / "epic_display_name.txt").string());
-        Utils::FileSystem::removeFile((mTokenStoragePath / "epic_expiry.txt").string());
+        // -> INIZIO CORREZIONE QUI <-
+        // Utils::FileSystem::removeFile si aspetta una std::string, quindi dobbiamo convertire il path.
+        Utils::FileSystem::removeFile((std::filesystem::path(mTokenStoragePath) / "epic_access_token.txt").string());
+        Utils::FileSystem::removeFile((std::filesystem::path(mTokenStoragePath) / "epic_refresh_token.txt").string());
+        Utils::FileSystem::removeFile((std::filesystem::path(mTokenStoragePath) / "epic_account_id.txt").string());
+        Utils::FileSystem::removeFile((std::filesystem::path(mTokenStoragePath) / "epic_display_name.txt").string());
+        Utils::FileSystem::removeFile((std::filesystem::path(mTokenStoragePath) / "epic_expiry.txt").string());
+        // -> FINE CORREZIONE QUI <-
     }
 }
 

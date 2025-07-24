@@ -58,10 +58,17 @@ std::map<std::string, std::string> ParseQueryString(const std::string& query)
 }
 
 AmazonAuth::AmazonAuth(Window* window) : mWindow(window) {
-    std::string userPath = Paths::getUserEmulationStationPath();
-    Utils::FileSystem::createDirectory(userPath + "/gamelists");
-    Utils::FileSystem::createDirectory(userPath + "/gamelists/amazon");    
-    mTokensPath = userPath + "/gamelists/amazon/amazon_tokens.json";
+    // Usa la stessa funzione del file Xbox per ottenere il percorso base corretto
+    std::string basePath = Utils::FileSystem::getEsConfigPath();
+    
+    // Definisce e crea la cartella specifica per Amazon in quel percorso
+    std::string amazonPath = basePath + "/amazon/";
+    if (!Utils::FileSystem::exists(amazonPath)) {
+        Utils::FileSystem::createDirectory(amazonPath);
+    }
+    
+    // Imposta il percorso finale del file dei token
+    mTokensPath = amazonPath + "amazon_tokens.json";
     loadTokens();
 }
 
