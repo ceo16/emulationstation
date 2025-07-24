@@ -74,15 +74,61 @@ std::string SpotifyManager::getDefaultMarket() {
 }
 
 SpotifyManager::SpotifyManager(Window* window)
-  : mWindow(window)
+  : mWindow(window), mStopPolling(false)
 {
     auto userPath = Paths::getUserEmulationStationPath();
     Utils::FileSystem::createDirectory(userPath + "/spotify");
     mTokensPath = userPath + "/spotify/spotify_tokens.json";
     loadTokens();
+	mPollingThread = std::thread(&SpotifyManager::pollingLoop, this);
 }
 
-SpotifyManager::~SpotifyManager() {}
+SpotifyManager::~SpotifyManager() 
+{
+    // --- AGGIUNGI QUESTO BLOCCO PER FERMARE IL THREAD IN MODO SICURO ---
+    mStopPolling = true;
+    if (mPollingThread.joinable()) {
+        mPollingThread.join();
+    }
+}
+
+void SpotifyManager::pollingLoop()
+{
+    LOG(LogInfo) << "[SpotifyManager] Polling thread started.";
+    while (!mStopPolling)
+    {
+        // Aspetta 5 secondi prima di ogni controllo per non sovraccaricare l'API
+        std::this_thread::sleep_for(std::chrono::seconds(5));
+
+        if (!isAuthenticated() || !Settings::getInstance()->getBool("audio.display_titles")) {
+            continue; // Se non siamo autenticati o le notifiche sono disattivate, non fare nulla
+        }
+
+        SpotifyTrack currentTrack = getCurrentlyPlaying();
+        
+        // Usiamo un lock per accedere in modo sicuro alla variabile condivisa mLastTrackUri
+        std::unique_lock<std::mutex> lock(mMutex);
+
+        if (!currentTrack.uri.empty() && currentTrack.uri != mLastTrackUri)
+        {
+            mLastTrackUri = currentTrack.uri;
+            
+            // Sblocca il mutex prima di chiamare la UI per evitare deadlock
+            lock.unlock(); 
+
+            LOG(LogInfo) << "[SpotifyManager] New track detected by polling: " << currentTrack.name;
+            int durationMs = Settings::getInstance()->getInt("audio.display_titles_time") * 1000;
+            std::string msg = currentTrack.name + " — " + currentTrack.artist;
+            
+            if (mWindow) {
+                mWindow->postToUiThread([w = mWindow, msg, durationMs] { 
+                    w->displayNotificationMessage(msg, durationMs); 
+                });
+            }
+        }
+    }
+    LOG(LogInfo) << "[SpotifyManager] Polling thread stopped.";
+}
 
 // --- exchangeCodeForTokens ---
 void SpotifyManager::exchangeCodeForTokens(Window* window, const std::string& code)

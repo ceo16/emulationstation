@@ -7,6 +7,9 @@
 #include <functional>
 #include "Window.h"
 #include "json.hpp" 
+#include <thread>
+#include <atomic>
+#include <mutex>
 
 struct SpotifyTrack {
     std::string name;
@@ -99,6 +102,13 @@ private:
     std::string mAccessToken;
     std::string mRefreshToken;
     std::string mTokensPath;
+	std::thread mPollingThread;
+    std::atomic<bool> mStopPolling;
+    std::string mLastTrackUri;
+    std::mutex mMutex;
+
+    // --- AGGIUNGI LA DICHIARAZIONE DI QUESTA FUNZIONE ---
+    void pollingLoop(); 
 	
     static SpotifyManager* sInstance;
 };
